@@ -74,9 +74,9 @@ const emitfunc = {f
 	
 	allocas = std.mkht({x; -> x castto(uint32)}, {x, y; -> x == y})
 	nreg = 0
-	o("function w ${}(", f.name)
+	o("function l ${}(", f.name)
 	for (name, ty) in f.args
-		o("w {},", name)
+		o("l {},", name)
 	;;
 	o(") {{\n")
 	o("  @start\n")
@@ -84,7 +84,7 @@ const emitfunc = {f
 	for l in f.locals
 		alloca = newnamedreg(l.name)
 		std.htput(allocas, l, alloca)
-		oi("{} =l alloc4 4\n", valstr(alloca))
+		oi("{} =l alloc8 8\n", valstr(alloca))
 	;;
 	
 	for stmt in f.body
@@ -126,12 +126,12 @@ const load = {val
 	var v
 	
 	v = newreg()
-	oi("{} =w loadw {}\n", valstr(v), valstr(val))
+	oi("{} =l loadl {}\n", valstr(v), valstr(val))
 	-> v
 }
 
 const store = {dst, v
-	oi("storew {}, {}\n", valstr(v), valstr(dst))
+	oi("storel {}, {}\n", valstr(v), valstr(dst))
 }
 
 const emitexpr = {expr
@@ -167,7 +167,7 @@ const emitbinop = {b
 	| `Ominus:
 		o = "sub"
 	;;
-	oi("{} =w {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
+	oi("{} =l {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
 	-> result
 }
 
