@@ -8,13 +8,18 @@ pkg qc =
 
 type Val = union
 	`Vlit int64
-	`Vreg int64
+	`Vreg byte[:]
 ;;
 
+var allocas : std.htab(local#, Val)#
 var nreg = 0
 
 const newreg = {
-	-> `Vreg nreg++
+	-> `Vreg std.fmt("%v{}", nreg++) 
+}
+
+const newnamedreg = {name
+	-> `Vreg std.fmt("%v{}.{}", nreg++, name)
 }
 
 const emit = {globals
@@ -59,23 +64,27 @@ const valstr = {v
 	match v
 	| `Vlit n:
 		-> std.fmt("{}", n) 
-	| `Vreg n:
-		-> std.fmt("%v{}", n) 
+	| `Vreg name:
+		-> name
 	;;
 }
 
 const emitfunc = {f
-	nreg = 0
+	var alloca
 	
+	allocas = std.mkht({x; -> x castto(uint32)}, {x, y; -> x == y})
+	nreg = 0
 	o("function w ${}(", f.name)
 	for (name, ty) in f.args
-		o("w %{},", name)
+		o("w {},", name)
 	;;
 	o(") {{\n")
 	o("  @start\n")
 	
 	for l in f.locals
-		oi("# alloca\n")
+		alloca = newnamedreg(l.name)
+		std.htput(allocas, l, alloca)
+		oi("{} =l alloc4 4\n", valstr(alloca))
 	;;
 	
 	for stmt in f.body
@@ -85,6 +94,7 @@ const emitfunc = {f
 	o("  @end\n")
 	oi("ret 0\n")
 	o("}}\n\n")
+	std.htfree(allocas)
 }
 
 const emitstmt = {stmt
@@ -94,18 +104,52 @@ const emitstmt = {stmt
 	| &(`Sreturn expr):
 		v = emitexpr(expr)
 		oi("ret {}\n", valstr(v))
-		
+	| &(`Sdecl _):
+		/* Do nothing for now */
+	| &(`Sexpr expr):
+		emitexpr(expr)
 	| _:
 		std.fatal("unimplemented emitstmt: {}\n", stmt)
 	;;
 }
 
+const lval = {expr
+	match expr
+	| &(`Eident `Symlocal local):
+		-> std.get(std.htget(allocas, local))
+	| _:
+		std.die("not an lval\n")
+	;;
+}
+
+const load = {val
+	var v
+	
+	v = newreg()
+	oi("{} =w loadw {}\n", valstr(v), valstr(val))
+	-> v
+}
+
+const store = {dst, v
+	oi("storew {}, {}\n", valstr(v), valstr(dst))
+}
+
 const emitexpr = {expr
+	var v1, v2
+
 	match expr
 	| &(`Eintlit v):
 		-> `Vlit v
 	| &(`Ebinop b):
 		-> emitbinop(b)
+	| &(`Eident `Symlocal local):
+		v1 = std.get(std.htget(allocas, local))
+		-> load(v1)
+	| &(`Eassign assign):
+		v1 = lval(assign.l)
+		v2 = emitexpr(assign.r)
+		store(v1, v2)
+		-> v2
 	| _:
 		std.fatal("unimplemented emitexpr: {}\n", expr)
 	;;
@@ -123,6 +167,7 @@ const emitbinop = {b
 	| `Ominus:
 		o = "sub"
 	;;
-	oi("{} =w {} {}, {}\n",valstr(result), o, valstr(l), valstr(r))
+	oi("{} =w {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
 	-> result
 }
+

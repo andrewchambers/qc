@@ -34,13 +34,16 @@ pkg qc =
 	
 	type stmt = union
 		`Sdecl decl
+		`Sexpr expr#
 		`Sreturn expr#
 		`Sblock stmt#[:]
 	;;
 	
 	type expr = union
 		`Ebinop binop
+		`Eassign assign
 		`Eintlit int64
+		`Eident sym
 	;;
 	
 	type op = union
@@ -49,6 +52,13 @@ pkg qc =
 	;;
 	
 	type binop = struct
+		ty : ctype
+		op : op
+		l : expr#
+		r : expr#
+	;;
+	
+	type assign = struct
 		ty : ctype
 		op : op
 		l : expr#
@@ -65,14 +75,15 @@ pkg qc =
 	;;
 	
 	type local = struct
+		name : byte[:]
 		ty : ctype
 	;;
 ;;
 
-const mklocal = {p, ty
+const mklocal = {p, name, ty
 	var l
 	
-	l = std.mk([.ty=ty])
+	l = std.mk([.ty=ty, .name=name])
 	std.slpush(&p.curfunc.locals, l)
 	-> l
 }
@@ -96,10 +107,21 @@ const popscope = {p
 
 const declare = {p, name, sym
 	if std.hthas(p.stab[p.stab.len-1], name)
-		// XXX err with loc
-		std.fatal("redefinition of {}\n", name)
+		-> false
 	;;
 	std.htput(p.stab[p.stab.len-1], name, sym)
+	-> true
+}
+
+const lookup = {p, name
+	for var i = p.stab.len-1; ; i--
+		match std.htget(p.stab[i], name)
+		| `std.Some sym:
+			-> `std.Some sym
+		| `std.None:
+		;;
+	;;
+	-> `std.None
 }
 
 const parse = {ts
@@ -143,7 +165,7 @@ const parsetype = {p
 }
 
 const parsefunc = {p
-	var rettype, fname, args, body
+	var rettype, fname, args
 	var argname, argtype
 	
 	args = [][:]
@@ -189,9 +211,10 @@ const parsefunc = {p
 		.name = fname,
 		.rettype = rettype,
 		.args = args,
-		.locals = [][:]
+		.locals = [][:],
+		.body = [][:],
 	])
-	body = parseblock(p)
+	p.curfunc.body = parseblock(p)
 	-> std.mk(`Nfunc p.curfunc)
 }
 
@@ -238,16 +261,20 @@ const startofdecl = {p
 
 const parsedecl = {p
 	var ty, name, sym
+	var loc
 	
 	ty = parsetype(p)
 	match next(p)
-	| (_, `Tident n):
+	| (l, `Tident n):
+		loc = l
 		name = n
 	| (l, tok):
 		err(l, "expected function name\n", tok)
 	;;
-	sym = `Symlocal mklocal(p, ty)
-	declare(p, name, sym)
+	sym = `Symlocal mklocal(p, name, ty)
+	if !declare(p, name, sym)
+		err(loc, "redefinition of {}\n")
+	;;
 	expectsemi(p)
 	-> std.mk(`Sdecl [.name=name, .sym=sym])
 }
@@ -259,18 +286,35 @@ const parsestmt = {p
 		-> parsedecl(p)
 	;;
 	
-	match next(p)
+	match peek(p)
 	| (l, `Treturn):
+		next(p)
 		rexpr = parseexpr(p)
 		expectsemi(p)
 		-> std.mk(`Sreturn rexpr)
-	| (l, _):
-		err(l, "expected 'return'\n")
+	| _:
+		rexpr = parseexpr(p)
+		expectsemi(p)
+		-> std.mk(`Sexpr rexpr)
 	;;
 }
 
 const parseexpr = {p
-	-> parseaddexpr(p)
+	-> parseassign(p)
+}
+
+const parseassign = {p
+	var l, r
+	
+	l = parseaddexpr(p)
+	match peek(p)
+	| (_, `Tasn):
+		next(p)
+		r = parseaddexpr(p)
+		-> std.mk(`Eassign [.ty=`Typrim `Tyint, .l=l, .r=r])
+	| _:
+		-> l
+	;;
 }
 
 const parseaddexpr = {p
@@ -295,11 +339,17 @@ const parseaddexpr = {p
 
 const parseatom = {p
 	match next(p)
+	| (l, `Tident n):
+		match lookup(p, n)
+		| `std.Some sym:
+			-> std.mk(`Eident sym)
+		| `std.None:
+			err(l, "undefined symbol {}\n", n)
+		;;
 	| (l, `Tintlit v):
 		-> std.mk(`Eintlit v)
 	| (l, _):
 		err(l, "expected 'integer literal'\n")
 	;;
 }
-
 
