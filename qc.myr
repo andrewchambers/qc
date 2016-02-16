@@ -1,0 +1,32 @@
+use std
+
+use "tok"
+
+const main = {args
+	var ts, cmd
+
+	cmd = std.optparse(args, &[
+		.argdesc="files..."
+	])
+
+	if cmd.args.len == 0
+		ts = qc.tokinitf(0, "stdin")
+		dump(ts)
+	else
+		for arg in cmd.args
+			ts = qc.tokinit(arg)
+			dump(ts)
+		;;
+	;;
+}
+
+const dump = {ts
+	while true
+		match qc.toknext(ts)
+		| (_, `qc.Teof):
+			break
+		| t:
+			std.put("{}\n", t)
+		;;
+	;;
+}

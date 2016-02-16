@@ -1,0 +1,6 @@
+bin qc = 
+	qc.myr
+	tok.myr
+	parse.myr
+	err.myr
+;;
