@@ -1,0 +1,235 @@
+use std
+use "tok"
+use "err"
+
+pkg qc =
+	
+	const parse : (ts : tokstream# -> node#[:])
+	
+	type cprim = union
+		`Tyint
+		`Tyvoid
+	;;
+
+	type caggr = union
+		`Typtr ctype
+	;;
+
+	type ctype = union
+		`Typrim cprim
+		`Tyaggr caggr#
+	;;
+
+	type node = union
+		`Nfunc func
+	;;
+	
+	type func = struct
+		name : byte[:]
+		rettype : ctype
+		args : (byte[:], ctype)[:]
+		body : stmt#[:]
+	;;
+	
+	type stmt = union
+		`Sreturn expr#
+		`Sblock stmt#[:]
+	;;
+	
+	type expr = union
+		`Ebinop binop
+		`Eintlit int64
+	;;
+	
+	type op = union
+		`Oplus
+		`Ominus
+	;;
+	
+	type binop = struct
+		ty : ctype
+		op : op
+		l : expr#
+		r : expr#
+	;;
+	
+	type sym = union 
+		`Symlocal
+		`Symglobal
+	;;
+;;
+
+type parser = struct
+	ts : tokstream#
+	stab : std.htab(byte[:], sym)#[:]
+;;
+
+const parse = {ts
+	var p : parser#
+	var stab, globals
+	
+	stab = [][:]
+	std.slpush(&stab, std.mkht(std.strhash, std.streq))
+	
+	p = std.mk([
+		.ts = ts,
+		.stab = stab
+	])
+	
+	globals = [][:]
+	while true
+		match peek(p)
+		| (_, `Teof):
+			break
+		| _:
+			std.slpush(&globals, parsefunc(p))
+		;;
+	;;
+	-> globals
+}
+
+const next = {p
+	-> toknext(p.ts)
+}
+
+const peek = {p
+	-> tokpeek(p.ts)
+}
+
+const parsetype = {p
+	match next(p)
+	| (_, `Tint):
+		-> `Typrim `Tyint
+	| (l, _):
+		err(l, "expected type\n")
+	;;
+}
+
+const parsefunc = {p
+	var rettype, fname, args, body
+	var argname, argtype
+	
+	args = [][:]
+	
+	rettype = parsetype(p)
+	match next(p)
+	| (l, `Tident name):
+		fname = name
+	| (l, tok):
+		err(l, "expected function name\n", tok)
+	;;
+	
+	match next(p)
+	| (_, `Toparen):
+		match peek(p)
+		| (_, `Tcparen):
+			next(p)
+			goto endparams
+		| _:
+			while true
+				argtype = parsetype(p)
+				match next(p)
+				| (l, `Tident name):
+					argname = name
+				| (l, _):
+					err(l, "expected parameter name\n")
+				;;
+				std.slpush(&args, (argname, argtype))
+				match next(p)
+				| (l, `Tcparen):
+					break
+				| (l, `Tcomma):
+				| (l, _):
+					err(l, "expected ',' or ')'\n")
+				;;
+			;;
+		;;
+	| (l, _):
+		err(l, "expected function parameters")
+	;;
+	:endparams
+	body = parseblock(p)
+	-> std.mk(`Nfunc [
+		.name = fname,
+		.rettype = rettype,
+		.args = args,
+		.body = body,
+	])
+}
+
+const parseblock = {p
+	var stmts
+	
+	stmts = [][:]
+	match next(p)
+	| (l, `Tobrace):
+	| (l, _):
+		err(l, "expected '{'\n")
+	;;
+	while true
+		match peek(p)
+		| (_, `Tcbrace):
+			next(p)
+			break
+		| _:
+			std.slpush(&stmts, parsestmt(p))
+		;;
+	;;
+	-> stmts
+}
+
+const expectsemi = {p
+	match next(p)
+	| (l, `Tsemi):
+	| (l, _):
+		err(l, "expected ';'")
+	;;
+}
+
+const parsestmt = {p
+	var rexpr
+	
+	match next(p)
+	| (l, `Treturn):
+		rexpr = parseexpr(p)
+		expectsemi(p)
+		-> std.mk(`Sreturn rexpr)
+	| (l, _):
+		err(l, "expected 'return'\n")
+	;;
+}
+
+const parseexpr = {p
+	-> parseaddexpr(p)
+}
+
+const parseaddexpr = {p
+	var l, r, op
+	
+	l = parseatom(p)
+	while true
+		match peek(p)
+		| (_, `Tplus):
+			op = `Oplus
+		| (_, `Tminus):
+			op = `Ominus
+		| _:
+			break
+		;;
+		next(p)
+		r = parseatom(p)
+		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
+	;;
+	-> l
+}
+
+const parseatom = {p
+	match next(p)
+	| (l, `Tintlit v):
+		-> std.mk(`Eintlit v)
+	| (l, _):
+		err(l, "expected 'integer literal'\n")
+	;;
+}
+
+

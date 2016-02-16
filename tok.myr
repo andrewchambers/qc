@@ -77,6 +77,7 @@ pkg qc =
 		`Treturn  /* return */
 		`Tsizeof  /* sizeof */
 		`Tvoid
+		`Tint
 	
 		`Tintlit int64
 		`Tstrlit byte[:]
@@ -98,19 +99,19 @@ const Eof = std.Badchar
 
 const tokinit = {path
 	match std.slurp(path)
-	| `std.Ok data: -> mkparser(path, data)
+	| `std.Ok data: -> mklexer(path, data)
 	| `std.Fail e:	std.fatal("could not read file {}: {}\n", path, e)
 	;;
 }
 
 const tokinitf = {fd, name
 	match std.fslurp(fd)
-	| `std.Ok data: -> mkparser(name, data)
+	| `std.Ok data: -> mklexer(name, data)
 	| `std.Fail e:	std.fatal("could not read file {}: {}\n", fd, e)
 	;;
 }
 
-const mkparser = {name, data
+const mklexer = {name, data
 	-> std.mk([
 		.loc = [.file=name, .line=1, .col=1],
 		.next=`std.None,
@@ -337,7 +338,6 @@ const utfesc = {ts
 const numlit = {ts
 	var t
 
-	std.put("parsing number: {}\n", ts.rest[:10])
 	if matchc(ts, '0')
 		if matchc(ts, 'x')
 			t = number(ts, 16)
@@ -418,6 +418,7 @@ const kwident = {ts
 	| "void": 	-> `Tvoid
 	| "while": 	-> `Twhile
 	| "return": -> `Treturn
+	| "int":	-> `Tint
 	| ident:	-> `Tident std.sldup(ident)
 	;;
 }
@@ -681,6 +682,7 @@ const tokfmt = {sb, ap, opts
 	| `Tstruct:	std.sbfmt(sb, "struct")
 	| `Tunion:	std.sbfmt(sb, "union")
 	| `Tconst:	std.sbfmt(sb, "const")
+	| `Tint:	std.sbfmt(sb, "int")
 
 	| `Tintlit v:	std.sbfmt(sb, "{}", v)
 	| `Tstrlit v:	std.sbfmt(sb, "{e}", v)

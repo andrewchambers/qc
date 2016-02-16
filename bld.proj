@@ -1,6 +1,8 @@
 bin qc = 
 	qc.myr
+	err.myr
 	tok.myr
 	parse.myr
-	err.myr
+	emit.myr
+	dumpast.myr
 ;;

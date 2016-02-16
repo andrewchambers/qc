@@ -19,7 +19,7 @@ const err = {loc, msg, args
 	sb = std.mksb()
 	std.sbfmtv(sb, msg, &ap)
 	ln = std.sbfin(sb)
-	std.fatal("{}:{}:{}: {}\n", loc.file, loc.line, loc.col, ln)
+	std.fatal("{}: {}\n", loc, ln)
 	std.slfree(ln)
 }
 

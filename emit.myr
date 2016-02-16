@@ -1,0 +1,122 @@
+use std
+
+use "parse"
+
+pkg qc =
+	const emit : (globals : node#[:] -> void)
+;;
+
+type Val = union
+	`Vlit int64
+	`Vreg int64
+;;
+
+var nreg = 0
+
+const newreg = {
+	-> `Vreg nreg++
+}
+
+const emit = {globals
+	for g in globals
+		match g
+		| &(`Nfunc f):
+			emitfunc(f)
+		;;
+	;;
+}
+
+const vo = {msg : byte[:], ap : std.valist#
+	var sb, ln
+
+	sb = std.mksb()
+	std.sbfmtv(sb, msg, ap)
+	ln = std.sbfin(sb)
+	match std.writeall(std.Out, ln)
+	| (_ ,`std.Some _):
+		std.fatal("error writing output\n")
+	| _:
+	;;
+	std.slfree(ln)
+}
+
+const o = {msg : byte[:], args : ...
+	var ap
+	
+	ap = std.vastart(&args)
+	vo(msg, &ap)
+}
+
+const oi = {msg : byte[:], args : ...
+	var ap
+	
+	o("    ")
+	ap = std.vastart(&args)
+	vo(msg, &ap)
+}
+
+const valstr = {v
+	match v
+	| `Vlit n:
+		-> std.fmt("{}", n) 
+	| `Vreg n:
+		-> std.fmt("%v{}", n) 
+	;;
+}
+
+const emitfunc = {f
+	nreg = 0
+	
+	o("function w ${}(", f.name)
+	for (name, ty) in f.args
+		o("w %{},", name)
+	;;
+	o(") {{\n")
+	o("  @start\n")
+	for stmt in f.body
+		emitstmt(stmt)
+	;;
+	o("  @end\n")
+	oi("ret 0\n")
+	o("}}\n\n")
+}
+
+const emitstmt = {stmt
+	var v
+	
+	match stmt
+	| &(`Sreturn expr):
+		v = emitexpr(expr)
+		oi("ret {}\n", valstr(v))
+		
+	| _:
+		std.fatal("unimplemented emitstmt: {}\n", stmt)
+	;;
+}
+
+const emitexpr = {expr
+	match expr
+	| &(`Eintlit v):
+		-> `Vlit v
+	| &(`Ebinop b):
+		-> emitbinop(b)
+	| _:
+		std.fatal("unimplemented emitexpr: {}\n", expr)
+	;;
+}
+
+const emitbinop = {b
+	var l, r, o, result
+	
+	l = emitexpr(b.l)
+	r = emitexpr(b.r)
+	result = newreg()
+	match b.op
+	| `Oplus:
+		o = "add"
+	| `Ominus:
+		o = "sub"
+	;;
+	oi("{} =w {} {}, {}\n",valstr(result), o, valstr(l), valstr(r))
+	-> result
+}
