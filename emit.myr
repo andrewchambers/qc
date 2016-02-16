@@ -73,9 +73,15 @@ const emitfunc = {f
 	;;
 	o(") {{\n")
 	o("  @start\n")
+	
+	for l in f.locals
+		oi("# alloca\n")
+	;;
+	
 	for stmt in f.body
 		emitstmt(stmt)
 	;;
+	
 	o("  @end\n")
 	oi("ret 0\n")
 	o("}}\n\n")
