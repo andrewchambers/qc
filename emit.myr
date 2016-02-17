@@ -45,6 +45,9 @@ const vo = {msg : byte[:], ap : std.valist#
 	std.slfree(ln)
 }
 
+var unreachable = false
+
+/* output functions abbreviated due to frequent use */
 const o = {msg : byte[:], args : ...
 	var ap
 	
@@ -52,12 +55,36 @@ const o = {msg : byte[:], args : ...
 	vo(msg, &ap)
 }
 
+/* out instruction */
 const oi = {msg : byte[:], args : ...
+	var ap
+	
+	if unreachable 
+		-> void
+	;;
+	o("    ")
+	ap = std.vastart(&args)
+	vo(msg, &ap)
+}
+
+/* out label */
+const ol = {msg : byte[:], args : ...
+	var ap
+	
+	o("  ")
+	ap = std.vastart(&args)
+	vo(msg, &ap)
+	unreachable = false
+}
+
+/* out terminator */
+const ot = {msg : byte[:], args : ...
 	var ap
 	
 	o("    ")
 	ap = std.vastart(&args)
 	vo(msg, &ap)
+	unreachable = true
 }
 
 const valstr = {v
@@ -80,7 +107,7 @@ const emitfunc = {f
 		o("l {},", name)
 	;;
 	o(") {{\n")
-	o("  @start\n")
+	ol("@start\n")
 	
 	for l in f.locals
 		alloca = newnamedreg(l.name)
@@ -91,8 +118,9 @@ const emitfunc = {f
 		emitstmt(stmt)
 	;;
 	
-	o("  @end\n")
-	oi("ret 0\n")
+	if !unreachable
+		ot("ret 0\n")
+	;;
 	o("}}\n\n")
 	std.htfree(allocas)
 }
@@ -103,7 +131,7 @@ const emitstmt = {stmt
 	match stmt
 	| &(`Sreturn expr):
 		v = emitexpr(expr)
-		oi("ret {}\n", valstr(v))
+		ot("ret {}\n", valstr(v))
 	| &(`Sdecl _):
 		/* Do nothing for now */
 	| &(`Sexpr expr):
