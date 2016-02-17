@@ -113,12 +113,14 @@ const emitstmt = {stmt
 	;;
 }
 
-const lval = {expr
+const addr = {expr
 	match expr
 	| &(`Eident `Symlocal local):
 		-> std.get(std.htget(allocas, local))
+	| &(`Eunop [.op=`Oderef, .operand=operand]):
+		-> emitexpr(operand)
 	| _:
-		std.die("not an lval\n")
+		std.fatal("not an lval\n")
 	;;
 }
 
@@ -142,11 +144,21 @@ const emitexpr = {expr
 		-> `Vlit v
 	| &(`Ebinop b):
 		-> emitbinop(b)
+	| &(`Eunop u):
+		match u.op
+		| `Oaddr:
+			-> addr(u.operand)
+		| `Oderef:
+			v1 = emitexpr(u.operand)
+			-> load(v1)
+		| _:
+			std.fatal("unsupported unop: {}\n", u.op)
+		;;
 	| &(`Eident `Symlocal local):
 		v1 = std.get(std.htget(allocas, local))
 		-> load(v1)
 	| &(`Eassign assign):
-		v1 = lval(assign.l)
+		v1 = addr(assign.l)
 		v2 = emitexpr(assign.r)
 		store(v1, v2)
 		-> v2
@@ -166,6 +178,8 @@ const emitbinop = {b
 		o = "add"
 	| `Ominus:
 		o = "sub"
+	| _:
+		std.fatal("unhandle binop: {}", b.op)
 	;;
 	oi("{} =l {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
 	-> result

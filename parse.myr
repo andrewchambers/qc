@@ -41,6 +41,7 @@ pkg qc =
 	
 	type expr = union
 		`Ebinop binop
+		`Eunop unop
 		`Eassign assign
 		`Eintlit int64
 		`Eident sym
@@ -49,6 +50,8 @@ pkg qc =
 	type op = union
 		`Oplus
 		`Ominus
+		`Oaddr
+		`Oderef
 	;;
 	
 	type class = union
@@ -60,6 +63,12 @@ pkg qc =
 		op : op
 		l : expr#
 		r : expr#
+	;;
+	
+	type unop = struct
+		ty : ctype
+		op : op
+		operand : expr#
 	;;
 	
 	type assign = struct
@@ -366,7 +375,7 @@ const parseassign = {p
 const parseaddexpr = {p
 	var l, r, op
 	
-	l = parseatom(p)
+	l = parseunop(p)
 	while true
 		match peek(p)
 		| (_, `Tplus):
@@ -377,10 +386,27 @@ const parseaddexpr = {p
 			break
 		;;
 		next(p)
-		r = parseatom(p)
+		r = parseunop(p)
 		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
 	;;
 	-> l
+}
+
+const parseunop = {p
+	var operand
+	
+	match peek(p)
+	| (l, `Tband):
+		next(p)
+		operand = parseatom(p)
+		-> std.mk(`Eunop [.ty=`Typrim `Tyint, .op=`Oaddr, .operand=operand])
+	| (l, `Tmul):
+		next(p)
+		operand = parseatom(p)
+		-> std.mk(`Eunop [.ty=`Typrim `Tyint, .op=`Oderef, .operand=operand])
+	| _:
+		-> parseatom(p)
+	;;
 }
 
 const parseatom = {p
