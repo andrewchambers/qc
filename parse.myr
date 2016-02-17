@@ -1,25 +1,12 @@
 use std
 use "tok"
 use "err"
+use "ctypes"
 
 pkg qc =
 	
 	const parse : (ts : tokstream# -> node#[:])
 	
-	type cprim = union
-		`Tyint
-		`Tyvoid
-	;;
-
-	type caggr = union
-		`Typtr ctype
-	;;
-
-	type ctype = union
-		`Typrim cprim
-		`Tyaggr caggr#
-	;;
-
 	type node = union
 		`Nfunc func#
 	;;
@@ -294,8 +281,10 @@ const parsetagtype = {p
 }
 
 const parsestructbody = {p
-	var sc, basety, ty
+	var sc, basety
+	var namety, membs 
 	
+	membs = [][:]
 	match next(p)
 	| (l, `Tobrace):
 	| (l, _):
@@ -309,7 +298,8 @@ const parsestructbody = {p
 		;;
 		(sc, basety) = parsedeclspecs(p);
 		while true
-			ty = parsedecl(p, basety);
+			namety = parsedecl(p, basety);
+			std.slpush(&membs, namety)
 			match peek(p)
 			| (_, `Tcomma):
 				next(p)
@@ -320,7 +310,7 @@ const parsestructbody = {p
 		expectsemi(p);
 	;;
 	next(p)
-	-> `Typrim `Tyint
+	-> `Tyaggr std.mk(`Tystruct [.membs=membs])
 }
 
 const parsedeclspecs = {p
