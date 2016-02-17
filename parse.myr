@@ -56,6 +56,7 @@ pkg qc =
 	
 	type class = union
 		`Sclasslocal
+		`Sclassnone
 	;;
 	
 	type binop = struct
@@ -264,6 +265,7 @@ const expectsemi = {p
 
 const startofdecl = {p
 	match peek(p)
+	| (_, `Tstruct):
 	| (_, `Tint):
 	| (_, `Tvoid):
 	| _:
@@ -272,10 +274,62 @@ const startofdecl = {p
 	-> true
 }
 
-const parsedeclspecs = {p
+const parsetagtype = {p
 	match next(p)
+	| (_, `Tstruct):
+	| (l, _):
+		err(l, "expected 'struct'\n")
+	;;
+	match peek(p)
+	| (_, `Tident tagname):
+		next(p)
+	| (l, _):
+	;;
+	match peek(p)
+	| (_, Tcbrace):
+	| (l, _):
+		err(l, "unimplemented tag\n")
+	;;
+	-> parsestructbody(p)
+}
+
+const parsestructbody = {p
+	var sc, basety, ty
+	
+	match next(p)
+	| (l, `Tobrace):
+	| (l, _):
+		err(l, "expected '{'\n")
+	;;
+	while true
+		match peek(p)
+		| (_, `Tcbrace):
+			break
+		| _:
+		;;
+		(sc, basety) = parsedeclspecs(p);
+		while true
+			ty = parsedecl(p, basety);
+			match peek(p)
+			| (_, `Tcomma):
+				next(p)
+			| _:
+				break
+			;;
+		;;
+		expectsemi(p);
+	;;
+	next(p)
+	-> `Typrim `Tyint
+}
+
+const parsedeclspecs = {p
+	match peek(p)
 	| (l, `Tint):
+		next(p)
 		-> (`Sclasslocal, `Typrim `Tyint)
+	| (l, `Tstruct):
+		-> (`Sclasslocal, parsetagtype(p))
 	| (l, _):
 		err(l, "expected a type specifier or storage class\n")
 	;;
@@ -304,6 +358,8 @@ const parsedirectdecl = {p, basety
 const parsedecltail = {p, basety
 	while true
 		match peek(p)
+		| (_, `Tosqbrac):
+			std.die("unimplemented parsedecltail\n")
 		| _:
 			-> basety
 		;;
