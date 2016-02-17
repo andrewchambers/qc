@@ -1,0 +1,45 @@
+use std
+
+pkg qc =
+	type cprim = union
+		`Tyint
+		`Tyvoid
+	;;
+
+	type caggr = union
+		`Typtr ctype
+		`Tystruct cstruct
+	;;
+	
+	type cstruct = struct
+		membs : (std.option(byte[:]), ctype)[:]
+	;;
+
+	type ctype = union
+		`Typrim cprim
+		`Tyaggr caggr#
+	;;
+	
+	const typesize : (ty : ctype -> int)
+	
+;;
+
+const typesize = {ty
+	var sz
+
+	match ty
+	| `Typrim `Tyint:
+		/* wrong, but ok for now */
+		-> 8
+	| `Tyaggr &(`Typtr _):
+		-> 8
+	| `Tyaggr &(`Tystruct s):
+		sz = 0
+		for (_, membty) in s.membs
+			sz += typesize(ty)
+		;;
+		-> sz
+	| _:
+	;;
+	std.fatal("unimplemented typesize\n")
+}
