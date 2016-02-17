@@ -24,6 +24,22 @@ pkg qc =
 		`Sexpr expr#
 		`Sreturn expr#
 		`Sblock stmt#[:]
+		`Sif ifstmt
+		`Sfor forstmt
+		`Swhile whilestmt
+		`Sempty
+	;;
+	
+	type ifstmt = struct
+	
+	;;
+	
+	type forstmt = struct
+	
+	;;
+	
+	type whilestmt = struct
+	
 	;;
 	
 	type expr = union
@@ -219,6 +235,83 @@ const parsefunc = {p
 	-> std.mk(`Nfunc p.curfunc)
 }
 
+const expectoparen = {p
+	match next(p)
+	| (_, `Toparen):
+	| (l, _):
+		err(l, "expected '('\n")
+	;;
+}
+
+const expectcparen = {p
+	match next(p)
+	| (_, `Tcparen):
+	| (l, _):
+		err(l, "expected ')'\n")
+	;;
+}
+
+const parseif = {p
+	next(p)
+	parseexpr(p)
+	expectoparen(p)
+	parseexpr(p)
+	expectcparen(p)
+	parsestmt(p)
+	-> std.mk(`Sempty)
+}
+
+const parsewhile = {p
+	next(p)
+	parseexpr(p)
+	expectoparen(p)
+	parseexpr(p)
+	expectcparen(p)
+	parsestmt(p)
+	-> std.mk(`Sempty)
+}
+
+const parsedowhile = {p
+	next(p)
+	parsestmt(p)
+	match next(p)
+	| (_, `Twhile):
+	| (l, _):
+		err(l, "expected 'while'\n")
+	;;
+	expectoparen(p)
+	parseexpr(p)
+	expectcparen(p)
+	expectsemi(p)
+	-> std.mk(`Sempty)
+}
+
+const parsefor = {p
+	next(p)
+	expectoparen(p)
+	match peek(p)
+	| (_, `Tsemi):
+		parseexpr(p)
+	| _:
+	;;
+	expectsemi(p)
+	match peek(p)
+	| (_, `Tsemi):
+		parseexpr(p)
+	| _:
+	;;
+	expectsemi(p)
+	match peek(p)
+	| (_, `Tsemi):
+		parseexpr(p)
+	| _:
+	;;
+	expectsemi(p)
+	expectcparen(p)
+	parseblock(p)
+	-> std.mk(`Sempty)
+}
+
 const parseblock = {p
 	var stmts
 	
@@ -235,7 +328,7 @@ const parseblock = {p
 			next(p)
 			break
 		| _:
-			std.slpush(&stmts, parsestmt(p))
+			std.slpush(&stmts, parsedeclorstmt(p))
 		;;
 	;;
 	popscope(p)
@@ -380,14 +473,26 @@ const parsedeclaration = {p
 	;;
 }
 
-const parsestmt = {p
-	var rexpr
-	
+const parsedeclorstmt = {p	
 	if startofdecl(p)
 		-> parsedeclaration(p)
 	;;
+	-> parsestmt(p)
+}
+
+const parsestmt = {p
+	var rexpr
 	
 	match peek(p)
+	| (_, `Tsemi):
+		next(p)
+		-> std.mk(`Sempty)
+	| (_, `Tif):
+		-> parseif(p)
+	| (_, `Tfor):
+		-> parsefor(p)
+	| (_, `Twhile):
+		-> parsefor(p)
 	| (l, `Treturn):
 		next(p)
 		rexpr = parseexpr(p)
