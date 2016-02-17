@@ -51,6 +51,10 @@ pkg qc =
 		`Ominus
 	;;
 	
+	type class = union
+		`Sclasslocal
+	;;
+	
 	type binop = struct
 		ty : ctype
 		op : op
@@ -259,31 +263,73 @@ const startofdecl = {p
 	-> true
 }
 
-const parsedecl = {p
-	var ty, name, sym
+const parsedeclspecs = {p
+	match next(p)
+	| (l, `Tint):
+		-> (`Sclasslocal, `Typrim `Tyint)
+	| (l, _):
+		err(l, "expected a type specifier or storage class\n")
+	;;
+}
+
+const parsedecl = {p, basety
+	match peek(p)
+	| (_, `Tmul):
+		next(p)
+		-> parsedecl(p, `Tyaggr std.mk(`Typtr basety))
+	| _:
+		-> parsedirectdecl(p, basety)
+	;;
+}
+
+const parsedirectdecl = {p, basety
+	match peek(p)
+	| (_, `Tident name):
+		next(p)
+		-> (`std.Some name, parsedecltail(p, basety))
+	| _:
+		-> (`std.None, parsedecltail(p, basety))
+	;;
+}
+
+const parsedecltail = {p, basety
+	while true
+		match peek(p)
+		| _:
+			-> basety
+		;;
+	;;
+	std.die("unreachable\n")
+}
+
+const parsedeclaration = {p
+	var sclass, name, ty, sym
 	var loc
 	
-	ty = parsetype(p)
-	match next(p)
-	| (l, `Tident n):
+	match peek(p)
+	| (l, _):
 		loc = l
-		name = n
-	| (l, tok):
-		err(l, "expected function name\n", tok)
 	;;
-	sym = `Symlocal mklocal(p, name, ty)
-	if !declare(p, name, sym)
-		err(loc, "redefinition of {}\n")
+	(sclass, ty) = parsedeclspecs(p)
+	(name, ty) = parsedecl(p, ty)
+	match name
+	| `std.Some n:
+		sym = `Symlocal mklocal(p, n, ty)
+		if !declare(p, n, sym)
+			err(loc, "redefinition of {}\n", n)
+		;;
+		expectsemi(p)
+		-> std.mk(`Sdecl [.name=n, .sym=sym])
+	| `std.None:
+		err(loc, "declaration defines no name\n")
 	;;
-	expectsemi(p)
-	-> std.mk(`Sdecl [.name=name, .sym=sym])
 }
 
 const parsestmt = {p
 	var rexpr
 	
 	if startofdecl(p)
-		-> parsedecl(p)
+		-> parsedeclaration(p)
 	;;
 	
 	match peek(p)
