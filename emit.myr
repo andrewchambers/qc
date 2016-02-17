@@ -74,6 +74,7 @@ const emitfunc = {f
 	
 	allocas = std.mkht({x; -> x castto(uint32)}, {x, y; -> x == y})
 	nreg = 0
+	
 	o("function l ${}(", f.name)
 	for (name, ty) in f.args
 		o("l {},", name)
@@ -86,7 +87,6 @@ const emitfunc = {f
 		std.htput(allocas, l, alloca)
 		oi("{} =l alloc8 8\n", valstr(alloca))
 	;;
-	
 	for stmt in f.body
 		emitstmt(stmt)
 	;;
