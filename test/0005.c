@@ -3,15 +3,20 @@ int
 main()
 {
 	int x;
+	int *p;
+	int **pp;
 
 	x = 0;
+	p = &x;
+	pp = &p;
 
-	if(x)
+	if(*p)
 		return 1;
-	if(x)
+	if(**pp)
 		return 1;
 	else
-		x = 1;
+		**pp = 1;
+
 	if(x)
 		return 0;
 	else

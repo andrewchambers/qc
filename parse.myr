@@ -584,11 +584,11 @@ const parseunop = {p
 	match peek(p)
 	| (l, `Tband):
 		next(p)
-		operand = parseatom(p)
+		operand = parseunop(p)
 		-> std.mk(`Eunop [.ty=`Typrim `Tyint, .op=`Oaddr, .operand=operand])
 	| (l, `Tmul):
 		next(p)
-		operand = parseatom(p)
+		operand = parseunop(p)
 		-> std.mk(`Eunop [.ty=`Typrim `Tyint, .op=`Oderef, .operand=operand])
 	| _:
 		-> parseatom(p)
