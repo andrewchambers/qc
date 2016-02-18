@@ -3,7 +3,6 @@ use "err"
 
 pkg qc =
 	type tokstream = struct
-		next	: std.option((srcloc, tok))
 		rest	: byte[:]
 		data	: byte[:]
 		loc	: srcloc
@@ -14,7 +13,6 @@ pkg qc =
 	const tokclose	: (ts : tokstream#	-> void)
 
 	const toknext	: (ts : tokstream#	-> (srcloc, tok))
-	const tokpeek	: (ts : tokstream#	-> (srcloc, tok))
 
 	type tok = union
 		`Terror
@@ -115,7 +113,6 @@ const tokinitf = {fd, name
 const mklexer = {name, data
 	-> std.mk([
 		.loc = [.file=name, .line=1, .col=1],
-		.next=`std.None,
 		.rest=data,
 		.data=data,
 	])
@@ -127,28 +124,7 @@ const tokclose = {ts
 }
 
 const toknext = {ts
-	var t
-	match ts.next
-	| `std.Some tok:
-		ts.next = `std.None
-		-> tok
-	| `std.None:
-		t = tokread(ts)
-		-> t
-	;;
-}
-
-const tokpeek = {ts
-	var tok
-
-	match ts.next
-	| `std.Some t:
-		-> t
-	| `std.None:
-		tok = tokread(ts)
-		ts.next = `std.Some tok
-		-> tok
-	;;
+	-> tokread(ts)
 }
 
 const tokread = {ts

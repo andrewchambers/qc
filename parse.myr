@@ -136,6 +136,7 @@ const mklocal = {p, name, ty
 
 type parser = struct
 	ts : tokstream#
+	toks : (srcloc, tok)[2]
 	stab : std.htab(byte[:], sym)#[:]
 	curfunc : func#
 ;;
@@ -184,6 +185,8 @@ const parse = {ts
 		.ts = ts,
 		.stab = stab
 	])
+	p.toks[0] = toknext(ts)
+	p.toks[1] = toknext(ts)
 	
 	globals = [][:]
 	while true
@@ -198,12 +201,21 @@ const parse = {ts
 }
 
 const next = {p
-	-> toknext(p.ts)
+	var t = p.toks[0]
+	p.toks[0] = p.toks[1]
+	p.toks[1] = toknext(p.ts)
+	-> t
 }
 
 const peek = {p
-	-> tokpeek(p.ts)
+	-> p.toks[0]
 }
+
+/*
+const lookahead = {p
+	-> p.toks[1]
+}
+*/
 
 const parsetype = {p
 	match next(p)
