@@ -30,6 +30,7 @@ pkg qc =
 		`Swhile whilestmt
 		`Sdowhile whilestmt
 		`Slabeled labeledstmt
+		`Sgoto int
 		`Sempty
 	;;
 	
@@ -141,10 +142,16 @@ const mklocal = {p, name, ty
 	-> l
 }
 
+type lblstate = union
+	`Lblforward (srcloc, int)
+	`Lbldefined int
+;;
+
 type parser = struct
 	ts : tokstream#
 	toks : (srcloc, tok)[2]
 	stab : std.htab(byte[:], sym)#[:]
+	lbltab : std.htab(byte[:], lblstate)#
 	curfunc : func#
 ;;
 
@@ -190,7 +197,8 @@ const parse = {ts
 	
 	p = std.mk([
 		.ts = ts,
-		.stab = stab
+		.stab = stab,
+		.lbltab = std.mkht(std.strhash, std.streq),
 	])
 	p.toks[0] = toknext(ts)
 	p.toks[1] = toknext(ts)
@@ -283,6 +291,13 @@ const parsefunc = {p
 		.lblcnt = 0,
 	])
 	p.curfunc.body = parseblock(p)
+	for name in std.htkeys(p.lbltab)
+		match std.get(std.htget(p.lbltab, name))
+		| `Lblforward (lblpos, _):
+			err(lblpos, "'{}' not defined\n", name)
+		| _:
+		;;
+	;;
 	-> std.mk(`Nfunc p.curfunc)
 }
 
@@ -591,6 +606,8 @@ const parsestmt = {p
 		-> std.mk(`Sempty)
 	| (_, `Tif):
 		-> parseif(p)
+	| (_, `Tgoto):
+		-> parsegoto(p)
 	| (_, `Tfor):
 		-> parsefor(p)
 	| (_, `Twhile):
@@ -608,11 +625,36 @@ const parsestmt = {p
 	;;
 }
 
-const parselabeled = {p
-	var name
+
+const parsegoto = {p
+	var loc, name, lbl
 	
+	(loc, _) = next(p)
 	match next(p)
 	| (_, `Tident n):
+		name = n
+	| (l, _):
+		err(l, "expected 'identifier'\n")
+	;;
+	
+	match std.htget(p.lbltab, name)
+	| `std.None:
+		lbl = nextlbl(p.curfunc)
+		std.htput(p.lbltab, name, `Lblforward (loc, lbl))
+	| `std.Some `Lblforward (_, l):
+		lbl = l
+	| `std.Some `Lbldefined l:
+		lbl = l
+	;;
+	-> std.mk(`Sgoto lbl)
+}
+
+const parselabeled = {p
+	var loc, name, lbl
+	
+	match next(p)
+	| (l, `Tident n):
+		loc = l
 		name = n
 	| (l, _):
 		err(l, "expected 'identifier'\n")
@@ -622,8 +664,17 @@ const parselabeled = {p
 	| (l, _):
 		err(l, "expected ':'\n")
 	;;
-	
-	-> std.mk(`Slabeled [.lbl=nextlbl(p.curfunc), .stmt=parsestmt(p)])
+	lbl = nextlbl(p.curfunc)
+	match std.htget(p.lbltab, name)
+	| `std.None:
+		lbl = nextlbl(p.curfunc)
+	| `std.Some `Lblforward (_, l):
+		lbl = l
+	| `std.Some `Lbldefined _:
+		err(loc, "label '{}' redefined\n", name)
+	;;
+	std.htput(p.lbltab, name, `Lbldefined lbl)
+	-> std.mk(`Slabeled [.lbl=lbl, .stmt=parsestmt(p)])
 }
 
 const parsereturn= {p

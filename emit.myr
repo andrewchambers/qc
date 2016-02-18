@@ -81,6 +81,10 @@ const ol = {msg : byte[:], args : ...
 const ot = {msg : byte[:], args : ...
 	var ap
 	
+	if unreachable
+		-> void
+	;;
+	
 	o("    ")
 	ap = std.vastart(&args)
 	vo(msg, &ap)
@@ -132,6 +136,8 @@ const emitstmt = {stmt
 	| &(`Slabeled labeled):
 		ol("@L{}\n", labeled.lbl)
 		emitstmt(labeled.stmt)
+	| &(`Sgoto lbl):
+		ot("jmp @L{}\n", lbl)
 	| &(`Sreturn expr):
 		v = emitexpr(expr)
 		ot("ret {}\n", valstr(v))
@@ -163,7 +169,7 @@ const emitif = {ifstmt
 	ot("jnz {}, @L{}, @L{}\n", valstr(cond), ifstmt.truelbl, ifstmt.falselbl)
 	ol("@L{}\n", ifstmt.truelbl)
 	emitstmt(ifstmt.iftrue)
-	oi("jmp @L{}\n", ifstmt.donelbl)
+	ot("jmp @L{}\n", ifstmt.donelbl)
 	ol("@L{}\n", ifstmt.falselbl)
 	match ifstmt.iffalse
 	| `std.Some iffalse:
