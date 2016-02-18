@@ -129,6 +129,9 @@ const emitstmt = {stmt
 	var v
 	
 	match stmt
+	| &(`Slabeled labeled):
+		ol("@L{}\n", labeled.lbl)
+		emitstmt(labeled.stmt)
 	| &(`Sreturn expr):
 		v = emitexpr(expr)
 		ot("ret {}\n", valstr(v))

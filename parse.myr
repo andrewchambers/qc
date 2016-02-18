@@ -29,6 +29,7 @@ pkg qc =
 		`Sfor forstmt
 		`Swhile whilestmt
 		`Sdowhile whilestmt
+		`Slabeled labeledstmt
 		`Sempty
 	;;
 	
@@ -58,6 +59,12 @@ pkg qc =
 		breaklbl : int
 		stmtlbl : int
 	;;
+
+	type labeledstmt = struct
+		stmt : stmt#
+		lbl : int
+	;;
+	
 	
 	type expr = union
 		`Ebinop binop
@@ -211,11 +218,9 @@ const peek = {p
 	-> p.toks[0]
 }
 
-/*
 const lookahead = {p
 	-> p.toks[1]
 }
-*/
 
 const parsetype = {p
 	match next(p)
@@ -572,7 +577,13 @@ const parsedeclorstmt = {p
 }
 
 const parsestmt = {p
-	var rexpr
+	var expr
+	
+	match (peek(p), lookahead(p))
+	| ((_, `Tident _), (_, `Tcolon)):
+		-> parselabeled(p)
+	| _:
+	;;
 	
 	match peek(p)
 	| (_, `Tsemi):
@@ -587,17 +598,41 @@ const parsestmt = {p
 	| (_, `Tdo):
 		-> parsedowhile(p)
 	| (l, `Treturn):
+		-> parsereturn(p)
+	| (l, `Tobrace):
+		-> std.mk(`Sblock parseblock(p))
+	| _:
+		expr = parseexpr(p)
+		expectsemi(p)
+		-> std.mk(`Sexpr expr)
+	;;
+}
+
+const parselabeled = {p
+	var name
+	
+	match next(p)
+	| (_, `Tident n):
+		name = n
+	| (l, _):
+		err(l, "expected 'identifier'\n")
+	;;
+	match next(p)
+	| (_, `Tcolon):
+	| (l, _):
+		err(l, "expected ':'\n")
+	;;
+	
+	-> std.mk(`Slabeled [.lbl=nextlbl(p.curfunc), .stmt=parsestmt(p)])
+}
+
+const parsereturn= {p
+		var rexpr
+		
 		next(p)
 		rexpr = parseexpr(p)
 		expectsemi(p)
 		-> std.mk(`Sreturn rexpr)
-	| (l, `Tobrace):
-		-> std.mk(`Sblock parseblock(p))
-	| _:
-		rexpr = parseexpr(p)
-		expectsemi(p)
-		-> std.mk(`Sexpr rexpr)
-	;;
 }
 
 const parseexpr = {p
