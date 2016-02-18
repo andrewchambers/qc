@@ -49,6 +49,9 @@ pkg qc =
 	type whilestmt = struct
 		cond : expr#
 		stmt : stmt#
+		contlbl : int
+		breaklbl : int
+		stmtlbl : int
 	;;
 	
 	type expr = union
@@ -292,13 +295,20 @@ const parseif = {p
 }
 
 const parsewhile = {p
+	var cond, stmt
+	
 	next(p)
-	parseexpr(p)
 	expectoparen(p)
-	parseexpr(p)
+	cond = parseexpr(p)
 	expectcparen(p)
-	parsestmt(p)
-	-> std.mk(`Sempty)
+	stmt = parsestmt(p)
+	-> std.mk(`Swhile [
+		.cond=cond,
+		.stmt=stmt,
+		.contlbl=nextlbl(p),
+		.stmtlbl=nextlbl(p),
+		.breaklbl=nextlbl(p),
+	])
 }
 
 const parsedowhile = {p
@@ -527,12 +537,14 @@ const parsestmt = {p
 	| (_, `Tfor):
 		-> parsefor(p)
 	| (_, `Twhile):
-		-> parsefor(p)
+		-> parsewhile(p)
 	| (l, `Treturn):
 		next(p)
 		rexpr = parseexpr(p)
 		expectsemi(p)
 		-> std.mk(`Sreturn rexpr)
+	| (l, `Tobrace):
+		-> std.mk(`Sblock parseblock(p))
 	| _:
 		rexpr = parseexpr(p)
 		expectsemi(p)
@@ -606,8 +618,8 @@ const parseatom = {p
 		;;
 	| (l, `Tintlit v):
 		-> std.mk(`Eintlit v)
-	| (l, _):
-		err(l, "expected 'integer literal'\n")
+	| (l, t):
+		err(l, "expected 'integer literal, got {}'\n", t)
 	;;
 }
 

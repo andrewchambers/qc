@@ -137,13 +137,19 @@ const emitstmt = {stmt
 	| &(`Sexpr expr):
 		emitexpr(expr)
 	| &(`Sif ifsmt):
-		emitifstmt(ifsmt)
+		emitif(ifsmt)
+	| &(`Swhile whilestmt):
+		emitwhile(whilestmt)
+	| &(`Sblock block):
+		for substmt in block
+			emitstmt(substmt)
+		;;
 	| _:
 		std.fatal("unimplemented emitstmt: {}\n", stmt)
 	;;
 }
 
-const emitifstmt = {ifstmt
+const emitif = {ifstmt
 	var cond
 	
 	cond = emitexpr(ifstmt.cond)
@@ -158,6 +164,19 @@ const emitifstmt = {ifstmt
 	| `std.None:
 	;;
 	ol("@L{}\n", ifstmt.donelbl)
+}
+
+
+const emitwhile = {whilestmt
+	var cond
+	
+	ol("@L{}\n", whilestmt.contlbl)
+	cond = emitexpr(whilestmt.cond)
+	ot("jnz {}, @L{}, @L{}\n", valstr(cond), whilestmt.stmtlbl, whilestmt.breaklbl)
+	ol("@L{}\n", whilestmt.stmtlbl)
+	emitstmt(whilestmt.stmt)
+	ot("jmp @L{}\n", whilestmt.contlbl)
+	ol("@L{}\n", whilestmt.breaklbl)
 }
 
 const addr = {expr
