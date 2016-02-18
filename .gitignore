@@ -1,0 +1,6 @@
+qc
+*.o
+*.use
+test/*.s
+test/*.ssa
+test/*.bin
