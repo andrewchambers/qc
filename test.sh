@@ -1,5 +1,7 @@
 set -e
 
+mbld
+
 for t in ./test/*.c
 do
 	timeout 2s ./qc < $t > $t.ssa
