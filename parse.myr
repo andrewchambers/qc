@@ -31,15 +31,24 @@ pkg qc =
 	;;
 	
 	type ifstmt = struct
-	
+		cond : expr#
+		iftrue : stmt#
+		iffalse : std.option(stmt#)
+		truelbl : int
+		falselbl : int
+		donelbl : int
 	;;
 	
 	type forstmt = struct
-	
+		init : std.option(expr#)
+		cond : std.option(expr#)
+		step : std.option(expr#)
+		stmt : stmt#
 	;;
 	
 	type whilestmt = struct
-	
+		cond : expr#
+		stmt : stmt#
 	;;
 	
 	type expr = union
@@ -109,6 +118,7 @@ type parser = struct
 	ts : tokstream#
 	stab : std.htab(byte[:], sym)#[:]
 	curfunc : func#
+	lblcnt : int
 ;;
 
 const pushscope = {p
@@ -120,6 +130,10 @@ const popscope = {p
 	
 	(ht, p.stab) = std.slpop(p.stab)
 	std.htfree(ht)
+}
+
+const nextlbl = {p
+	-> p.lblcnt++
 }
 
 const declare = {p, name, sym
@@ -231,6 +245,7 @@ const parsefunc = {p
 		.locals = [][:],
 		.body = [][:],
 	])
+	p.lblcnt = 0
 	p.curfunc.body = parseblock(p)
 	-> std.mk(`Nfunc p.curfunc)
 }
@@ -252,13 +267,28 @@ const expectcparen = {p
 }
 
 const parseif = {p
+	var cond, iftrue, iffalse
+	
 	next(p)
-	parseexpr(p)
 	expectoparen(p)
-	parseexpr(p)
+	cond = parseexpr(p)
 	expectcparen(p)
-	parsestmt(p)
-	-> std.mk(`Sempty)
+	iftrue = parsestmt(p)
+	match peek(p)
+	| (_, `Telse):
+		next(p)
+		iffalse = `std.Some parsestmt(p)
+	| _:
+		iffalse = `std.None
+	;;
+	-> std.mk(`Sif [
+		.cond=cond,
+		.iftrue=iftrue,
+		.iffalse=iffalse,
+		.truelbl=nextlbl(p),
+		.falselbl=nextlbl(p),
+		.donelbl=nextlbl(p),
+	])
 }
 
 const parsewhile = {p
@@ -287,29 +317,34 @@ const parsedowhile = {p
 }
 
 const parsefor = {p
+	var forstmt
+	
 	next(p)
 	expectoparen(p)
 	match peek(p)
 	| (_, `Tsemi):
-		parseexpr(p)
+		forstmt.init = `std.Some parseexpr(p)
 	| _:
+		forstmt.init = `std.None
 	;;
 	expectsemi(p)
 	match peek(p)
 	| (_, `Tsemi):
-		parseexpr(p)
+		forstmt.cond = `std.Some parseexpr(p)
 	| _:
+		forstmt.cond = `std.None
 	;;
 	expectsemi(p)
 	match peek(p)
 	| (_, `Tsemi):
-		parseexpr(p)
+		forstmt.step = `std.Some parseexpr(p)
 	| _:
+		forstmt.step = `std.None
 	;;
 	expectsemi(p)
 	expectcparen(p)
 	parseblock(p)
-	-> std.mk(`Sempty)
+	-> std.mk(`Sfor forstmt)
 }
 
 const parseblock = {p

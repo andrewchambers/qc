@@ -108,9 +108,28 @@ const emitstmt = {stmt
 		/* Do nothing for now */
 	| &(`Sexpr expr):
 		emitexpr(expr)
+	| &(`Sif ifsmt):
+		emitifstmt(ifsmt)
 	| _:
 		std.fatal("unimplemented emitstmt: {}\n", stmt)
 	;;
+}
+
+const emitifstmt = {ifstmt
+	var cond
+	
+	cond = emitexpr(ifstmt.cond)
+	oi("jnz {}, @L{}, @L{}\n", valstr(cond), ifstmt.truelbl, ifstmt.falselbl)
+	o("  @L{}\n", ifstmt.truelbl)
+	emitstmt(ifstmt.iftrue)
+	oi("jmp @L{}\n", ifstmt.donelbl)
+	o("  @L{}\n", ifstmt.falselbl)
+	match ifstmt.iffalse
+	| `std.Some iffalse:
+		emitstmt(iffalse)
+	| `std.None:
+	;;
+	o("  @L{}\n", ifstmt.donelbl)
 }
 
 const addr = {expr
