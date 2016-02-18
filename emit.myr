@@ -138,6 +138,8 @@ const emitstmt = {stmt
 		emitif(ifsmt)
 	| &(`Swhile whilestmt):
 		emitwhile(whilestmt)
+ 	| &(`Sdowhile dowhilestmt):
+		emitdowhile(dowhilestmt)
 	| &(`Sfor forstmt):
 		emitfor(forstmt)
 	| &(`Sblock block):
@@ -208,6 +210,16 @@ const emitwhile = {whilestmt
 	ol("@L{}\n", whilestmt.breaklbl)
 }
 
+const emitdowhile = {whilestmt
+	var cond
+	
+	ol("@L{}\n", whilestmt.stmtlbl)
+	emitstmt(whilestmt.stmt)
+	ol("@L{}\n", whilestmt.contlbl)
+	cond = emitexpr(whilestmt.cond)
+	ot("jnz {}, @L{}, @L{}\n", valstr(cond), whilestmt.stmtlbl, whilestmt.breaklbl)
+	ol("@L{}\n", whilestmt.breaklbl)
+}
 
 const addr = {expr
 	match expr

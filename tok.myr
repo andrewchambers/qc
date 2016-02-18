@@ -63,6 +63,7 @@ pkg qc =
 		`Tosqbrac /* [ */
 		`Tcsqbrac /* ] */
 	
+		`Tdo      /* do */
 		`Tfor     /* for */
 		`Twhile   /* while */
 		`Tif      /* if */
@@ -404,6 +405,7 @@ const number = {ts, base
 
 const kwident = {ts
 	match identstr(ts)
+	| "do":	-> `Tdo
 	| "break": 	-> `Tbreak
 	| "const": 	-> `Tconst
 	| "continue": 	-> `Tcontinue

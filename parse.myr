@@ -28,6 +28,7 @@ pkg qc =
 		`Sif ifstmt
 		`Sfor forstmt
 		`Swhile whilestmt
+		`Sdowhile whilestmt
 		`Sempty
 	;;
 	
@@ -314,6 +315,7 @@ const parsewhile = {p
 	cond = parseexpr(p)
 	expectcparen(p)
 	stmt = parsestmt(p)
+	
 	-> std.mk(`Swhile [
 		.cond=cond,
 		.stmt=stmt,
@@ -324,18 +326,27 @@ const parsewhile = {p
 }
 
 const parsedowhile = {p
+	var cond, stmt
+	
 	next(p)
-	parsestmt(p)
+	stmt = parsestmt(p)
 	match next(p)
 	| (_, `Twhile):
 	| (l, _):
 		err(l, "expected 'while'\n")
 	;;
 	expectoparen(p)
-	parseexpr(p)
+	cond = parseexpr(p)
 	expectcparen(p)
 	expectsemi(p)
-	-> std.mk(`Sempty)
+	
+	-> std.mk(`Sdowhile [
+		.cond=cond,
+		.stmt=stmt,
+		.contlbl=nextlbl(p.curfunc),
+		.stmtlbl=nextlbl(p.curfunc),
+		.breaklbl=nextlbl(p.curfunc),
+	])
 }
 
 const parsefor = {p
@@ -410,6 +421,9 @@ const startofdecl = {p
 	| (_, `Tstruct):
 	| (_, `Tint):
 	| (_, `Tvoid):
+	| (_, `Tident n):
+		/* XXX lookup type */
+		-> false
 	| _:
 		-> false
 	;;
@@ -555,6 +569,8 @@ const parsestmt = {p
 		-> parsefor(p)
 	| (_, `Twhile):
 		-> parsewhile(p)
+	| (_, `Tdo):
+		-> parsedowhile(p)
 	| (l, `Treturn):
 		next(p)
 		rexpr = parseexpr(p)
