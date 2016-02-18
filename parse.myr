@@ -17,6 +17,7 @@ pkg qc =
 		args : (byte[:], ctype)[:]
 		body : stmt#[:]
 		locals : local#[:]
+		lblcnt : int
 	;;
 	
 	type stmt = union
@@ -117,6 +118,8 @@ pkg qc =
 		name : byte[:]
 		ty : ctype
 	;;
+	
+	const nextlbl : (f : func# -> int)
 ;;
 
 const mklocal = {p, name, ty
@@ -131,7 +134,6 @@ type parser = struct
 	ts : tokstream#
 	stab : std.htab(byte[:], sym)#[:]
 	curfunc : func#
-	lblcnt : int
 ;;
 
 const pushscope = {p
@@ -145,8 +147,8 @@ const popscope = {p
 	std.htfree(ht)
 }
 
-const nextlbl = {p
-	-> p.lblcnt++
+const nextlbl = {f
+	-> f.lblcnt++
 }
 
 const declare = {p, name, sym
@@ -257,8 +259,8 @@ const parsefunc = {p
 		.args = args,
 		.locals = [][:],
 		.body = [][:],
+		.lblcnt = 0,
 	])
-	p.lblcnt = 0
 	p.curfunc.body = parseblock(p)
 	-> std.mk(`Nfunc p.curfunc)
 }
@@ -298,9 +300,9 @@ const parseif = {p
 		.cond=cond,
 		.iftrue=iftrue,
 		.iffalse=iffalse,
-		.truelbl=nextlbl(p),
-		.falselbl=nextlbl(p),
-		.donelbl=nextlbl(p),
+		.truelbl=nextlbl(p.curfunc),
+		.falselbl=nextlbl(p.curfunc),
+		.donelbl=nextlbl(p.curfunc),
 	])
 }
 
@@ -315,9 +317,9 @@ const parsewhile = {p
 	-> std.mk(`Swhile [
 		.cond=cond,
 		.stmt=stmt,
-		.contlbl=nextlbl(p),
-		.stmtlbl=nextlbl(p),
-		.breaklbl=nextlbl(p),
+		.contlbl=nextlbl(p.curfunc),
+		.stmtlbl=nextlbl(p.curfunc),
+		.breaklbl=nextlbl(p.curfunc),
 	])
 }
 
@@ -366,9 +368,9 @@ const parsefor = {p
 		expectcparen(p)
 	;;
 	forstmt.stmt = parsestmt(p)
-	forstmt.contlbl=nextlbl(p)
-	forstmt.stmtlbl=nextlbl(p)
-	forstmt.breaklbl=nextlbl(p)
+	forstmt.contlbl=nextlbl(p.curfunc)
+	forstmt.stmtlbl=nextlbl(p.curfunc)
+	forstmt.breaklbl=nextlbl(p.curfunc)
 	-> std.mk(`Sfor forstmt)
 }
 
