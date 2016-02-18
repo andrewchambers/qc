@@ -44,6 +44,9 @@ pkg qc =
 		cond : std.option(expr#)
 		step : std.option(expr#)
 		stmt : stmt#
+		contlbl : int
+		stmtlbl : int
+		breaklbl : int
 	;;
 	
 	type whilestmt = struct
@@ -62,11 +65,18 @@ pkg qc =
 		`Eident sym
 	;;
 	
-	type op = union
+	type bop = union
 		`Oplus
 		`Ominus
+	;;
+	
+	type uop = union
 		`Oaddr
 		`Oderef
+	;;
+	
+	type aop = union
+		`Oass
 	;;
 	
 	type class = union
@@ -76,20 +86,20 @@ pkg qc =
 	
 	type binop = struct
 		ty : ctype
-		op : op
+		op : bop
 		l : expr#
 		r : expr#
 	;;
 	
 	type unop = struct
 		ty : ctype
-		op : op
+		op : uop
 		operand : expr#
 	;;
 	
 	type assign = struct
 		ty : ctype
-		op : op
+		op : aop
 		l : expr#
 		r : expr#
 	;;
@@ -333,27 +343,32 @@ const parsefor = {p
 	expectoparen(p)
 	match peek(p)
 	| (_, `Tsemi):
-		forstmt.init = `std.Some parseexpr(p)
-	| _:
 		forstmt.init = `std.None
+		next(p)
+	| _:
+		forstmt.init = `std.Some parseexpr(p)
+		expectsemi(p)
 	;;
-	expectsemi(p)
 	match peek(p)
 	| (_, `Tsemi):
-		forstmt.cond = `std.Some parseexpr(p)
-	| _:
 		forstmt.cond = `std.None
-	;;
-	expectsemi(p)
-	match peek(p)
-	| (_, `Tsemi):
-		forstmt.step = `std.Some parseexpr(p)
+		next(p)
 	| _:
-		forstmt.step = `std.None
+		forstmt.cond = `std.Some parseexpr(p)
+		expectsemi(p)
 	;;
-	expectsemi(p)
-	expectcparen(p)
-	parseblock(p)
+	match peek(p)
+	| (_, `Tcparen):
+		forstmt.step = `std.None
+		next(p)
+	| _:
+		forstmt.step = `std.Some parseexpr(p)
+		expectcparen(p)
+	;;
+	forstmt.stmt = parsestmt(p)
+	forstmt.contlbl=nextlbl(p)
+	forstmt.stmtlbl=nextlbl(p)
+	forstmt.breaklbl=nextlbl(p)
 	-> std.mk(`Sfor forstmt)
 }
 
@@ -383,8 +398,8 @@ const parseblock = {p
 const expectsemi = {p
 	match next(p)
 	| (l, `Tsemi):
-	| (l, _):
-		err(l, "expected ';'")
+	| (l, t):
+		err(l, "expected ';', got {}", t)
 	;;
 }
 

@@ -132,20 +132,22 @@ const emitstmt = {stmt
 	| &(`Sreturn expr):
 		v = emitexpr(expr)
 		ot("ret {}\n", valstr(v))
-	| &(`Sdecl _):
-		/* Do nothing for now */
 	| &(`Sexpr expr):
 		emitexpr(expr)
 	| &(`Sif ifsmt):
 		emitif(ifsmt)
 	| &(`Swhile whilestmt):
 		emitwhile(whilestmt)
+	| &(`Sfor forstmt):
+		emitfor(forstmt)
 	| &(`Sblock block):
 		for substmt in block
 			emitstmt(substmt)
 		;;
-	| _:
-		std.fatal("unimplemented emitstmt: {}\n", stmt)
+	| &(`Sdecl _):
+		/* do nothing for now */
+	| &(`Sempty):
+		/* empty */
 	;;
 }
 
@@ -167,6 +169,33 @@ const emitif = {ifstmt
 }
 
 
+const emitfor = {forstmt
+	var cond
+	
+	match forstmt.init
+	| `std.Some expr:
+		emitexpr(expr)
+	| `std.None:
+	;;
+	ol("@L{}\n", forstmt.contlbl)
+	match forstmt.cond
+	| `std.Some expr:
+		cond = emitexpr(expr)
+		ot("jnz {}, @L{}, @L{}\n", valstr(cond), forstmt.stmtlbl, forstmt.breaklbl)
+	| `std.None:
+		ot("jmp @L{}\n", forstmt.stmtlbl)
+	;;
+	ol("@L{}\n", forstmt.stmtlbl)
+	emitstmt(forstmt.stmt)
+	match forstmt.step
+	| `std.Some expr:
+		emitexpr(expr)
+	| `std.None:
+	;;
+	ot("jmp @L{}\n", forstmt.contlbl)
+	ol("@L{}\n", forstmt.breaklbl)
+}
+
 const emitwhile = {whilestmt
 	var cond
 	
@@ -178,6 +207,7 @@ const emitwhile = {whilestmt
 	ot("jmp @L{}\n", whilestmt.contlbl)
 	ol("@L{}\n", whilestmt.breaklbl)
 }
+
 
 const addr = {expr
 	match expr
@@ -228,8 +258,6 @@ const emitexpr = {expr
 		v2 = emitexpr(assign.r)
 		store(v1, v2)
 		-> v2
-	| _:
-		std.fatal("unimplemented emitexpr: {}\n", expr)
 	;;
 }
 
@@ -244,8 +272,6 @@ const emitbinop = {b
 		o = "add"
 	| `Ominus:
 		o = "sub"
-	| _:
-		std.fatal("unhandle binop: {}", b.op)
 	;;
 	oi("{} =l {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
 	-> result
