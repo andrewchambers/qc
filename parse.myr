@@ -70,6 +70,9 @@ pkg qc =
 	type bop = union
 		`Oplus
 		`Ominus
+		`Omul
+		`Odiv
+		`Omod
 	;;
 	
 	type uop = union
@@ -606,13 +609,36 @@ const parseassign = {p
 const parseaddexpr = {p
 	var l, r, op
 	
-	l = parseunop(p)
+	l = parsemulexpr(p)
 	while true
 		match peek(p)
 		| (_, `Tplus):
-			op = `Oplus
+			op = `Omul
 		| (_, `Tminus):
 			op = `Ominus
+		| _:
+			break
+		;;
+		next(p)
+		r = parsemulexpr(p)
+		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
+	;;
+	-> l
+}
+
+
+const parsemulexpr = {p
+	var l, r, op
+	
+	l = parseunop(p)
+	while true
+		match peek(p)
+		| (_, `Tmul):
+			op = `Omul
+		| (_, `Tdiv):
+			op = `Odiv
+		| (_, `Tmod):
+			op = `Omod
 		| _:
 			break
 		;;

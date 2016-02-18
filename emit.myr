@@ -284,6 +284,12 @@ const emitbinop = {b
 		o = "add"
 	| `Ominus:
 		o = "sub"
+	| `Odiv:
+		o = "div"
+	| `Omul:
+		o = "mul"
+	| `Omod:
+		o = "rem"
 	;;
 	oi("{} =l {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
 	-> result
