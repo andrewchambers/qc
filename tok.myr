@@ -137,8 +137,6 @@ const tokread = {ts
 		-> (loc, `Teof)
 	elif c == '\n'
 		takec(ts)
-		ts.loc.line++
-		ts.loc.col = 1
 		-> tokread(ts)
 	elif c == '\''
 		-> (loc, chrlit(ts))
@@ -163,8 +161,6 @@ const skipspace = {ts
 		| '\n':
 			if ignorenl
 				takec(ts)
-				ts.loc.line++
-				ts.loc.col = 1
 			else
 				break
 			;;
@@ -202,9 +198,6 @@ const skipcomment = {ts
 			if matchc(ts, '/')
 				depth--
 			;;
-		| '\n':
-			ts.loc.line++
-			ts.loc.col = 1
 		| Eof:
 			err(ts.loc, "file ended in comment starting on line {}\n", startln)
 		| _:
@@ -568,6 +561,15 @@ const takec = {ts
 	var c, s
 
 	(c, s) = std.strstep(ts.rest)
+	match c
+	| '\n':
+		ts.loc.line += 1
+		ts.loc.col = 1
+	| '\t':
+		ts.loc.col += 4
+	| _:
+		ts.loc.col += 1
+	;;
 	ts.rest = s
 	-> c
 }
