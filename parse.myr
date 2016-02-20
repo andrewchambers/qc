@@ -75,6 +75,10 @@ pkg qc =
 		`Eident sym
 	;;
 	
+	type aop = union
+		`Oasn
+	;;
+	
 	type bop = union
 		`Oplus
 		`Ominus
@@ -86,10 +90,6 @@ pkg qc =
 	type uop = union
 		`Oaddr
 		`Oderef
-	;;
-	
-	type aop = union
-		`Oass
 	;;
 	
 	type class = union
@@ -198,7 +198,6 @@ const parse = {ts
 	p = std.mk([
 		.ts = ts,
 		.stab = stab,
-		.lbltab = std.mkht(std.strhash, std.streq),
 	])
 	p.toks[0] = toknext(ts)
 	p.toks[1] = toknext(ts)
@@ -245,6 +244,7 @@ const parsefunc = {p
 	
 	args = [][:]
 	
+	p.lbltab = std.mkht(std.strhash, std.streq)
 	rettype = parsetype(p)
 	match next(p)
 	| (l, `Tident name):
@@ -298,6 +298,7 @@ const parsefunc = {p
 		| _:
 		;;
 	;;
+	std.htfree(p.lbltab)
 	-> std.mk(`Nfunc p.curfunc)
 }
 
@@ -696,12 +697,12 @@ const parseassign = {p
 	l = parseaddexpr(p)
 	match peek(p)
 	| (_, `Tasn):
-		next(p)
-		r = parseaddexpr(p)
-		-> std.mk(`Eassign [.ty=`Typrim `Tyint, .l=l, .r=r])
 	| _:
 		-> l
 	;;
+	next(p)
+	r = parseassign(p)
+	-> std.mk(`Eassign [.ty=`Typrim `Tyint, .op=`Oasn, .l=l, .r=r])
 }
 
 const parseaddexpr = {p
@@ -760,11 +761,13 @@ const parseunop = {p
 		operand = parseunop(p)
 		-> std.mk(`Eunop [.ty=`Typrim `Tyint, .op=`Oderef, .operand=operand])
 	| _:
-		-> parseatom(p)
+		-> parseprimaryexpr(p)
 	;;
 }
 
-const parseatom = {p
+const parseprimaryexpr = {p
+	var expr
+	
 	match next(p)
 	| (l, `Tident n):
 		match lookup(p, n)
@@ -775,6 +778,10 @@ const parseatom = {p
 		;;
 	| (l, `Tintlit v):
 		-> std.mk(`Eintlit v)
+	| (_, `Toparen):
+		expr = parseexpr(p)
+		expectcparen(p)
+		-> expr
 	| (l, t):
 		err(l, "expected 'integer literal, got {}'\n", t)
 	;;
