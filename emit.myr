@@ -236,6 +236,8 @@ const addr = {expr
 		-> std.get(std.htget(allocas, local))
 	| &(`Eunop [.op=`Oderef, .operand=operand]):
 		-> emitexpr(operand)
+	| &(`Eidx idx):
+		-> emitlidx(idx)
 	| _:
 		std.fatal("not an lval\n")
 	;;
@@ -284,7 +286,7 @@ const emitexpr = {expr
 	;;
 }
 
-const emitidx = {idx
+const emitlidx = {idx
 	var v, i, p, off
 	
 	v = emitexpr(idx.expr)
@@ -293,6 +295,13 @@ const emitidx = {idx
 	oi("{} =l mul {}, {}\n", valstr(off), 8, valstr(i))
 	p = newreg()
 	oi("{} =l add {}, {}\n", valstr(p), valstr(v), valstr(off))
+	-> p
+}
+
+const emitidx = {idx
+	var p
+	
+	p = emitlidx(idx)
 	-> load(p)
 }
 
