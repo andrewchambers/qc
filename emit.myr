@@ -240,6 +240,8 @@ const addr = {expr
 		-> emitexpr(operand)
 	| &(`Eidx idx):
 		-> emitlidx(idx)
+	| &(`Esel sel):
+		-> emitlsel(sel)
 	| _:
 		std.fatal("not an lval\n")
 	;;
@@ -251,6 +253,9 @@ const load = {val, ty
 	match ty
 	| `Tyaggr &(`Tyarr _):
 		-> val
+	| `Tyaggr &(`Tystruct _):
+		-> val
+
 	| _:
 	;;
 	
@@ -261,7 +266,7 @@ const load = {val, ty
 	| `Tyaggr &(`Typtr _):
 		oi("{} =l loadl {}\n", valstr(v), valstr(val))
 	| _:
-		std.fatal("unimplemented load")
+		std.fatal("unimplemented load {}\n", ty)
 	;;
 	-> v
 }
@@ -298,7 +303,24 @@ const emitexpr = {expr
 		v2 = emitexpr(assign.r)
 		store(v1, v2)
 		-> v2
+	| &(`Esel sel):
+		-> emitsel(sel)
 	;;
+}
+
+const emitlsel = {sel
+	var v, p
+	
+	v = emitexpr(sel.expr)
+	p = newreg()
+	oi("{} =l add {}, {}\n", valstr(p), valstr(v), sel.off)
+	-> p
+}
+
+const emitsel = {sel
+	var p
+	p = emitlsel(sel)
+	-> load(p, sel.ty)
 }
 
 const emitlidx = {idx

@@ -27,7 +27,7 @@ pkg qc =
 	;;
 	
 	const typesize : (ty : ctype -> uint32)
-	
+	const structmemb : (s : cstruct, name : byte[:] -> std.option((ctype, uint32)))
 ;;
 
 const typesize = {ty
@@ -44,10 +44,27 @@ const typesize = {ty
 	| `Tyaggr &(`Tystruct s):
 		sz = 0
 		for (_, membty) in s.membs
-			sz += typesize(ty)
+			sz += typesize(membty)
 		;;
 		-> sz
 	| _:
 	;;
 	std.fatal("unimplemented typesize\n")
+}
+
+const structmemb = {s, name
+	var off
+	
+	off = 0
+	for (n, ty) in s.membs
+		match n
+		| `std.Some membname:
+			if std.sleq(name, membname)
+				-> `std.Some (ty, off)
+			;;
+		| `std.None:
+		;;		
+		off += typesize(ty)
+	;;
+	-> `std.None
 }

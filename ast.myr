@@ -70,6 +70,13 @@ pkg qc =
 		`Eintlit int64
 		`Eident sym
 		`Eidx index
+		`Esel selector
+	;;
+	
+	type selector = struct
+		ty : ctype
+		expr : expr#
+		off : uint32
 	;;
 	
 	type index = struct
@@ -145,5 +152,14 @@ const nextlbl = {f
 }
 
 const exprtype = {e
+	match e
+	| &(`Eident sym):
+		match sym
+		| `Symlocal local:
+			-> local.ty
+		| _:
+		;;
+	| _:
+	;;
 	-> `Typrim `Tyint
 }

@@ -665,6 +665,7 @@ const parseunop = {p
 
 const parsepostexpr = {p
 	var expr, idx
+	var selstruct, seloff, selty
 	
 	expr = parseprimaryexpr(p)
 	while true
@@ -674,6 +675,27 @@ const parsepostexpr = {p
 			idx = parseexpr(p)
 			expectcsqbrac(p)
 			expr = std.mk(`Eidx [.ty=`Typrim `Tyint, .expr=expr, .idx=idx])
+		| (l, `Tdot):
+			next(p)
+			match exprtype(expr)
+			| (`Tyaggr &(`Tystruct s)):
+				selstruct = s
+			| _:
+				err(l, "'.' can only be used on structs or unions\n")
+			;;
+			match next(p)
+			| (selloc, `Tident name):
+				match structmemb(selstruct, name)
+				| `std.Some (ty, off):
+					seloff = off
+					selty = ty
+				| `std.None:
+					err(selloc, "struct has no member {}\n", name)
+				;;
+			| (selloc, _):
+				err(selloc, "expected 'identifier'")
+			;;
+			expr = std.mk(`Esel [.ty=selty, .expr=expr, .off=seloff])
 		| _:
 			break
 		;;
