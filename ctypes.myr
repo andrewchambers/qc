@@ -8,11 +8,17 @@ pkg qc =
 
 	type caggr = union
 		`Typtr ctype
+		`Tyarr carr
 		`Tystruct cstruct
 	;;
 	
 	type cstruct = struct
 		membs : (std.option(byte[:]), ctype)[:]
+	;;
+
+	type carr = struct
+		len : uint32
+		subty : ctype
 	;;
 
 	type ctype = union

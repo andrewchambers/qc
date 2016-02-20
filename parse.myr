@@ -73,6 +73,13 @@ pkg qc =
 		`Eassign assign
 		`Eintlit int64
 		`Eident sym
+		`Eidx index
+	;;
+	
+	type index = struct
+		ty : ctype
+		expr : expr#
+		idx : expr#
 	;;
 	
 	type aop = union
@@ -318,6 +325,14 @@ const expectcparen = {p
 	;;
 }
 
+const expectcsqbrac = {p
+	match next(p)
+	| (_, `Tcsqbrac):
+	| (l, _):
+		err(l, "expected ']'\n")
+	;;
+}
+
 const parseif = {p
 	var cond, iftrue, iffalse
 	
@@ -551,10 +566,20 @@ const parsedirectdecl = {p, basety
 }
 
 const parsedecltail = {p, basety
+	var len
+	
 	while true
 		match peek(p)
-		| (_, `Tosqbrac):
-			std.die("unimplemented parsedecltail\n")
+		| (l, `Tosqbrac):
+			next(p)
+			match peek(p)
+			| (_, `Tcsqbrac):
+				err(l, "unimplemented inferred arr size")
+			| _:
+			;;
+			len = parseconstexpr(p) castto(uint32)
+			expectcsqbrac(p)
+			-> `Tyaggr std.mk(`Tyarr [.len=len, .subty=basety])
 		| _:
 			-> basety
 		;;
@@ -691,6 +716,15 @@ const parseexpr = {p
 	-> parseassign(p)
 }
 
+const parseconstexpr = {p
+	match next(p)
+	| (_, `Tintlit n):
+		-> n
+	| (l, _):
+		err(l, "expected a constant expression\n")
+	;;
+}
+
 const parseassign = {p
 	var l, r
 	
@@ -761,8 +795,27 @@ const parseunop = {p
 		operand = parseunop(p)
 		-> std.mk(`Eunop [.ty=`Typrim `Tyint, .op=`Oderef, .operand=operand])
 	| _:
-		-> parseprimaryexpr(p)
+		-> parsepostexpr(p)
 	;;
+}
+
+
+const parsepostexpr = {p
+	var expr, idx
+	
+	expr = parseprimaryexpr(p)
+	while true
+		match peek(p)
+		| (l, `Tosqbrac):
+			next(p)
+			idx = parseexpr(p)
+			expectcsqbrac(p)
+			expr = std.mk(`Eidx [.ty=`Typrim `Tyint, .expr=expr, .idx=idx])
+		| _:
+			break
+		;;
+	;;
+	-> expr
 }
 
 const parseprimaryexpr = {p
@@ -784,6 +837,6 @@ const parseprimaryexpr = {p
 		-> expr
 	| (l, t):
 		err(l, "expected 'integer literal, got {}'\n", t)
-	;;
+	;;	
 }
 

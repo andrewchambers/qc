@@ -257,6 +257,8 @@ const emitexpr = {expr
 	var v1, v2
 
 	match expr
+	| &(`Eidx idx):
+		-> emitidx(idx)
 	| &(`Eintlit v):
 		-> `Vlit v
 	| &(`Ebinop b):
@@ -280,6 +282,18 @@ const emitexpr = {expr
 		store(v1, v2)
 		-> v2
 	;;
+}
+
+const emitidx = {idx
+	var v, i, p, off
+	
+	v = emitexpr(idx.expr)
+	i = emitexpr(idx.idx)
+	off = newreg()
+	oi("{} =l mul {}, {}\n", valstr(off), 8, valstr(i))
+	p = newreg()
+	oi("{} =l add {}, {}\n", valstr(p), valstr(v), valstr(off))
+	-> load(p)
 }
 
 const emitbinop = {b
