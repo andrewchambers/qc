@@ -9,7 +9,7 @@ do
 	timeout 2s gcc $t.s -o $t.bin
 	if ! timeout 2s $t.bin
 	then
-		echo "$t failed"
+		echo "$t.bin returned non zero"
 	fi
 	echo $t PASS	
 done
