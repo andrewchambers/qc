@@ -10,6 +10,7 @@ do
 	if ! timeout 2s $t.bin
 	then
 		echo "$t.bin returned non zero"
+		exit $?
 	fi
 	echo $t PASS	
 done

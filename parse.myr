@@ -2,143 +2,10 @@ use std
 use "tok"
 use "err"
 use "ctypes"
+use "ast"
 
 pkg qc =
-	
 	const parse : (ts : tokstream# -> node#[:])
-	
-	type node = union
-		`Nfunc func#
-	;;
-	
-	type func = struct
-		name : byte[:]
-		rettype : ctype
-		args : (byte[:], ctype)[:]
-		body : stmt#[:]
-		locals : local#[:]
-		lblcnt : int
-	;;
-	
-	type stmt = union
-		`Sdecl decl
-		`Sexpr expr#
-		`Sreturn expr#
-		`Sblock stmt#[:]
-		`Sif ifstmt
-		`Sfor forstmt
-		`Swhile whilestmt
-		`Sdowhile whilestmt
-		`Slabeled labeledstmt
-		`Sgoto int
-		`Sempty
-	;;
-	
-	type ifstmt = struct
-		cond : expr#
-		iftrue : stmt#
-		iffalse : std.option(stmt#)
-		truelbl : int
-		falselbl : int
-		donelbl : int
-	;;
-	
-	type forstmt = struct
-		init : std.option(expr#)
-		cond : std.option(expr#)
-		step : std.option(expr#)
-		stmt : stmt#
-		contlbl : int
-		stmtlbl : int
-		breaklbl : int
-	;;
-	
-	type whilestmt = struct
-		cond : expr#
-		stmt : stmt#
-		contlbl : int
-		breaklbl : int
-		stmtlbl : int
-	;;
-
-	type labeledstmt = struct
-		stmt : stmt#
-		lbl : int
-	;;
-	
-	
-	type expr = union
-		`Ebinop binop
-		`Eunop unop
-		`Eassign assign
-		`Eintlit int64
-		`Eident sym
-		`Eidx index
-	;;
-	
-	type index = struct
-		ty : ctype
-		expr : expr#
-		idx : expr#
-	;;
-	
-	type aop = union
-		`Oasn
-	;;
-	
-	type bop = union
-		`Oplus
-		`Ominus
-		`Omul
-		`Odiv
-		`Omod
-	;;
-	
-	type uop = union
-		`Oaddr
-		`Oderef
-	;;
-	
-	type class = union
-		`Sclasslocal
-		`Sclassnone
-	;;
-	
-	type binop = struct
-		ty : ctype
-		op : bop
-		l : expr#
-		r : expr#
-	;;
-	
-	type unop = struct
-		ty : ctype
-		op : uop
-		operand : expr#
-	;;
-	
-	type assign = struct
-		ty : ctype
-		op : aop
-		l : expr#
-		r : expr#
-	;;
-	
-	type decl = struct
-		name : byte[:]
-		sym : sym
-	;;
-	
-	type sym = union 
-		`Symlocal local#
-	;;
-	
-	type local = struct
-		name : byte[:]
-		ty : ctype
-	;;
-	
-	const nextlbl : (f : func# -> int)
 ;;
 
 const mklocal = {p, name, ty
@@ -171,10 +38,6 @@ const popscope = {p
 	
 	(ht, p.stab) = std.slpop(p.stab)
 	std.htfree(ht)
-}
-
-const nextlbl = {f
-	-> f.lblcnt++
 }
 
 const declare = {p, name, sym
@@ -746,7 +609,7 @@ const parseaddexpr = {p
 	while true
 		match peek(p)
 		| (_, `Tplus):
-			op = `Omul
+			op = `Oplus
 		| (_, `Tminus):
 			op = `Ominus
 		| _:

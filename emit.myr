@@ -1,6 +1,8 @@
 use std
 
 use "parse"
+use "ctypes"
+use "ast"
 
 pkg qc =
 	const emit : (globals : node#[:] -> void)
@@ -116,7 +118,7 @@ const emitfunc = {f
 	for l in f.locals
 		alloca = newnamedreg(l.name)
 		std.htput(allocas, l, alloca)
-		oi("{} =l alloc8 8\n", valstr(alloca))
+		oi("{} =l alloc16 {}\n", valstr(alloca), typesize(l.ty))
 	;;
 	for stmt in f.body
 		emitstmt(stmt)
@@ -243,11 +245,24 @@ const addr = {expr
 	;;
 }
 
-const load = {val
+const load = {val, ty
 	var v
 	
+	match ty
+	| `Tyaggr &(`Tyarr _):
+		-> val
+	| _:
+	;;
+	
 	v = newreg()
-	oi("{} =l loadl {}\n", valstr(v), valstr(val))
+	match ty
+	| `Typrim `Tyint:
+		oi("{} =l loadl {}\n", valstr(v), valstr(val))
+	| `Tyaggr &(`Typtr _):
+		oi("{} =l loadl {}\n", valstr(v), valstr(val))
+	| _:
+		std.fatal("unimplemented load")
+	;;
 	-> v
 }
 
@@ -271,13 +286,13 @@ const emitexpr = {expr
 			-> addr(u.operand)
 		| `Oderef:
 			v1 = emitexpr(u.operand)
-			-> load(v1)
+			-> load(v1, u.ty)
 		| _:
 			std.fatal("unsupported unop: {}\n", u.op)
 		;;
 	| &(`Eident `Symlocal local):
 		v1 = std.get(std.htget(allocas, local))
-		-> load(v1)
+		-> load(v1, local.ty)
 	| &(`Eassign assign):
 		v1 = addr(assign.l)
 		v2 = emitexpr(assign.r)
@@ -287,12 +302,13 @@ const emitexpr = {expr
 }
 
 const emitlidx = {idx
-	var v, i, p, off
+	var v, i, p, off, sz
 	
 	v = emitexpr(idx.expr)
 	i = emitexpr(idx.idx)
 	off = newreg()
-	oi("{} =l mul {}, {}\n", valstr(off), 8, valstr(i))
+	sz = typesize(exprtype(idx.expr))
+	oi("{} =l mul {}, {}\n", valstr(off), sz, valstr(i))
 	p = newreg()
 	oi("{} =l add {}, {}\n", valstr(p), valstr(v), valstr(off))
 	-> p
@@ -302,7 +318,7 @@ const emitidx = {idx
 	var p
 	
 	p = emitlidx(idx)
-	-> load(p)
+	-> load(p, idx.ty)
 }
 
 const emitbinop = {b

@@ -26,7 +26,7 @@ pkg qc =
 		`Tyaggr caggr#
 	;;
 	
-	const typesize : (ty : ctype -> int)
+	const typesize : (ty : ctype -> uint32)
 	
 ;;
 
@@ -35,10 +35,12 @@ const typesize = {ty
 
 	match ty
 	| `Typrim `Tyint:
-		/* wrong, but ok for now */
+		/* XXX wrong, but ok for now */
 		-> 8
 	| `Tyaggr &(`Typtr _):
 		-> 8
+	| `Tyaggr &(`Tyarr arr):
+		-> arr.len * typesize(arr.subty)
 	| `Tyaggr &(`Tystruct s):
 		sz = 0
 		for (_, membty) in s.membs

@@ -3,6 +3,7 @@ bin qc =
 	err.myr
 	tok.myr
 	ctypes.myr
+	ast.myr
 	parse.myr
 	emit.myr
 	dumpast.myr
