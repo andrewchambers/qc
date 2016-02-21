@@ -428,6 +428,8 @@ const oper = {ts
 	| '-':
 		if matchc(ts, '=')
 			t = `Tsubeq
+		elif matchc(ts, '>')
+			t = `Tarrow
 		elif matchc(ts, '-')
 			t = `Tdec
 		else

@@ -682,9 +682,27 @@ const parseunop = {p
 }
 
 
+const parseseltail = {p, expr, selstruct
+	var seloff, selty
+	
+	match next(p)
+	| (selloc, `Tident name):
+		match structmemb(selstruct, name)
+		| `std.Some (ty, off):
+			seloff = off
+			selty = ty
+		| `std.None:
+			err(selloc, "struct has no member {}\n", name)
+		;;
+	| (selloc, _):
+		err(selloc, "expected 'identifier'")
+	;;
+	-> std.mk(`Esel [.ty=selty, .expr=expr, .off=seloff])
+}
+
 const parsepostexpr = {p
 	var expr, idx
-	var selstruct, seloff, selty
+	var selstruct
 	
 	expr = parseprimaryexpr(p)
 	while true
@@ -697,24 +715,21 @@ const parsepostexpr = {p
 		| (l, `Tdot):
 			next(p)
 			match exprtype(expr)
-			| (`Tyaggr &(`Tystruct s)):
+			| `Tyaggr &(`Tystruct s):
 				selstruct = s
 			| _:
 				err(l, "'.' can only be used on structs or unions\n")
 			;;
-			match next(p)
-			| (selloc, `Tident name):
-				match structmemb(selstruct, name)
-				| `std.Some (ty, off):
-					seloff = off
-					selty = ty
-				| `std.None:
-					err(selloc, "struct has no member {}\n", name)
-				;;
-			| (selloc, _):
-				err(selloc, "expected 'identifier'")
+			expr = parseseltail(p, expr, selstruct)
+		| (l, `Tarrow):
+			next(p)
+			match exprtype(expr)
+			| `Tyaggr &(`Typtr `Tyaggr &(`Tystruct s)):
+				selstruct = s
+			| _:
+				err(l, "'->' can only be used on structs or unions\n")
 			;;
-			expr = std.mk(`Esel [.ty=selty, .expr=expr, .off=seloff])
+			expr = parseseltail(p, expr, selstruct)
 		| _:
 			break
 		;;
@@ -740,7 +755,7 @@ const parseprimaryexpr = {p
 		expectcparen(p)
 		-> expr
 	| (l, t):
-		err(l, "expected 'integer literal, got {}'\n", t)
+		err(l, "expected 'integer literal', got {}\n", t)
 	;;	
 }
 

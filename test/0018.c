@@ -1,10 +1,13 @@
 
+
+int
 main()
 {
-	int x;
-	
-	x = 3;
-	if(x == 3)
-		return 0;
-	return 1;
+	struct { int x; int y; } s;
+	struct { int x; int y; } *p;
+
+	p = &s;	
+	s.x = 1;
+	p->y = 2;
+	return p->y + p->x - 3; 
 }
