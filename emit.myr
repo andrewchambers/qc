@@ -360,6 +360,14 @@ const emitbinop = {b
 		o = "mul"
 	| `Omod:
 		o = "rem"
+	| `Oeq:
+			o = "ceql"
+	| `One:
+			o = "cnel"
+	| `Olt:
+			o = "csltl"
+	| `Ogt:
+			o = "csgtl"
 	;;
 	oi("{} =l {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
 	-> result

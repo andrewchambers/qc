@@ -95,6 +95,10 @@ pkg qc =
 		`Omul
 		`Odiv
 		`Omod
+		`Oeq
+		`One
+		`Olt
+		`Ogt
 	;;
 	
 	type uop = union

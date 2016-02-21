@@ -591,7 +591,7 @@ const parseconstexpr = {p
 const parseassign = {p
 	var l, r
 	
-	l = parseaddexpr(p)
+	l = parseeqlexpr(p)
 	match peek(p)
 	| (_, `Tasn):
 	| _:
@@ -600,6 +600,26 @@ const parseassign = {p
 	next(p)
 	r = parseassign(p)
 	-> std.mk(`Eassign [.ty=`Typrim `Tyint, .op=`Oasn, .l=l, .r=r])
+}
+
+const parseeqlexpr = {p
+	var l, r, op
+	
+	l = parseaddexpr(p)
+	while true
+		match peek(p)
+		| (_, `Teq):
+			op = `Oeq
+		| (_, `Tne):
+			op = `One
+		| _:
+			break
+		;;
+		next(p)
+		r = parseaddexpr(p)
+		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
+	;;
+	-> l
 }
 
 const parseaddexpr = {p
@@ -621,7 +641,6 @@ const parseaddexpr = {p
 	;;
 	-> l
 }
-
 
 const parsemulexpr = {p
 	var l, r, op
