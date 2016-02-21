@@ -157,6 +157,8 @@ const nextlbl = {f
 
 const exprtype = {e
 	match e
+	| &(`Esel sel):
+		-> sel.ty
 	| &(`Eident sym):
 		match sym
 		| `Symlocal local:
