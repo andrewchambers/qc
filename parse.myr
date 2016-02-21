@@ -53,7 +53,7 @@ const declaretag = {p, name, tag
 }
 
 const lookuptag = {p, name
-	for var i = p.tagtab.len-1; ; i--
+	for var i = p.tagtab.len-1; i >= 0 ; i--
 		match std.htget(p.tagtab[i], name)
 		| `std.Some tag:
 			-> `std.Some tag
@@ -72,7 +72,7 @@ const declare = {p, name, sym
 }
 
 const lookup = {p, name
-	for var i = p.symtab.len-1; ; i--
+	for var i = p.symtab.len-1; i >= 0 ; i--
 		match std.htget(p.symtab[i], name)
 		| `std.Some sym:
 			-> `std.Some sym
@@ -395,7 +395,7 @@ const parsetagtype = {p
 		body = std.mk(`Tystruct `std.None)
 	;;
 	match peek(p)
-	| (l, Tcbrace):
+	| (l, `Tobrace):
 		match (tagname, body)
 		| (`std.Some _, &(`Tystruct `std.Some _)):
 			err(l, "redfinition of struct\n")
@@ -403,7 +403,6 @@ const parsetagtype = {p
 			body# = parsestructbody(p)
 		;;
 	| (l, _):
-		err(l, "unimplemented tag\n")
 	;;
 	match (tagname, body)
 	| (`std.None, &(`Tystruct `std.None)):
