@@ -1,10 +1,11 @@
 
+
 int
 main()
 {
-	/* XXX test waiting for struct tags */
-	struct { int x; int y; } s;
-	struct { int x; int y; } *p;
+
+	struct S { int x; int y; } s;
+	struct S *p;
 
 	p = &s;	
 	s.x = 1;

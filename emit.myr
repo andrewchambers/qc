@@ -118,7 +118,7 @@ const emitfunc = {f
 	for l in f.locals
 		alloca = newnamedreg(l.name)
 		std.htput(allocas, l, alloca)
-		oi("{} =l alloc16 {}\n", valstr(alloca), typesize(l.ty))
+		oi("{} =l alloc16 {}\n", valstr(alloca), std.get(typesize(l.ty)))
 	;;
 	for stmt in f.body
 		emitstmt(stmt)
@@ -329,7 +329,7 @@ const emitlidx = {idx
 	v = emitexpr(idx.expr)
 	i = emitexpr(idx.idx)
 	off = newreg()
-	sz = typesize(exprtype(idx.expr))
+	sz = std.get(typesize(exprtype(idx.expr)))
 	oi("{} =l mul {}, {}\n", valstr(off), sz, valstr(i))
 	p = newreg()
 	oi("{} =l add {}, {}\n", valstr(p), valstr(v), valstr(off))

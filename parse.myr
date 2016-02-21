@@ -24,33 +24,56 @@ type lblstate = union
 type parser = struct
 	ts : tokstream#
 	toks : (srcloc, tok)[2]
-	stab : std.htab(byte[:], sym)#[:]
+	symtab : std.htab(byte[:], sym)#[:]
+	tagtab : std.htab(byte[:], caggr#)#[:]
 	lbltab : std.htab(byte[:], lblstate)#
 	curfunc : func#
 ;;
 
 const pushscope = {p
-	std.slpush(&p.stab, std.mkht(std.strhash, std.streq))
+	std.slpush(&p.symtab, std.mkht(std.strhash, std.streq))
+	std.slpush(&p.tagtab, std.mkht(std.strhash, std.streq))
 }
 
 const popscope = {p
-	var ht
+	var symtab, tagtab
 	
-	(ht, p.stab) = std.slpop(p.stab)
-	std.htfree(ht)
+	(symtab, p.symtab) = std.slpop(p.symtab)
+	(tagtab, p.tagtab) = std.slpop(p.tagtab)
+	std.htfree(symtab)
+	std.htfree(tagtab)
+}
+
+const declaretag = {p, name, tag
+	if std.hthas(p.tagtab[p.tagtab.len-1], name)
+		-> false
+	;;
+	std.htput(p.tagtab[p.tagtab.len-1], name, tag)
+	-> true
+}
+
+const lookuptag = {p, name
+	for var i = p.tagtab.len-1; ; i--
+		match std.htget(p.tagtab[i], name)
+		| `std.Some tag:
+			-> `std.Some tag
+		| `std.None:
+		;;
+	;;
+	-> `std.None
 }
 
 const declare = {p, name, sym
-	if std.hthas(p.stab[p.stab.len-1], name)
+	if std.hthas(p.symtab[p.symtab.len-1], name)
 		-> false
 	;;
-	std.htput(p.stab[p.stab.len-1], name, sym)
+	std.htput(p.symtab[p.symtab.len-1], name, sym)
 	-> true
 }
 
 const lookup = {p, name
-	for var i = p.stab.len-1; ; i--
-		match std.htget(p.stab[i], name)
+	for var i = p.symtab.len-1; ; i--
+		match std.htget(p.symtab[i], name)
 		| `std.Some sym:
 			-> `std.Some sym
 		| `std.None:
@@ -61,13 +84,15 @@ const lookup = {p, name
 
 const parse = {ts
 	var p : parser#
-	var stab, globals
+	var symtab, tagtab, globals
 	
-	stab = [][:]
+	symtab = [][:]
+	tagtab = [][:]
 	
 	p = std.mk([
 		.ts = ts,
-		.stab = stab,
+		.symtab = symtab,
+		.tagtab = tagtab,
 	])
 	p.toks[0] = toknext(ts)
 	p.toks[1] = toknext(ts)
@@ -345,22 +370,47 @@ const startofdecl = {p
 }
 
 const parsetagtype = {p
+	var structloc
+	var tagname, body
+	
 	match next(p)
-	| (_, `Tstruct):
+	| (l, `Tstruct):
+		structloc = l
 	| (l, _):
 		err(l, "expected 'struct'\n")
 	;;
 	match peek(p)
-	| (_, `Tident tagname):
+	| (_, `Tident tname):
 		next(p)
+		tagname = `std.Some tname
+		match lookuptag(p, tname)
+		| `std.Some tagty:
+			body = tagty
+		| `std.None:
+			body = std.mk(`Tystruct `std.None)
+			declaretag(p, tname, body)
+		;;
 	| (l, _):
+		tagname = `std.None
+		body = std.mk(`Tystruct `std.None)
 	;;
 	match peek(p)
-	| (_, Tcbrace):
+	| (l, Tcbrace):
+		match (tagname, body)
+		| (`std.Some _, &(`Tystruct `std.Some _)):
+			err(l, "redfinition of struct\n")
+		| _:
+			body# = parsestructbody(p)
+		;;
 	| (l, _):
 		err(l, "unimplemented tag\n")
 	;;
-	-> parsestructbody(p)
+	match (tagname, body)
+	| (`std.None, &(`Tystruct `std.None)):
+		err(structloc, "struct without a tag requires a body\n")
+	| _:
+	;;
+	-> `Tyaggr body
 }
 
 const parsestructbody = {p
@@ -393,7 +443,7 @@ const parsestructbody = {p
 		expectsemi(p);
 	;;
 	next(p)
-	-> `Tyaggr std.mk(`Tystruct [.membs=membs])
+	-> `Tystruct `std.Some[.membs=membs]
 }
 
 const parsedeclspecs = {p
@@ -715,16 +765,16 @@ const parsepostexpr = {p
 		| (l, `Tdot):
 			next(p)
 			match exprtype(expr)
-			| `Tyaggr &(`Tystruct s):
+			| `Tyaggr &(`Tystruct `std.Some s):
 				selstruct = s
 			| _:
-				err(l, "'.' can only be used on structs or unions\n")
+				err(l, "'.' can only be used on complete structs or unions\n")
 			;;
 			expr = parseseltail(p, expr, selstruct)
 		| (l, `Tarrow):
 			next(p)
 			match exprtype(expr)
-			| `Tyaggr &(`Typtr `Tyaggr &(`Tystruct s)):
+			| `Tyaggr &(`Typtr `Tyaggr &(`Tystruct `std.Some s)):
 				selstruct = s
 			| _:
 				err(l, "'->' can only be used on structs or unions\n")

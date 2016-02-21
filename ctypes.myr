@@ -9,7 +9,7 @@ pkg qc =
 	type caggr = union
 		`Typtr ctype
 		`Tyarr carr
-		`Tystruct cstruct
+		`Tystruct std.option(cstruct)
 	;;
 	
 	type cstruct = struct
@@ -26,7 +26,7 @@ pkg qc =
 		`Tyaggr caggr#
 	;;
 	
-	const typesize : (ty : ctype -> uint32)
+	const typesize : (ty : ctype -> std.option(uint32))
 	const structmemb : (s : cstruct, name : byte[:] -> std.option((ctype, uint32)))
 ;;
 
@@ -36,20 +36,32 @@ const typesize = {ty
 	match ty
 	| `Typrim `Tyint:
 		/* XXX wrong, but ok for now */
-		-> 8
+		sz = 8
 	| `Tyaggr &(`Typtr _):
-		-> 8
+		sz = 8
 	| `Tyaggr &(`Tyarr arr):
-		-> arr.len * typesize(arr.subty)
-	| `Tyaggr &(`Tystruct s):
+		match typesize(arr.subty)
+		| `std.None:
+			-> `std.None
+		| `std.Some subtysz:
+			sz = arr.len * subtysz
+		;;
+	| `Tyaggr &(`Tystruct `std.None):
+		-> `std.None
+	| `Tyaggr &(`Tystruct `std.Some s):
 		sz = 0
 		for (_, membty) in s.membs
-			sz += typesize(membty)
+			 match typesize(membty)
+			 | `std.None:
+			 	-> `std.None
+			 | `std.Some membsz:
+			 	sz += membsz
+			 ;;
 		;;
-		-> sz
 	| _:
+		std.fatal("unimplemented typesize\n")
 	;;
-	std.fatal("unimplemented typesize\n")
+	-> `std.Some sz
 }
 
 const structmemb = {s, name
@@ -63,8 +75,13 @@ const structmemb = {s, name
 				-> `std.Some (ty, off)
 			;;
 		| `std.None:
-		;;		
-		off += typesize(ty)
+		;;	
+		match typesize(ty)
+		| `std.None:
+			-> `std.None
+		| `std.Some msz:
+			off += msz
+		;;
 	;;
 	-> `std.None
 }
