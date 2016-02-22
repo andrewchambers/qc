@@ -13,7 +13,7 @@ type Val = union
 	`Vreg byte[:]
 ;;
 
-var allocas : std.htab(local#, Val)#
+var allocas : std.htab(sym#, Val)#
 var nreg = 0
 
 const newreg = {
@@ -181,7 +181,6 @@ const emitif = {ifstmt
 	ol("@L{}\n", ifstmt.donelbl)
 }
 
-
 const emitfor = {forstmt
 	var cond
 	
@@ -234,7 +233,7 @@ const emitdowhile = {whilestmt
 
 const emitlval = {expr
 	match expr
-	| &(`Eident `Symlocal local):
+	| &(`Eident local):
 		-> std.get(std.htget(allocas, local))
 	| &(`Eunop [.op=`Oderef, .operand=operand]):
 		-> emitexpr(operand)
@@ -294,7 +293,7 @@ const emitexpr = {expr
 		| _:
 			std.fatal("unsupported unop: {}\n", u.op)
 		;;
-	| &(`Eident `Symlocal local):
+	| &(`Eident local):
 		v1 = std.get(std.htget(allocas, local))
 		-> emitload(v1, local.ty)
 	| &(`Eassign assign):

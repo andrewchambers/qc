@@ -12,12 +12,12 @@ pkg qc =
 		rettype : ctype
 		args : (byte[:], ctype)[:]
 		body : stmt#[:]
-		locals : local#[:]
+		locals : sym#[:]
 		lblcnt : int
 	;;
 	
 	type stmt = union
-		`Sdecl decl
+		`Sdecl (sym#, std.option(expr#))[:]
 		`Sexpr expr#
 		`Sreturn expr#
 		`Sblock stmt#[:]
@@ -68,7 +68,7 @@ pkg qc =
 		`Eunop unop
 		`Eassign assign
 		`Eintlit int64
-		`Eident sym
+		`Eident sym#
 		`Eidx index
 		`Esel selector
 	;;
@@ -106,11 +106,6 @@ pkg qc =
 		`Oderef
 	;;
 	
-	type class = union
-		`Sclasslocal
-		`Sclassnone
-	;;
-	
 	type binop = struct
 		ty : ctype
 		op : bop
@@ -131,25 +126,21 @@ pkg qc =
 		r : expr#
 	;;
 	
-	type decl = struct
-		name : byte[:]
-		sym : sym
+	type sclass = union
+		`Sclasslocal
+		`Sclassglobal
+		`Sclassnone
 	;;
 	
-	type sym = union 
-		`Symlocal local#
-	;;
-	
-	type local = struct
+	type sym = struct
 		name : byte[:]
 		ty : ctype
+		sc : sclass
 	;;
 	
 	const nextlbl : (f : func# -> int)
 	const exprtype : (e : expr# -> ctype)
 ;;
-
-
 
 const nextlbl = {f
 	-> f.lblcnt++
@@ -160,12 +151,16 @@ const exprtype = {e
 	| &(`Esel sel):
 		-> sel.ty
 	| &(`Eident sym):
-		match sym
-		| `Symlocal local:
-			-> local.ty
-		| _:
-		;;
-	| _:
+		-> sym.ty
+	| &(`Ebinop bop):
+		-> bop.ty
+	| &(`Eunop uop):
+		-> uop.ty
+	| &(`Eassign asn):
+		-> asn.ty
+	| &(`Eintlit _):
+		-> `Typrim `Tyint
+	| &(`Eidx idx):
+		-> idx.ty
 	;;
-	-> `Typrim `Tyint
 }

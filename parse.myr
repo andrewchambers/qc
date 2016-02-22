@@ -11,7 +11,7 @@ pkg qc =
 const mklocal = {p, name, ty
 	var l
 	
-	l = std.mk([.ty=ty, .name=name])
+	l = std.mk([.ty=ty, .name=name, .sc=`Sclasslocal])
 	std.slpush(&p.curfunc.locals, l)
 	-> l
 }
@@ -24,7 +24,7 @@ type lblstate = union
 type parser = struct
 	ts : tokstream#
 	toks : (srcloc, tok)[2]
-	symtab : std.htab(byte[:], sym)#[:]
+	symtab : std.htab(byte[:], sym#)#[:]
 	tagtab : std.htab(byte[:], caggr#)#[:]
 	lbltab : std.htab(byte[:], lblstate)#
 	curfunc : func#
@@ -501,25 +501,32 @@ const parsedecltail = {p, basety
 
 const parsedeclaration = {p
 	var sclass, name, ty, sym
-	var loc
+	var decls, loc
 	
-	match peek(p)
-	| (l, _):
-		loc = l
-	;;
+	decls = [][:]
 	(sclass, ty) = parsedeclspecs(p)
-	(name, ty) = parsedecl(p, ty)
-	match name
-	| `std.Some n:
-		sym = `Symlocal mklocal(p, n, ty)
-		if !declare(p, n, sym)
-			err(loc, "redefinition of {}\n", n)
+	while true
+		(loc, _) = peek(p)
+		(name, ty) = parsedecl(p, ty)
+		match name
+		| `std.Some n:
+			sym = mklocal(p, n, ty)
+			if !declare(p, n, sym)
+				err(loc, "redefinition of {}\n", n)
+			;;
+			std.slpush(&decls, (sym, `std.None))
+		| `std.None:
+			err(loc, "declaration defines no name\n")
 		;;
-		expectsemi(p)
-		-> std.mk(`Sdecl [.name=n, .sym=sym])
-	| `std.None:
-		err(loc, "declaration defines no name\n")
+		match peek(p)
+		| (_, `Tcomma):
+			next(p)
+		| _:
+			break
+		;;
 	;;
+	expectsemi(p)
+	-> std.mk(`Sdecl decls)
 }
 
 const parsedeclorstmt = {p	
