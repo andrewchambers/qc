@@ -232,7 +232,7 @@ const emitdowhile = {whilestmt
 	ol("@L{}\n", whilestmt.breaklbl)
 }
 
-const addr = {expr
+const emitlval = {expr
 	match expr
 	| &(`Eident `Symlocal local):
 		-> std.get(std.htget(allocas, local))
@@ -247,7 +247,7 @@ const addr = {expr
 	;;
 }
 
-const load = {val, ty
+const emitload = {val, ty
 	var v
 	
 	match ty
@@ -271,7 +271,7 @@ const load = {val, ty
 	-> v
 }
 
-const store = {dst, v
+const emitstore = {dst, v
 	oi("storel {}, {}\n", valstr(v), valstr(dst))
 }
 
@@ -288,20 +288,20 @@ const emitexpr = {expr
 	| &(`Eunop u):
 		match u.op
 		| `Oaddr:
-			-> addr(u.operand)
+			-> emitlval(u.operand)
 		| `Oderef:
 			v1 = emitexpr(u.operand)
-			-> load(v1, u.ty)
+			-> emitload(v1, u.ty)
 		| _:
 			std.fatal("unsupported unop: {}\n", u.op)
 		;;
 	| &(`Eident `Symlocal local):
 		v1 = std.get(std.htget(allocas, local))
-		-> load(v1, local.ty)
+		-> emitload(v1, local.ty)
 	| &(`Eassign assign):
-		v1 = addr(assign.l)
+		v1 = emitlval(assign.l)
 		v2 = emitexpr(assign.r)
-		store(v1, v2)
+		emitstore(v1, v2)
 		-> v2
 	| &(`Esel sel):
 		-> emitsel(sel)
@@ -320,7 +320,7 @@ const emitlsel = {sel
 const emitsel = {sel
 	var p
 	p = emitlsel(sel)
-	-> load(p, sel.ty)
+	-> emitload(p, sel.ty)
 }
 
 const emitlidx = {idx
@@ -340,7 +340,7 @@ const emitidx = {idx
 	var p
 	
 	p = emitlidx(idx)
-	-> load(p, idx.ty)
+	-> emitload(p, idx.ty)
 }
 
 const emitbinop = {b
