@@ -255,7 +255,6 @@ const emitload = {val, ty
 		-> val
 	| `Tyaggr &(`Tystruct _):
 		-> val
-
 	| _:
 	;;
 	
@@ -361,13 +360,13 @@ const emitbinop = {b
 	| `Omod:
 		o = "rem"
 	| `Oeq:
-			o = "ceql"
+		o = "ceql"
 	| `One:
-			o = "cnel"
+		o = "cnel"
 	| `Olt:
-			o = "csltl"
+		o = "csltl"
 	| `Ogt:
-			o = "csgtl"
+		o = "csgtl"
 	;;
 	oi("{} =l {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
 	-> result
