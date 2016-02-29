@@ -784,6 +784,7 @@ const parseseltail = {p, expr, selstruct
 const parsepostexpr = {p
 	var expr, idx
 	var selstruct
+	var funclike, args
 	
 	expr = parseprimaryexpr(p)
 	while true
@@ -811,6 +812,29 @@ const parsepostexpr = {p
 				err(l, "'->' can only be used on structs or unions\n")
 			;;
 			expr = parseseltail(p, expr, selstruct)
+		| (l, `Toparen):
+			funclike = expr
+			args = [][:]
+			match peek(p)
+			| (_, `Tcparen):
+				next(p)
+			| _:
+				while true
+					std.slpush(&args, parseexpr(p))
+					match peek(p)
+					| (_, `Tcparen):
+						next(p)
+						break
+					| (_, `Tcomma):
+						next(p)
+					;;
+				;;
+			;;
+			expr = std.mk(`Ecall [
+				.ty=`Typrim `Tyint,
+				.func=funclike,
+				.args=args
+			])
 		| _:
 			break
 		;;

@@ -277,6 +277,8 @@ const emitexpr = {expr
 	var v1, v2
 
 	match expr
+	| &(`Ecall call):
+		-> emitcall(call)
 	| &(`Eidx idx):
 		-> emitidx(idx)
 	| &(`Eintlit v):
@@ -375,3 +377,24 @@ const emitbinop = {b
 	-> result
 }
 
+const emitcall = {call
+	var result, args, v
+
+	result = newreg()
+	args = [][:]
+	for arg in call.args
+		v = emitexpr(arg)
+		std.slpush(&args, v)
+	;;
+	match call.func
+	| &(`Eident &([.name=name, .sc=`Sclassglobal])):
+		oi("{} =l call ${}(", valstr(result), name)
+		for arg in args
+			o("l {},", valstr(arg))
+		;;
+		o(")\n")
+	| _:
+		std.fatal("function pointers are unimplemented\n")
+	;;
+	-> result
+}

@@ -70,12 +70,19 @@ pkg qc =
 		`Eident sym#
 		`Eidx index
 		`Esel selector
+		`Ecall call
 	;;
 	
 	type selector = struct
 		ty : ctype
 		expr : expr#
 		off : uint32
+	;;
+
+	type call = struct
+		ty : ctype
+		func : expr#
+		args : expr#[:]
 	;;
 	
 	type index = struct
@@ -163,5 +170,7 @@ const exprtype = {e
 		-> `Typrim `Tyint
 	| &(`Eidx idx):
 		-> idx.ty
+	| &(`Ecall call):
+		-> `Typrim `Tyint
 	;;
 }
