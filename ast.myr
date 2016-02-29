@@ -62,7 +62,6 @@ pkg qc =
 		lbl : int
 	;;
 	
-	
 	type expr = union
 		`Ebinop binop
 		`Eunop unop
@@ -99,6 +98,8 @@ pkg qc =
 		`One
 		`Olt
 		`Ogt
+		`Oge
+		`Ole
 	;;
 	
 	type uop = union

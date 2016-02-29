@@ -661,13 +661,38 @@ const parseassign = {p
 const parseeqlexpr = {p
 	var l, r, op
 	
-	l = parseaddexpr(p)
+	l = parserelexpr(p)
 	while true
 		match peek(p)
 		| (_, `Teq):
 			op = `Oeq
 		| (_, `Tne):
 			op = `One
+		| _:
+			break
+		;;
+		next(p)
+		r = parserelexpr(p)
+		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
+	;;
+	-> l
+}
+
+
+const parserelexpr = {p
+	var l, r, op
+	
+	l = parseaddexpr(p)
+	while true
+		match peek(p)
+		| (_, `Tgt):
+			op = `Ogt
+		| (_, `Tlt):
+			op = `Olt
+		| (_, `Tge):
+			op = `Oge
+		| (_, `Tle):
+			op = `Ole
 		| _:
 			break
 		;;

@@ -366,6 +366,10 @@ const emitbinop = {b
 		o = "csltl"
 	| `Ogt:
 		o = "csgtl"
+	| `Oge:
+		o = "csgel"
+	| `Ole:
+		o = "cslel"
 	;;
 	oi("{} =l {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
 	-> result
