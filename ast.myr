@@ -9,7 +9,7 @@ pkg qc =
 	
 	type func = struct
 		name : byte[:]
-		rettype : ctype
+		ty : ctype
 		args : (byte[:], ctype)[:]
 		body : stmt#[:]
 		locals : sym#[:]

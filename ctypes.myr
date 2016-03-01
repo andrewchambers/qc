@@ -1,6 +1,12 @@
 use std
 
 pkg qc =
+
+	type ctype = union
+		`Typrim cprim
+		`Tyaggr caggr#
+	;;
+
 	type cprim = union
 		`Tyint
 		`Tyvoid
@@ -10,6 +16,7 @@ pkg qc =
 		`Typtr ctype
 		`Tyarr carr
 		`Tystruct std.option(cstruct)
+		`Tyfunc cfunc
 	;;
 	
 	type cstruct = struct
@@ -21,9 +28,10 @@ pkg qc =
 		subty : ctype
 	;;
 
-	type ctype = union
-		`Typrim cprim
-		`Tyaggr caggr#
+	type cfunc = struct
+		rty : ctype
+		params : (std.option(byte[:]), ctype[:])
+		isvararg : bool
 	;;
 	
 	const typesize : (ty : ctype -> std.option(uint32))

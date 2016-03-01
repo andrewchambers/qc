@@ -16,6 +16,13 @@ const mklocal = {p, name, ty
 	-> l
 }
 
+const mkglobal = {p, name, ty
+	var g
+	
+	g = std.mk([.ty=ty, .name=name, .sc=`Sclassglobal])
+	-> g
+}
+
 type lblstate = union
 	`Lblforward (srcloc, int)
 	`Lbldefined int
@@ -103,7 +110,7 @@ const parse = {ts
 		| (_, `Teof):
 			break
 		| _:
-			std.slpush(&globals, parsefunc(p))
+			std.slpush(&globals, parsedeclaration(p))
 		;;
 	;;
 	-> globals
@@ -131,70 +138,6 @@ const parsetype = {p
 	| (l, _):
 		err(l, "expected type\n")
 	;;
-}
-
-const parsefunc = {p
-	var rettype, fname, args
-	var argname, argtype
-	
-	args = [][:]
-	
-	p.lbltab = std.mkht(std.strhash, std.streq)
-	rettype = parsetype(p)
-	match next(p)
-	| (l, `Tident name):
-		fname = name
-	| (l, tok):
-		err(l, "expected function name\n", tok)
-	;;
-	
-	match next(p)
-	| (_, `Toparen):
-		match peek(p)
-		| (_, `Tcparen):
-			next(p)
-			goto endparams
-		| _:
-			while true
-				argtype = parsetype(p)
-				match next(p)
-				| (l, `Tident name):
-					argname = name
-				| (l, _):
-					err(l, "expected parameter name\n")
-				;;
-				std.slpush(&args, (argname, argtype))
-				match next(p)
-				| (l, `Tcparen):
-					break
-				| (l, `Tcomma):
-				| (l, _):
-					err(l, "expected ',' or ')'\n")
-				;;
-			;;
-		;;
-	| (l, _):
-		err(l, "expected function parameters")
-	;;
-	:endparams
-	p.curfunc = std.mk( [
-		.name = fname,
-		.rettype = rettype,
-		.args = args,
-		.locals = [][:],
-		.body = [][:],
-		.lblcnt = 0,
-	])
-	p.curfunc.body = parseblock(p)
-	for name in std.htkeys(p.lbltab)
-		match std.get(std.htget(p.lbltab, name))
-		| `Lblforward (lblpos, _):
-			err(lblpos, "'{}' not defined\n", name)
-		| _:
-		;;
-	;;
-	std.htfree(p.lbltab)
-	-> std.mk(`Nfunc p.curfunc)
 }
 
 const expectoparen = {p
@@ -478,7 +421,8 @@ const parsedirectdecl = {p, basety
 }
 
 const parsedecltail = {p, basety
-	var len
+	var arrlen
+	var cfunc, paramty, sclass, name
 	
 	while true
 		match peek(p)
@@ -489,19 +433,41 @@ const parsedecltail = {p, basety
 				err(l, "unimplemented inferred arr size")
 			| _:
 			;;
-			len = parseconstexpr(p) castto(uint32)
+			arrlen = parseconstexpr(p) castto(uint32)
 			expectcsqbrac(p)
-			-> `Tyaggr std.mk(`Tyarr [.len=len, .subty=basety])
+			basety = `Tyaggr std.mk(`Tyarr [.len=arrlen, .subty=basety])
+		| (l, `Toparen):
+			next(p)
+			cfunc.isvararg = false
+			cfunc.params = [][:]
+			cfunc.rty = basety
+			match peek(p)
+			| (_, `Tcparen):
+				-> `Tyaggr std.mk(`Tyfunc cfunc)
+			| _:
+			;;
+			while true
+				(sclass, paramty) = parsedeclspecs(p);
+				(name, paramty) = parsedecl(p, paramty);
+				std.slpush(&cfunc.params, (name, paramty))
+				match peek(p)
+				| (_, `Tcomma):
+					next(p);
+				| _:
+					break
+				;;
+				/* XXX ellipsis */
+			;;
 		| _:
 			-> basety
 		;;
 	;;
-	std.die("unreachable\n")
 }
 
 const parsedeclaration = {p
 	var sclass, name, ty, sym
 	var decls, loc
+	var body
 	
 	decls = [][:]
 	(sclass, ty) = parsedeclspecs(p)
@@ -510,7 +476,12 @@ const parsedeclaration = {p
 		(name, ty) = parsedecl(p, ty)
 		match name
 		| `std.Some n:
-			sym = mklocal(p, n, ty)
+			match sclass
+			| `Sclassglobal:
+				sym = mkglobal(p, n, ty)
+			| `Sclasslocal:
+				sym = mklocal(p, n, ty)
+			;;
 			if !declare(p, n, sym)
 				err(loc, "redefinition of {}\n", n)
 			;;
@@ -521,6 +492,24 @@ const parsedeclaration = {p
 		match peek(p)
 		| (_, `Tcomma):
 			next(p)
+		| (l, `Tobrace):
+			match sclass
+			| `Sclassglobal:
+			| _:
+				err(loc, "function definition must be global\n")
+			;;
+			if decls.len != 1
+				err(l, "unexpected {\n")
+			;;
+			p.curfunc = std.mk(`Nfunc [
+				.name=name,
+				.ty=ty,
+				.locals=[][:],
+				.lblcnt= 0,
+			])
+			body = parseblock(p)
+			p.curfunc.body = parseblock(p)
+			-> p.curfunc
 		| _:
 			break
 		;;
