@@ -443,7 +443,9 @@ const parsedecltail = {p, basety
 			cfunc.rty = basety
 			match peek(p)
 			| (_, `Tcparen):
-				-> `Tyaggr std.mk(`Tyfunc cfunc)
+				basety = `Tyaggr std.mk(`Tyfunc cfunc)
+				next(p)
+				continue
 			| _:
 			;;
 			while true
@@ -458,10 +460,12 @@ const parsedecltail = {p, basety
 				;;
 				/* XXX ellipsis */
 			;;
+			basety = `Tyaggr std.mk(`Tyfunc cfunc)
 		| _:
-			-> basety
+			break
 		;;
 	;;
+	-> basety
 }
 
 const parsedeclaration = {p
@@ -479,12 +483,23 @@ const parsedeclaration = {p
 			match sclass
 			| `Sclassglobal:
 				sym = mkglobal(p, n, ty)
+				if !declare(p, n, sym)
+					err(loc, "redefinition of {}\n", n)
+				;;
 			| `Sclasslocal:
+				std.put("XXXXX1\n")
+				std.put("{}\n", p.curfunc.locals)
 				sym = mklocal(p, n, ty)
+				std.put("XXXXX2\n")
+				if !declare(p, n, sym)
+					err(loc, "redefinition of {}\n", n)
+				;;
+			| `Sclasstypedef:
+				std.fatal("unimplemented typedef\n")
+			| _:
+				std.fatal("unimplemented sclass\n")
 			;;
-			if !declare(p, n, sym)
-				err(loc, "redefinition of {}\n", n)
-			;;
+			
 			std.slpush(&decls, (sym, `std.None))
 		| `std.None:
 			err(loc, "declaration defines no name\n")
@@ -501,26 +516,36 @@ const parsedeclaration = {p
 			if decls.len != 1
 				err(l, "unexpected {\n")
 			;;
-			p.curfunc = std.mk(`Nfunc [
-				.name=name,
-				.ty=ty,
-				.locals=[][:],
-				.lblcnt= 0,
-			])
+			match name
+			| `std.Some n:
+				p.curfunc = std.mk([
+					.name=n,
+					.ty=ty,
+					.locals=[][:],
+					.lblcnt= 0,
+				])
+			| `std.None:
+				err(l, "function requires a name\n")
+			;;
 			body = parseblock(p)
 			p.curfunc.body = parseblock(p)
-			-> p.curfunc
+			-> std.mk(`Nfunc p.curfunc)
 		| _:
 			break
 		;;
 	;;
 	expectsemi(p)
-	-> std.mk(`Sdecl decls)
+	-> std.mk(`Ndecl decls)
 }
 
 const parsedeclorstmt = {p	
 	if startofdecl(p)
-		-> parsedeclaration(p)
+		match parsedeclaration(p)
+		| &(`Ndecl decls):
+			-> std.mk(`Sdecl decls)
+		| _:
+			std.fatal("internal error\n")
+		;;
 	;;
 	-> parsestmt(p)
 }

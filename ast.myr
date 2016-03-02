@@ -5,12 +5,12 @@ pkg qc =
 	
 	type node = union
 		`Nfunc func#
+		`Ndecl (sym#, std.option(expr#))[:]
 	;;
 	
 	type func = struct
 		name : byte[:]
 		ty : ctype
-		args : (byte[:], ctype)[:]
 		body : stmt#[:]
 		locals : sym#[:]
 		lblcnt : int
@@ -137,6 +137,7 @@ pkg qc =
 	type sclass = union
 		`Sclasslocal
 		`Sclassglobal
+		`Sclasstypedef
 		`Sclassnone
 	;;
 	

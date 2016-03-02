@@ -30,7 +30,7 @@ pkg qc =
 
 	type cfunc = struct
 		rty : ctype
-		params : (std.option(byte[:]), ctype[:])
+		params : (std.option(byte[:]), ctype)[:]
 		isvararg : bool
 	;;
 	

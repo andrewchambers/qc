@@ -29,6 +29,8 @@ const emit = {globals
 		match g
 		| &(`Nfunc f):
 			emitfunc(f)
+		| &(`Ndecl d):
+			std.fatal("unimplemented global")
 		;;
 	;;
 }
@@ -109,9 +111,9 @@ const emitfunc = {f
 	nreg = 0
 	
 	o("function l ${}(", f.name)
-	for (name, ty) in f.args
-		o("l {},", name)
-	;;
+	//for (name, ty) in f.args
+	//	o("l {},", name)
+	//;;
 	o(") {{\n")
 	ol("@start\n")
 	
