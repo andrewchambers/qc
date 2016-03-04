@@ -157,7 +157,7 @@ const expectcparen = {p
 	match next(p)
 	| (_, `Tcparen):
 	| (l, _):
-		err(l, "expected ')'\n")
+		err(l, "expected ')'")
 	;;
 }
 
@@ -460,8 +460,14 @@ const parsedecltail = {p, basety
 			| _:
 			;;
 			while true
-				(sclass, paramty) = parsedeclspecs(p);
-				(name, paramty) = parsedecl(p, paramty);
+				(sclass, paramty) = parsedeclspecs(p)
+				match sclass
+				| `Sclassnone:
+				| _:
+					/* XXX error loc of param */
+					err(l, "parameters cannot have a storage class\n")
+				;;
+				(name, paramty) = parsedecl(p, paramty)
 				std.slpush(&cfunc.params, (name, paramty))
 				match peek(p)
 				| (_, `Tcomma):
@@ -471,6 +477,7 @@ const parsedecltail = {p, basety
 				;;
 				/* XXX ellipsis */
 			;;
+			expectcparen(p)
 			basety = `Tyaggr std.mk(`Tyfunc cfunc)
 		| _:
 			break
@@ -481,7 +488,7 @@ const parsedecltail = {p, basety
 
 const parsedeclaration = {p
 	var sclass, name, ty, sym
-	var decls, loc
+	var decls, loc, paramsym
 	
 	decls = [][:]
 	(sclass, ty) = parsedeclspecs(p)
@@ -539,16 +546,36 @@ const parsedeclaration = {p
 			;;
 			match name
 			| `std.Some n:
+				p.lbltab=std.mkht(std.slhash, std.sleq)
 				p.curfunc = std.mk([
 					.name=n,
-					.ty=ty,
 					.locals=[][:],
+					.params=[][:],
 					.lblcnt= 0,
 				])
 			| `std.None:
 				err(l, "function requires a name\n")
 			;;
+			match ty
+			| `Tyaggr &(`Tyfunc fty):
+				p.curfunc.functy = fty
+			| _:
+				err(loc, "non function type cannot have a function\n")
+			;;
+			pushscope(p)
+			for (pname, pty) in p.curfunc.functy.params
+				match pname
+				| `std.Some n:
+					paramsym = mklocal(p, n, pty)
+					if !declare(p, n, paramsym)
+						err(loc, "duplicate param name {}\n", n)
+					;;
+					std.slpush(&p.curfunc.params, paramsym)
+				| `std.None:
+				;;
+			;;
 			p.curfunc.body = parseblock(p)
+			popscope(p)
 			-> std.mk(`Nfunc p.curfunc)
 		| _:
 			break
@@ -712,7 +739,6 @@ const parseeqlexpr = {p
 	-> l
 }
 
-
 const parserelexpr = {p
 	var l, r, op
 	
@@ -847,6 +873,7 @@ const parsepostexpr = {p
 			;;
 			expr = parseseltail(p, expr, selstruct)
 		| (l, `Toparen):
+			next(p)
 			funclike = expr
 			args = [][:]
 			match peek(p)

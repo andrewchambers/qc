@@ -111,9 +111,14 @@ const emitfunc = {f
 	nreg = 0
 	
 	o("function l ${}(", f.name)
-	//for (name, ty) in f.args
-	//	o("l {},", name)
-	//;;
+	for (name, ty) in f.functy.params
+		match name
+		| `std.Some n:
+			o("l {}, ", n)
+		| `std.None:
+			std.fatal("emit unimplemented param with no name\n")
+		;;
+	;;
 	o(") {{\n")
 	ol("@start\n")
 	
@@ -122,6 +127,11 @@ const emitfunc = {f
 		std.htput(allocas, l, alloca)
 		oi("{} =l alloc16 {}\n", valstr(alloca), std.get(typesize(l.ty)))
 	;;
+	
+	for psym in f.params
+		oi("storel {}, {}\n", valstr(std.get(std.htget(allocas, psym))), psym.name)
+	;;
+	
 	for stmt in f.body
 		emitstmt(stmt)
 	;;
@@ -392,7 +402,7 @@ const emitcall = {call
 	| &(`Eident &([.name=name, .sc=`Sclassglobal])):
 		oi("{} =l call ${}(", valstr(result), name)
 		for arg in args
-			o("l {},", valstr(arg))
+			o("l {}, ", valstr(arg))
 		;;
 		o(")\n")
 	| _:

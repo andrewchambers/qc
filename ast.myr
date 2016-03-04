@@ -10,9 +10,10 @@ pkg qc =
 	
 	type func = struct
 		name : byte[:]
-		ty : ctype
+		functy : cfunc
 		body : stmt#[:]
 		locals : sym#[:]
+		params : sym#[:]
 		lblcnt : int
 	;;
 	
