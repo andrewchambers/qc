@@ -1,5 +1,6 @@
 int
-main() {
+main()
+{
 	start:
 		goto next;
 		return 1;

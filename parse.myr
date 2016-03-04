@@ -37,6 +37,10 @@ type parser = struct
 	curfunc : func#
 ;;
 
+const inglobalscope = {p
+	-> p.symtab.len == 1
+}
+
 const pushscope = {p
 	std.slpush(&p.symtab, std.mkht(std.strhash, std.streq))
 	std.slpush(&p.tagtab, std.mkht(std.strhash, std.streq))
@@ -101,6 +105,7 @@ const parse = {ts
 		.symtab = symtab,
 		.tagtab = tagtab,
 	])
+	pushscope(p)
 	p.toks[0] = toknext(ts)
 	p.toks[1] = toknext(ts)
 	
@@ -273,8 +278,8 @@ const parseblock = {p
 	stmts = [][:]
 	match next(p)
 	| (l, `Tobrace):
-	| (l, _):
-		err(l, "expected '{'\n")
+	| (l, t):
+		err(l, "expected '{{', got {}\n", t)
 	;;
 	pushscope(p)
 	while true
@@ -389,15 +394,21 @@ const parsestructbody = {p
 }
 
 const parsedeclspecs = {p
-	match peek(p)
-	| (l, `Tint):
-		next(p)
-		-> (`Sclasslocal, `Typrim `Tyint)
-	| (l, `Tstruct):
-		-> (`Sclasslocal, parsetagtype(p))
-	| (l, _):
-		err(l, "expected a type specifier or storage class\n")
+	var sclass
+	
+	sclass = `Sclassnone
+	while true
+		match peek(p)
+		| (l, `Tint):
+			next(p)
+			-> (sclass, `Typrim `Tyint)
+		| (l, `Tstruct):
+			-> (sclass, parsetagtype(p))
+		| (l, _):
+			err(l, "expected a type specifier or storage class\n")
+		;;
 	;;
+	std.fatal("unreachable\n")
 }
 
 const parsedecl = {p, basety
@@ -471,7 +482,6 @@ const parsedecltail = {p, basety
 const parsedeclaration = {p
 	var sclass, name, ty, sym
 	var decls, loc
-	var body
 	
 	decls = [][:]
 	(sclass, ty) = parsedeclspecs(p)
@@ -481,16 +491,27 @@ const parsedeclaration = {p
 		match name
 		| `std.Some n:
 			match sclass
+			| `Sclassnone:
+				if inglobalscope(p)
+					sclass = `Sclassglobal
+				else
+					sclass = `Sclasslocal
+				;;
+			| _:
+			;;
+			match sclass
+			| `Sclassnone:
+				std.fatal("internal error\n")
 			| `Sclassglobal:
 				sym = mkglobal(p, n, ty)
 				if !declare(p, n, sym)
 					err(loc, "redefinition of {}\n", n)
 				;;
 			| `Sclasslocal:
-				std.put("XXXXX1\n")
-				std.put("{}\n", p.curfunc.locals)
+				if inglobalscope(p)
+					err(loc, "cannot declare a local outside of a function")
+				;;
 				sym = mklocal(p, n, ty)
-				std.put("XXXXX2\n")
 				if !declare(p, n, sym)
 					err(loc, "redefinition of {}\n", n)
 				;;
@@ -527,7 +548,6 @@ const parsedeclaration = {p
 			| `std.None:
 				err(l, "function requires a name\n")
 			;;
-			body = parseblock(p)
 			p.curfunc.body = parseblock(p)
 			-> std.mk(`Nfunc p.curfunc)
 		| _:
