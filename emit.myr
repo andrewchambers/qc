@@ -105,16 +105,25 @@ const valstr = {v
 }
 
 const emitfunc = {f
-	var alloca
+	var alloca, namestoparamregs, reg
 	
 	allocas = std.mkht({x; -> x castto(uint32)}, {x, y; -> x == y})
 	nreg = 0
 	
 	o("function l ${}(", f.name)
-	for (name, ty) in f.functy.params
+	
+	namestoparamregs = std.mkht(std.slhash, std.sleq)
+	for var i = 0; i < f.functy.params.len; i++
+		var name, ty
+		(name, ty) = f.functy.params[i]
 		match name
 		| `std.Some n:
-			o("l {}, ", n)
+			reg = newnamedreg(n)
+			o("l {}", valstr(reg))
+			if i != f.functy.params.len - 1
+				o(",")
+			;;
+			std.htput(namestoparamregs, n, reg)
 		| `std.None:
 			std.fatal("emit unimplemented param with no name\n")
 		;;
@@ -128,8 +137,10 @@ const emitfunc = {f
 		oi("{} =l alloc16 {}\n", valstr(alloca), std.get(typesize(l.ty)))
 	;;
 	
-	for psym in f.params
-		oi("storel {}, {}\n", valstr(std.get(std.htget(allocas, psym))), psym.name)
+	for param in f.params
+		reg = std.get(std.htget(namestoparamregs, param.name))
+		alloca = std.get(std.htget(allocas, param))
+		emitstore(alloca, reg)
 	;;
 	
 	for stmt in f.body
@@ -141,7 +152,35 @@ const emitfunc = {f
 	;;
 	o("}}\n\n")
 	std.htfree(allocas)
+	std.htfree(namestoparamregs)
 }
+
+const emitcall = {call
+	var result, args, v
+
+	result = newreg()
+	args = [][:]
+	for arg in call.args
+		v = emitexpr(arg)
+		std.slpush(&args, v)
+	;;
+	match call.func
+	| &(`Eident &([.name=name, .sc=`Sclassglobal])):
+		oi("{} =l call ${}(", valstr(result), name)
+		for var i = 0; i < args.len; i++
+			var arg = args[i]
+			o("l {}", valstr(arg))
+			if i != args.len-1
+				o(",")
+			;;
+		;;
+		o(")\n")
+	| _:
+		std.fatal("function pointers are unimplemented\n")
+	;;
+	-> result
+}
+
 
 const emitstmt = {stmt
 	var v
@@ -389,24 +428,3 @@ const emitbinop = {b
 	-> result
 }
 
-const emitcall = {call
-	var result, args, v
-
-	result = newreg()
-	args = [][:]
-	for arg in call.args
-		v = emitexpr(arg)
-		std.slpush(&args, v)
-	;;
-	match call.func
-	| &(`Eident &([.name=name, .sc=`Sclassglobal])):
-		oi("{} =l call ${}(", valstr(result), name)
-		for arg in args
-			o("l {}, ", valstr(arg))
-		;;
-		o(")\n")
-	| _:
-		std.fatal("function pointers are unimplemented\n")
-	;;
-	-> result
-}
