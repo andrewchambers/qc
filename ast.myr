@@ -152,8 +152,12 @@ pkg qc =
 	const exprtype : (e : expr# -> ctype)
 ;;
 
+// XXX this label count is global until qbe supports func local labels.
+var lblcnt = 0
+
 const nextlbl = {f
-	-> f.lblcnt++
+	-> lblcnt++
+	//-> f.lblcnt++
 }
 
 const exprtype = {e

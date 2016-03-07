@@ -137,7 +137,7 @@ const emitfunc = {f
 		;;
 	;;
 	o(") {{\n")
-	ol("@start\n")
+	ol("@L{}\n", nextlbl(f))
 	
 	for l in f.locals
 		alloca = newnamedreg(l.name)
