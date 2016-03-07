@@ -32,6 +32,7 @@ type parser = struct
 	ts : tokstream#
 	toks : (srcloc, tok)[2]
 	symtab : std.htab(byte[:], sym#)#[:]
+	typetab : std.htab(byte[:], ctype)#[:]
 	tagtab : std.htab(byte[:], caggr#)#[:]
 	lbltab : std.htab(byte[:], lblstate)#
 	curfunc : func#
@@ -43,15 +44,18 @@ const inglobalscope = {p
 
 const pushscope = {p
 	std.slpush(&p.symtab, std.mkht(std.strhash, std.streq))
+	std.slpush(&p.typetab, std.mkht(std.strhash, std.streq))
 	std.slpush(&p.tagtab, std.mkht(std.strhash, std.streq))
 }
 
 const popscope = {p
-	var symtab, tagtab
+	var symtab, typetab, tagtab
 	
-	(symtab, p.symtab) = std.slpop(p.symtab)
-	(tagtab, p.tagtab) = std.slpop(p.tagtab)
+	symtab = std.slpop(&p.symtab)
+	typetab = std.slpop(&p.typetab)
+	tagtab = std.slpop(&p.tagtab)
 	std.htfree(symtab)
+	std.htfree(typetab)
 	std.htfree(tagtab)
 }
 
@@ -74,11 +78,30 @@ const lookuptag = {p, name
 	-> `std.None
 }
 
+const lookuptype = {p, name
+	for var i = p.typetab.len-1; i >= 0 ; i--
+		match std.htget(p.typetab[i], name)
+		| `std.Some ty:
+			-> `std.Some ty
+		| `std.None:
+		;;
+	;;
+	-> `std.None
+}
+
 const declare = {p, name, sym
 	if std.hthas(p.symtab[p.symtab.len-1], name)
 		-> false
 	;;
 	std.htput(p.symtab[p.symtab.len-1], name, sym)
+	-> true
+}
+
+const declaretype = {p, name, ty
+	if std.hthas(p.typetab[p.typetab.len-1], name)
+		-> false
+	;;
+	std.htput(p.typetab[p.typetab.len-1], name, ty)
 	-> true
 }
 
@@ -95,15 +118,13 @@ const lookup = {p, name
 
 const parse = {ts
 	var p : parser#
-	var symtab, tagtab, globals
-	
-	symtab = [][:]
-	tagtab = [][:]
+	var globals
 	
 	p = std.mk([
 		.ts = ts,
-		.symtab = symtab,
-		.tagtab = tagtab,
+		.symtab = [][:],
+		.tagtab = [][:],
+		.typetab = [][:],
 	])
 	pushscope(p)
 	p.toks[0] = toknext(ts)
@@ -309,8 +330,12 @@ const startofdecl = {p
 	| (_, `Tint):
 	| (_, `Tvoid):
 	| (_, `Tident n):
-		/* XXX lookup type */
-		-> false
+		match lookuptype(p, n)
+		| `std.Some _:
+			-> true
+		| _:
+			-> false
+		;;
 	| _:
 		-> false
 	;;
@@ -399,6 +424,17 @@ const parsedeclspecs = {p
 	sclass = `Sclassnone
 	while true
 		match peek(p)
+		| (l, `Ttypedef):
+			next(p)
+			sclass = `Sclasstypedef
+		| (l, `Tident n):
+			next(p)
+			match lookuptype(p, n)
+			| `std.Some ty:
+				-> (sclass, ty)
+			| `std.None:
+				err(l, "{} is not a type\n", n)
+			;;
 		| (l, `Tint):
 			next(p)
 			-> (sclass, `Typrim `Tyint)
@@ -523,11 +559,13 @@ const parsedeclaration = {p
 					err(loc, "redefinition of {}\n", n)
 				;;
 			| `Sclasstypedef:
-				std.fatal("unimplemented typedef\n")
+				sym = std.mk([.name=n, .ty=ty, .sc=`Sclasstypedef])
+				if !declaretype(p, n, ty)
+					err(loc, "redefinition of type {}\n", n)
+				;;
 			| _:
 				std.fatal("unimplemented sclass\n")
 			;;
-			
 			std.slpush(&decls, (sym, `std.None))
 		| `std.None:
 			err(loc, "declaration defines no name\n")

@@ -25,12 +25,20 @@ const newnamedreg = {name
 }
 
 const emit = {globals
+	
 	for g in globals
 		match g
 		| &(`Nfunc f):
 			emitfunc(f)
-		| &(`Ndecl d):
-			std.fatal("unimplemented global")
+		| &(`Ndecl decls):
+			for decl in decls
+				match decl
+				| ([.sc=`Sclasstypedef], _):
+					continue
+				| _:
+					std.fatal("unimplemented global decl")
+				;;
+			;;
 		;;
 	;;
 }

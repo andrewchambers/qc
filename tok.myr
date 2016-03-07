@@ -75,6 +75,7 @@ pkg qc =
 		`Tconst   /* const */
 		`Treturn  /* return */
 		`Tsizeof  /* sizeof */
+		`Ttypedef /* typedef */
 		`Tvoid
 		`Tint
 	
@@ -385,6 +386,7 @@ const kwident = {ts
 	| "if": 	-> `Tif
 	| "sizeof": 	-> `Tsizeof
 	| "struct": 	-> `Tstruct
+	| "typedef":	-> `Ttypedef
 	| "union": 	-> `Tunion
 	| "void": 	-> `Tvoid
 	| "while": 	-> `Twhile
@@ -659,6 +661,7 @@ const tokfmt = {sb, ap, opts
 	| `Tcontinue:	std.sbfmt(sb, "continue")
 	| `Tsizeof:	std.sbfmt(sb, "sizeof")
 	| `Treturn:	std.sbfmt(sb, "return")
+	| `Ttypedef:	std.sbfmt(sb, "typedef")
 	| `Textern:	std.sbfmt(sb, "extern")
 	| `Tvoid:	std.sbfmt(sb, "void")
 	| `Tstruct:	std.sbfmt(sb, "struct")
