@@ -13,8 +13,19 @@ type Val = union
 	`Vreg byte[:]
 ;;
 
+type data = struct
+	isglobal : bool
+	label : byte[:]
+	val : union
+		`Dstr byte[:]
+		`Zero uint32
+	;;
+;;
+
 var allocas : std.htab(sym#, Val)#
 var nreg = 0
+
+var pendingdata : data#[:]
 
 const newreg = {
 	-> `Vreg std.fmt("%v{}", nreg++) 
@@ -25,6 +36,7 @@ const newnamedreg = {name
 }
 
 const emit = {globals
+	pendingdata = [][:]
 	
 	for g in globals
 		match g
@@ -33,14 +45,28 @@ const emit = {globals
 		| &(`Ndecl decls):
 			for decl in decls
 				match decl
-				| ([.sc=`Sclasstypedef], _):
-					continue
+				| (sym, `std.None):
+					match sym.sc
+					| `Sclasstypedef:
+						continue
+					| `Sclassglobal:
+						var d : data = [
+							.isglobal= true,
+							.label=sym.name,
+							.val=`Zero std.get(typesize(sym.ty)),
+						]
+						std.slpush(&pendingdata, std.mk(d))
+					| _:
+						std.fatal("internal error...\n")
+					;;
 				| _:
 					std.fatal("unimplemented global decl")
 				;;
 			;;
 		;;
 	;;
+	
+	emitpendingdata()
 }
 
 const vo = {msg : byte[:], ap : std.valist#
@@ -291,9 +317,20 @@ const emitdowhile = {whilestmt
 }
 
 const emitlval = {expr
+	var v
+	
 	match expr
-	| &(`Eident local):
-		-> std.get(std.htget(allocas, local))
+	| &(`Eident sym):
+		match sym.sc
+		| `Sclassglobal:
+			v = newreg()
+			oi("{} =l copy ${}\n", valstr(v), sym.name)
+			-> v
+		| `Sclasslocal:
+			-> std.get(std.htget(allocas, sym))
+		| _:
+			std.fatal("emitlval internal error\n")
+		;;
 	| &(`Eunop [.op=`Oderef, .operand=operand]):
 		-> emitexpr(operand)
 	| &(`Eidx idx):
@@ -354,9 +391,9 @@ const emitexpr = {expr
 		| _:
 			std.fatal("unsupported unop: {}\n", u.op)
 		;;
-	| &(`Eident local):
-		v1 = std.get(std.htget(allocas, local))
-		-> emitload(v1, local.ty)
+	| &(`Eident sym):
+		v1 = emitlval(expr)
+		-> emitload(v1, sym.ty)
 	| &(`Eassign assign):
 		v1 = emitlval(assign.l)
 		v2 = emitexpr(assign.r)
@@ -436,3 +473,14 @@ const emitbinop = {b
 	-> result
 }
 
+
+const emitpendingdata = {
+	for data in pendingdata
+		match data.val
+		| `Zero sz:
+			o("data ${} = {{z {}}}\n", data.label, sz)
+		| _:
+			std.fatal("unsupported data")
+		;;
+	;;
+}
