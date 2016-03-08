@@ -68,6 +68,7 @@ pkg qc =
 		`Eunop unop
 		`Eassign assign
 		`Eintlit int64
+		`Estrlit byte[:]
 		`Eident sym#
 		`Eidx index
 		`Esel selector
@@ -183,6 +184,8 @@ const exprtype = {e
 		-> asn.ty
 	| &(`Eintlit _):
 		-> `Typrim `Tyint
+	| &(`Estrlit _):
+		-> `Tyaggr std.mk(`Typtr `Typrim `Tychar)
 	| &(`Eidx idx):
 		-> idx.ty
 	| &(`Ecall call):

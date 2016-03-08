@@ -18,7 +18,7 @@ type data = struct
 	label : byte[:]
 	val : union
 		`Dstr byte[:]
-		`Zero uint32
+		`Dzero uint32
 	;;
 ;;
 
@@ -53,7 +53,7 @@ const emit = {globals
 						var d : data = [
 							.isglobal= true,
 							.label=sym.name,
-							.val=`Zero std.get(typesize(sym.ty)),
+							.val=`Dzero std.get(typesize(sym.ty)),
 						]
 						std.slpush(&pendingdata, std.mk(d))
 					| _:
@@ -355,6 +355,8 @@ const emitload = {val, ty
 	
 	v = newreg()
 	match ty
+	| `Typrim `Tychar:
+		oi("{} =b load {}\n", valstr(v), valstr(val))
 	| `Typrim `Tyint:
 		oi("{} =w load {}\n", valstr(v), valstr(val))
 	| `Typrim `Tylong:
@@ -392,6 +394,16 @@ const emitexpr = {expr
 		-> emitidx(idx)
 	| &(`Eintlit v):
 		-> `Vlit v
+	| &(`Estrlit s):
+		var d = [
+			.isglobal=false,
+			.label="foobar",
+			.val=`Dstr s,
+		]
+		std.slpush(&pendingdata, std.mk(d) )
+		v1 = newreg()
+		// oi("{} =l copy ${}\n", v1, "str")
+		-> v1
 	| &(`Ebinop b):
 		-> emitbinop(b)
 	| &(`Eunop u):
@@ -504,8 +516,10 @@ const emitbinop = {b
 const emitpendingdata = {
 	for data in pendingdata
 		match data.val
-		| `Zero sz:
+		| `Dzero sz:
 			o("data ${} = {{z {}}}\n", data.label, sz)
+		| `Dstr s:
+			o("data ${} = {{b {}, b 0}}\n", data.label, s)
 		| _:
 			std.fatal("unsupported data")
 		;;

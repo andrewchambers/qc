@@ -1042,6 +1042,8 @@ const parseprimaryexpr = {p
 		;;
 	| (l, `Tintlit v):
 		-> std.mk(`Eintlit v)
+	| (l, `Tstrlit s):
+		-> std.mk(`Estrlit s)
 	| (_, `Toparen):
 		expr = parseexpr(p)
 		expectcparen(p)
