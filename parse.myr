@@ -327,7 +327,9 @@ const expectsemi = {p
 const startofdecl = {p
 	match peek(p)
 	| (_, `Tstruct):
+	| (_, `Tchar):
 	| (_, `Tint):
+	| (_, `Tlong):
 	| (_, `Tvoid):
 	| (_, `Tident n):
 		match lookuptype(p, n)
@@ -760,7 +762,7 @@ const parseassign = {p
 	;;
 	next(p)
 	r = parseassign(p)
-	-> std.mk(`Eassign [.ty=`Typrim `Tyint, .op=`Oasn, .l=l, .r=r])
+	-> std.mk(`Eassign [.ty=exprtype(l), .op=`Oasn, .l=l, .r=mkcast(exprtype(l), r)])
 }
 
 const mkbinop = {op, l, r
@@ -795,8 +797,9 @@ const usualconv = {e
 	| `Typrim `Tychar:
 		-> mkcast(`Typrim `Tyint, e)
 	| _:
+		std.fatal("unimplemented usualconv\n")
 	;;
-	std.fatal("unimplemented usualconv")
+	-> e
 }
 
 const arithconv = {l, r
@@ -810,8 +813,11 @@ const arithconv = {l, r
 	if rrank > lrank
 		invert = true
 		(l, r) = (r, l)
+	else
+		invert = false
 	;;
 	
+	result = (l, r)
 	match exprtype(l)
 	| `Typrim `Tylong:
 		match exprtype(r)
@@ -819,8 +825,9 @@ const arithconv = {l, r
 		| _:
 			result = (l, mkcast(`Typrim `Tylong, r))
 		;;
+	| `Typrim `Tyint:
 	| _:
-		std.fatal("unimplemented usualconv")
+		std.fatal("unimplemented arithconv")
 	;;
 	
 	if invert
@@ -845,7 +852,7 @@ const parseeqlexpr = {p
 		;;
 		next(p)
 		r = parserelexpr(p)
-		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
+		l = mkbinop(op, l, r)
 	;;
 	-> l
 }
@@ -869,7 +876,7 @@ const parserelexpr = {p
 		;;
 		next(p)
 		r = parseaddexpr(p)
-		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
+		l = mkbinop(op, l, r)
 	;;
 	-> l
 }
@@ -889,7 +896,7 @@ const parseaddexpr = {p
 		;;
 		next(p)
 		r = parsemulexpr(p)
-		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
+		l = mkbinop(op, l, r)
 	;;
 	-> l
 }
@@ -911,7 +918,7 @@ const parsemulexpr = {p
 		;;
 		next(p)
 		r = parseunop(p)
-		l = std.mk(`Ebinop [.ty=`Typrim `Tyint, .op=op, .l=l, .r=r])
+		l = mkbinop(op, l, r)
 	;;
 	-> l
 }
@@ -927,7 +934,13 @@ const parseunop = {p
 	| (l, `Tmul):
 		next(p)
 		operand = parseunop(p)
-		-> std.mk(`Eunop [.ty=`Typrim `Tyint, .op=`Oderef, .operand=operand])
+		match exprtype(operand)
+		| `Tyaggr &(`Typtr ty):
+			-> std.mk(`Eunop [.ty=ty, .op=`Oderef, .operand=operand])
+		| _:
+			err(l, "can only dereference pointer types")
+		;;
+		
 	| _:
 		-> parsepostexpr(p)
 	;;

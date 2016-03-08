@@ -174,7 +174,7 @@ const emitfunc = {f
 	for param in f.params
 		reg = std.get(std.htget(namestoparamregs, param.name))
 		alloca = std.get(std.htget(allocas, param))
-		emitstore(alloca, reg)
+		emitstore(param.ty, alloca, reg)
 	;;
 	
 	for stmt in f.body
@@ -356,17 +356,28 @@ const emitload = {val, ty
 	v = newreg()
 	match ty
 	| `Typrim `Tyint:
-		oi("{} =l loadl {}\n", valstr(v), valstr(val))
+		oi("{} =w load {}\n", valstr(v), valstr(val))
+	| `Typrim `Tylong:
+		oi("{} =l load {}\n", valstr(v), valstr(val))
 	| `Tyaggr &(`Typtr _):
-		oi("{} =l loadl {}\n", valstr(v), valstr(val))
+		oi("{} =l load {}\n", valstr(v), valstr(val))
 	| _:
 		std.fatal("unimplemented load {}\n", ty)
 	;;
 	-> v
 }
 
-const emitstore = {dst, v
-	oi("storel {}, {}\n", valstr(v), valstr(dst))
+const emitstore = {ty, dst, v
+	match ty
+	| `Typrim `Tyint:
+		oi("storew {}, {}\n", valstr(v), valstr(dst))
+	| `Typrim `Tylong:
+		oi("storel {}, {}\n", valstr(v), valstr(dst))
+	| `Tyaggr &(`Typtr _):
+		oi("storel {}, {}\n", valstr(v), valstr(dst))
+	| _:
+		std.fatal("unimplemented store {}\n", ty)
+	;;
 }
 
 const emitexpr = {expr
@@ -399,7 +410,7 @@ const emitexpr = {expr
 	| &(`Eassign assign):
 		v1 = emitlval(assign.l)
 		v2 = emitexpr(assign.r)
-		emitstore(v1, v2)
+		emitstore(assign.ty, v1, v2)
 		-> v2
 	| &(`Esel sel):
 		-> emitsel(sel)
@@ -447,6 +458,15 @@ const emitidx = {idx
 
 const emitbinop = {b
 	var l, r, o, result
+	var width
+	
+	match b.ty
+	| `Typrim `Tylong:
+		width = "l"
+	|  `Typrim `Tyint:
+		width = "w"
+	| _:
+	;;
 	
 	l = emitexpr(b.l)
 	r = emitexpr(b.r)
@@ -463,19 +483,20 @@ const emitbinop = {b
 	| `Omod:
 		o = "rem"
 	| `Oeq:
-		o = "ceql"
+		o = "ceq"
 	| `One:
-		o = "cnel"
+		o = "cne"
 	| `Olt:
-		o = "csltl"
+		o = "cslt"
 	| `Ogt:
-		o = "csgtl"
+		o = "csgt"
 	| `Oge:
-		o = "csgel"
+		o = "csge"
 	| `Ole:
-		o = "cslel"
+		o = "csle"
 	;;
-	oi("{} =l {} {}, {}\n", valstr(result), o, valstr(l), valstr(r))
+	
+	oi("{} ={} {} {}, {}\n", valstr(result), width, o, valstr(l), valstr(r))
 	-> result
 }
 

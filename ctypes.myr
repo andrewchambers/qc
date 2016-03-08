@@ -44,9 +44,12 @@ const typesize = {ty
 	var sz
 
 	match ty
-	| `Typrim `Tyint:
-		/* XXX wrong, but ok for now */
+	| `Typrim `Tylong:
 		sz = 8
+	| `Typrim `Tyint:
+		sz = 4
+	| `Typrim `Tychar:
+		sz = 1
 	| `Tyaggr &(`Typtr _):
 		sz = 8
 	| `Tyaggr &(`Tyarr arr):

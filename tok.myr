@@ -671,7 +671,9 @@ const tokfmt = {sb, ap, opts
 	| `Tstruct:	std.sbfmt(sb, "struct")
 	| `Tunion:	std.sbfmt(sb, "union")
 	| `Tconst:	std.sbfmt(sb, "const")
+	| `Tlong:	std.sbfmt(sb, "long")
 	| `Tint:	std.sbfmt(sb, "int")
+	| `Tchar:	std.sbfmt(sb, "char")
 
 	| `Tintlit v:	std.sbfmt(sb, "{}", v)
 	| `Tstrlit v:	std.sbfmt(sb, "{e}", v)
