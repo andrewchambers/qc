@@ -735,7 +735,7 @@ const parsereturn= {p
 		next(p)
 		rexpr = parseexpr(p)
 		expectsemi(p)
-		-> std.mk(`Sreturn rexpr)
+		-> std.mk(`Sreturn mkcast(p.curfunc.functy.rty, rexpr))
 }
 
 const parseexpr = {p
