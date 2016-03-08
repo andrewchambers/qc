@@ -23,12 +23,16 @@ type data = struct
 ;;
 
 var allocas : std.htab(sym#, Val)#
-var nreg = 0
-
 var pendingdata : data#[:]
 
+var nreg = 0
 const newreg = {
 	-> `Vreg std.fmt("%v{}", nreg++) 
+}
+
+var datalblcount = 0
+const nextdatalbl = {
+	-> datalblcount++
 }
 
 const newnamedreg = {name
@@ -43,30 +47,38 @@ const emit = {globals
 		| &(`Nfunc f):
 			emitfunc(f)
 		| &(`Ndecl decls):
-			for decl in decls
-				match decl
-				| (sym, `std.None):
-					match sym.sc
-					| `Sclasstypedef:
-						continue
-					| `Sclassglobal:
-						var d : data = [
-							.isglobal= true,
-							.label=sym.name,
-							.val=`Dzero std.get(typesize(sym.ty)),
-						]
-						std.slpush(&pendingdata, std.mk(d))
-					| _:
-						std.fatal("internal error...\n")
-					;;
-				| _:
-					std.fatal("unimplemented global decl")
-				;;
-			;;
+			emitdecls(decls)
 		;;
 	;;
-	
 	emitpendingdata()
+}
+
+const emitdecls = {decls
+	for decl in decls
+		match decl
+		| (sym, `std.None):
+			match sym.ty
+			| `Tyaggr &(`Tyfunc _):
+				continue
+			| _:
+			;;
+			match sym.sc
+			| `Sclasstypedef:
+				continue
+			| `Sclassglobal:
+				var d : data = [
+					.isglobal= true,
+					.label=sym.name,
+					.val=`Dzero std.get(typesize(sym.ty)),
+				]
+				std.slpush(&pendingdata, std.mk(d))
+			| _:
+				std.fatal("internal error...\n")
+			;;
+		| _:
+			std.fatal("unimplemented global decl")
+		;;
+	;;
 }
 
 const vo = {msg : byte[:], ap : std.valist#
@@ -397,12 +409,12 @@ const emitexpr = {expr
 	| &(`Estrlit s):
 		var d = [
 			.isglobal=false,
-			.label="foobar",
+			.label=std.fmt(".D{}", nextdatalbl()),
 			.val=`Dstr s,
 		]
 		std.slpush(&pendingdata, std.mk(d) )
 		v1 = newreg()
-		// oi("{} =l copy ${}\n", v1, "str")
+		oi("{} =l copy ${}\n", valstr(v1), d.label)
 		-> v1
 	| &(`Ebinop b):
 		-> emitbinop(b)
@@ -519,7 +531,7 @@ const emitpendingdata = {
 		| `Dzero sz:
 			o("data ${} = {{z {}}}\n", data.label, sz)
 		| `Dstr s:
-			o("data ${} = {{b {}, b 0}}\n", data.label, s)
+			o("data ${} = {{b \"{}\", b 0}}\n", data.label, s)
 		| _:
 			std.fatal("unsupported data")
 		;;

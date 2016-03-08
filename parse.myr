@@ -430,12 +430,12 @@ const parsedeclspecs = {p
 			next(p)
 			sclass = `Sclasstypedef
 		| (l, `Tident n):
-			next(p)
 			match lookuptype(p, n)
 			| `std.Some ty:
+				next(p)
 				-> (sclass, ty)
 			| `std.None:
-				err(l, "{} is not a type\n", n)
+				-> (sclass, `Typrim `Tyint)
 			;;
 		| (l, `Tchar):
 			next(p)
@@ -449,7 +449,7 @@ const parsedeclspecs = {p
 		| (l, `Tstruct):
 			-> (sclass, parsetagtype(p))
 		| (l, _):
-			err(l, "expected a type specifier or storage class\n")
+			-> (sclass, `Typrim `Tyint)
 		;;
 	;;
 	std.fatal("unreachable\n")

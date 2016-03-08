@@ -1,9 +1,11 @@
 
+int strlen(char *);
+
 int
 main()
 {
 	char *p;
 	
 	p = "hello";
-	return *p - 104;
+	return strlen(p) - 5;
 }
