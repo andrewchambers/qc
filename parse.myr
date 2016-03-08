@@ -935,6 +935,8 @@ const parseunop = {p
 		next(p)
 		operand = parseunop(p)
 		match exprtype(operand)
+		| `Tyaggr &(`Typtr `Tyvoid):
+			err(l, "dereference of a void*")
 		| `Tyaggr &(`Typtr ty):
 			-> std.mk(`Eunop [.ty=ty, .op=`Oderef, .operand=operand])
 		| _:
