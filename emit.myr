@@ -368,7 +368,7 @@ const emitload = {val, ty
 	v = newreg()
 	match ty
 	| `Typrim `Tychar:
-		oi("{} =b load {}\n", valstr(v), valstr(val))
+		oi("{} =w loadsb {}\n", valstr(v), valstr(val))
 	| `Typrim `Tyint:
 		oi("{} =w load {}\n", valstr(v), valstr(val))
 	| `Typrim `Tylong:
@@ -383,6 +383,8 @@ const emitload = {val, ty
 
 const emitstore = {ty, dst, v
 	match ty
+	| `Typrim `Tychar:
+		oi("storeb {}, {}\n", valstr(v), valstr(dst))
 	| `Typrim `Tyint:
 		oi("storew {}, {}\n", valstr(v), valstr(dst))
 	| `Typrim `Tylong:
@@ -507,11 +509,11 @@ const emitbinop = {b
 	| `Omod:
 		o = "rem"
 	| `Oeq:
-		o = "ceq"
+		o = "ceql"
 	| `One:
 		o = "cne"
 	| `Olt:
-		o = "cslt"
+		o = "csltl"
 	| `Ogt:
 		o = "csgt"
 	| `Oge:
