@@ -76,8 +76,10 @@ pkg qc =
 		`Treturn  /* return */
 		`Tsizeof  /* sizeof */
 		`Ttypedef /* typedef */
-		`Tvoid
-		`Tint
+		`Tvoid	/* void */
+		`Tchar	/* char */
+		`Tint	/* int */
+		`Tlong	/* long */
 	
 		`Tintlit int64
 		`Tstrlit byte[:]
@@ -391,7 +393,9 @@ const kwident = {ts
 	| "void": 	-> `Tvoid
 	| "while": 	-> `Twhile
 	| "return": -> `Treturn
+	| "char":	-> `Tchar
 	| "int":	-> `Tint
+	| "long":	-> `Tlong
 	| ident:	-> `Tident std.sldup(ident)
 	;;
 }

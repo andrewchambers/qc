@@ -5,11 +5,13 @@ pkg qc =
 	type ctype = union
 		`Typrim cprim
 		`Tyaggr caggr#
+		`Tyvoid
 	;;
 
 	type cprim = union
+		`Tylong
 		`Tyint
-		`Tyvoid
+		`Tychar
 	;;
 
 	type caggr = union

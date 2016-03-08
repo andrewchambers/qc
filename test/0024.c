@@ -10,3 +10,4 @@ main()
 	v.y = 2;
 	return 3 - v.x - v.y;
 }
+

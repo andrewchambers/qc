@@ -72,7 +72,14 @@ pkg qc =
 		`Eidx index
 		`Esel selector
 		`Ecall call
+		`Ecast cast
 	;;
+	
+	type cast = struct
+		ty : ctype
+		expr : expr#
+	;;
+
 	
 	type selector = struct
 		ty : ctype
@@ -162,6 +169,8 @@ const nextlbl = {f
 
 const exprtype = {e
 	match e
+	| &(`Ecast cast):
+		-> cast.ty
 	| &(`Esel sel):
 		-> sel.ty
 	| &(`Eident sym):
@@ -180,3 +189,4 @@ const exprtype = {e
 		-> `Typrim `Tyint
 	;;
 }
+

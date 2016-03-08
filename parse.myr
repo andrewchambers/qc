@@ -435,9 +435,15 @@ const parsedeclspecs = {p
 			| `std.None:
 				err(l, "{} is not a type\n", n)
 			;;
+		| (l, `Tchar):
+			next(p)
+			-> (sclass, `Typrim `Tychar)
 		| (l, `Tint):
 			next(p)
 			-> (sclass, `Typrim `Tyint)
+		| (l, `Tlong):
+			next(p)
+			-> (sclass, `Typrim `Tylong)
 		| (l, `Tstruct):
 			-> (sclass, parsetagtype(p))
 		| (l, _):
@@ -755,6 +761,73 @@ const parseassign = {p
 	next(p)
 	r = parseassign(p)
 	-> std.mk(`Eassign [.ty=`Typrim `Tyint, .op=`Oasn, .l=l, .r=r])
+}
+
+const mkbinop = {op, l, r
+	l = usualconv(l)
+	r = usualconv(r)
+	(l, r) = arithconv(l, r)
+	-> std.mk(`Ebinop [.op=op, .ty=exprtype(l), .l=l, .r=r])
+}
+
+const mkcast = {ty, expr
+	/* XXX check for errors */
+	-> std.mk(`Ecast [.ty=ty, .expr=expr])
+}
+
+const tyrank = {ty
+	match ty
+	| `Typrim `Tylong:
+		-> 3
+	| `Typrim `Tyint:
+		-> 2
+	| `Typrim `Tychar:
+		-> 1
+	| _:
+		std.fatal("tyrank internal error\n")
+	;;
+}
+
+const usualconv = {e
+	match exprtype(e)
+	| `Typrim `Tylong:
+	| `Typrim `Tyint:
+	| `Typrim `Tychar:
+		-> mkcast(`Typrim `Tyint, e)
+	| _:
+	;;
+	std.fatal("unimplemented usualconv")
+}
+
+const arithconv = {l, r
+	var lrank, rrank
+	var invert
+	var result
+	
+	lrank = tyrank(exprtype(l))
+	rrank = tyrank(exprtype(r))
+	
+	if rrank > lrank
+		invert = true
+		(l, r) = (r, l)
+	;;
+	
+	match exprtype(l)
+	| `Typrim `Tylong:
+		match exprtype(r)
+		| `Typrim `Tylong:
+		| _:
+			result = (l, mkcast(`Typrim `Tylong, r))
+		;;
+	| _:
+		std.fatal("unimplemented usualconv")
+	;;
+	
+	if invert
+		(r, l) = result
+		result = (l, r)
+	;;
+	-> result
 }
 
 const parseeqlexpr = {p
