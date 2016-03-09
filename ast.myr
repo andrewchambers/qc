@@ -74,6 +74,7 @@ pkg qc =
 		`Esel selector
 		`Ecall call
 		`Ecast cast
+		`Eincdec incdec
 	;;
 	
 	type cast = struct
@@ -126,6 +127,19 @@ pkg qc =
 		`Oderef
 	;;
 	
+	type incop = union
+		`Opreinc
+		`Opredec
+		`Opostinc
+		`Opostdec
+	;;
+	
+	type incdec = struct
+		ty : ctype
+		op : incop
+		expr : expr#
+	;;
+	
 	type binop = struct
 		ty : ctype
 		op : bop
@@ -161,6 +175,7 @@ pkg qc =
 	
 	const nextlbl : (f : func# -> int)
 	const exprtype : (e : expr# -> ctype)
+	const islval : (e : expr# -> bool)
 ;;
 
 // XXX this label count is global until qbe supports func local labels.
@@ -193,6 +208,27 @@ const exprtype = {e
 		-> idx.ty
 	| &(`Ecall call):
 		-> `Typrim `Tyint
+	| &(`Eincdec incdec):
+		-> exprtype(incdec.expr)
 	;;
 }
 
+const islval = {n
+	match n#
+	| `Eunop unop:
+		match unop.op
+		| `Oderef:
+			-> true
+		| _:
+			-> false
+		;;
+	| `Eident _:
+		-> true
+	| `Eidx _:
+		-> true
+	| `Esel _:
+		-> true
+	|_:
+		-> false
+	;;
+}

@@ -396,6 +396,60 @@ const emitstore = {ty, dst, v
 	;;
 }
 
+const emitincdec = {incdec
+	var v1, v2, v3
+	var amnt, class
+	
+	v1 = emitlval(incdec.expr)
+	v2 = emitload(v1, exprtype(incdec.expr))
+	
+	match exprtype(incdec.expr)
+	| `Typrim `Tychar:
+		amnt = 1
+		class = "w"
+	| `Typrim `Tyint:
+		amnt = 1
+		class = "w"
+	| `Typrim `Tylong:
+		amnt = 1
+		class = "l"
+	| `Tyaggr &(`Typtr ty):
+		match typesize(ty)
+		| `std.Some sz:
+			amnt = sz
+		| `std.None:
+			std.fatal("internal error\n")
+		;;
+		class = "l"
+	| _:
+		std.fatal("unhandled incdec type\n")
+	;;
+	v3 = newreg()
+	match incdec.op
+	| `Opostinc:
+		oi("{} ={} add {}, {}\n", valstr(v3), class, valstr(v2), amnt)
+	| `Opostdec:
+		oi("{} ={} sub {}, {}\n", valstr(v3), class, valstr(v2), amnt)
+	| `Opreinc:
+		oi("{} ={} add {}, {}\n", valstr(v3), class, valstr(v2), amnt)
+	| `Opredec:
+		oi("{} ={} sub {}, {}\n", valstr(v3), class, valstr(v2), amnt)
+	;;
+	
+	emitstore(exprtype(incdec.expr), v1, v3)
+	
+	match incdec.op
+	| `Opostinc:
+		-> v2
+	| `Opostdec:
+		-> v2
+	| `Opreinc:
+		-> v3
+	| `Opredec:
+		-> v3
+	;;
+}
+
 const emitexpr = {expr
 	var v1, v2
 
@@ -420,6 +474,8 @@ const emitexpr = {expr
 		-> v1
 	| &(`Ebinop b):
 		-> emitbinop(b)
+	| &(`Eincdec incdec):
+		-> emitincdec(incdec)
 	| &(`Eunop u):
 		match u.op
 		| `Oaddr:
@@ -468,7 +524,7 @@ const emitlidx = {idx
 	v = emitexpr(idx.expr)
 	i = emitexpr(idx.idx)
 	off = newreg()
-	sz = std.get(typesize(exprtype(idx.expr)))
+	sz = std.get(typesize(idx.ty))
 	oi("{} =l mul {}, {}\n", valstr(off), sz, valstr(i))
 	p = newreg()
 	oi("{} =l add {}, {}\n", valstr(p), valstr(v), valstr(off))

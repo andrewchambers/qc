@@ -1030,10 +1030,26 @@ const parsemulexpr = {p
 	-> l
 }
 
+const mkincdec = {l, op, expr
+	if !islval(expr)
+		err(l, "++ and -- expect an lval\n")
+	;;
+	// XXX check type...
+	-> std.mk(`Eincdec [.op=op, .expr=expr])
+}
+
 const parseunop = {p
 	var operand
 	
 	match peek(p)
+	| (l, `Tinc):
+		next(p)
+		operand = parseunop(p)
+		-> mkincdec(l, `Opreinc, operand)
+	| (l, `Tdec):
+		next(p)
+		operand = parseunop(p)
+		-> mkincdec(l, `Opredec, operand)
 	| (l, `Tband):
 		next(p)
 		operand = parseunop(p)
@@ -1082,6 +1098,12 @@ const parsepostexpr = {p
 	expr = parseprimaryexpr(p)
 	while true
 		match peek(p)
+		| (l, `Tinc):
+			next(p)
+			expr = mkincdec(l, `Opostinc, expr)
+		| (l, `Tdec):
+			next(p)
+			expr = mkincdec(l, `Opostdec, expr)
 		| (l, `Tosqbrac):
 			next(p)
 			idx = parseexpr(p)
