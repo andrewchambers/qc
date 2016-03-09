@@ -511,15 +511,15 @@ const emitbinop = {b
 	| `Oeq:
 		o = "ceql"
 	| `One:
-		o = "cne"
+		o = "cnel"
 	| `Olt:
 		o = "csltl"
 	| `Ogt:
-		o = "csgt"
+		o = "csgtl"
 	| `Oge:
-		o = "csge"
+		o = "csgel"
 	| `Ole:
-		o = "csle"
+		o = "cslel"
 	| `Oxor:
 		o = "xor"
 	| `Oand:

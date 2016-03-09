@@ -742,11 +742,30 @@ const parseexpr = {p
 	-> parseassign(p)
 }
 
+const isrelop = {op
+	match op
+	| `One: -> true
+	| `Oeq: -> true
+	| `Ole: -> true
+	| `Oge: -> true
+	| `Ogt: -> true
+	| `Olt: -> true
+	| _: -> false
+	;;
+}
+
 const mkbinop = {op, l, r
+	var ty
+	
 	l = usualconv(l)
 	r = usualconv(r)
 	(l, r) = arithconv(l, r)
-	-> std.mk(`Ebinop [.op=op, .ty=exprtype(l), .l=l, .r=r])
+	if isrelop(op)
+		ty = `Typrim `Tyint
+	else 
+		ty = exprtype(l)
+	;;
+	-> std.mk(`Ebinop [.op=op, .ty=ty, .l=l, .r=r])
 }
 
 const mkcast = {ty, expr
