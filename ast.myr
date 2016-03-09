@@ -116,6 +116,9 @@ pkg qc =
 		`Ogt
 		`Oge
 		`Ole
+		`Oxor
+		`Oor
+		`Oand
 	;;
 	
 	type uop = union

@@ -742,29 +742,6 @@ const parseexpr = {p
 	-> parseassign(p)
 }
 
-const parseconstexpr = {p
-	match next(p)
-	| (_, `Tintlit n):
-		-> n
-	| (l, _):
-		err(l, "expected a constant expression\n")
-	;;
-}
-
-const parseassign = {p
-	var l, r
-	
-	l = parseeqlexpr(p)
-	match peek(p)
-	| (_, `Tasn):
-	| _:
-		-> l
-	;;
-	next(p)
-	r = parseassign(p)
-	-> std.mk(`Eassign [.ty=exprtype(l), .op=`Oasn, .l=l, .r=mkcast(exprtype(l), r)])
-}
-
 const mkbinop = {op, l, r
 	l = usualconv(l)
 	r = usualconv(r)
@@ -835,6 +812,117 @@ const arithconv = {l, r
 		result = (l, r)
 	;;
 	-> result
+}
+
+
+const parseconstexpr = {p
+	match next(p)
+	| (_, `Tintlit n):
+		-> n
+	| (l, _):
+		err(l, "expected a constant expression\n")
+	;;
+}
+
+const parseassign = {p
+	var l, r
+	
+	l = parselogorexpr(p)
+	match peek(p)
+	| (_, `Tasn):
+	| _:
+		-> l
+	;;
+	next(p)
+	r = parseassign(p)
+	-> std.mk(`Eassign [.ty=exprtype(l), .op=`Oasn, .l=l, .r=mkcast(exprtype(l), r)])
+}
+
+const parselogorexpr = {p
+	var l, r
+	
+	l = parselogandexpr(p)
+	while true
+		match peek(p)
+		| (_, `Tlor):
+		| _:
+			break
+		;;
+		next(p)
+		r = parselogandexpr(p)
+		// XXX: need new node type.
+		l = mkbinop(`Oor, l, r)
+	;;
+	-> l
+}
+
+const parselogandexpr = {p
+	var l, r
+	
+	l = parseorexpr(p)
+	while true
+		match peek(p)
+		| (_, `Tland):
+		| _:
+			break
+		;;
+		next(p)
+		r = parseorexpr(p)
+		// XXX: need new node type.
+		l = mkbinop(`Oand, l, r)
+	;;
+	-> l
+}
+
+const parseorexpr = {p
+	var l, r
+	
+	l = parsexorexpr(p)
+	while true
+		match peek(p)
+		| (_, `Tbor):
+		| _:
+			break
+		;;
+		next(p)
+		r = parsexorexpr(p)
+		l = mkbinop(`Oor, l, r)
+	;;
+	-> l
+}
+
+const parsexorexpr = {p
+	var l, r
+	
+	l = parseandexpr(p)
+	while true
+		match peek(p)
+		| (_, `Tbxor):
+		| _:
+			break
+		;;
+		next(p)
+		r = parseandexpr(p)
+		l = mkbinop(`Oxor, l, r)
+	;;
+	-> l
+}
+
+const parseandexpr = {p
+	var l, r
+	
+	l = parseeqlexpr(p)
+	while true
+		match peek(p)
+		| (_, `Tband):
+		| _:
+			break
+		;;
+		next(p)
+		r = parseeqlexpr(p)
+		l = mkbinop(`Oand, l, r)
+	;;
+	-> l
 }
 
 const parseeqlexpr = {p

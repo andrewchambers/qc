@@ -520,6 +520,12 @@ const emitbinop = {b
 		o = "csge"
 	| `Ole:
 		o = "csle"
+	| `Oxor:
+		o = "xor"
+	| `Oand:
+		o = "and"
+	| `Oor:
+		o = "or"
 	;;
 	
 	oi("{} ={} {} {}, {}\n", valstr(result), width, o, valstr(l), valstr(r))
