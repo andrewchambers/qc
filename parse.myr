@@ -869,8 +869,7 @@ const parselogorexpr = {p
 		;;
 		next(p)
 		r = parselogandexpr(p)
-		// XXX: need new node type.
-		l = mkbinop(`Oor, l, r)
+		l = std.mk(`Elogbinop [.op=`Olor, .l=l, .r=r])
 	;;
 	-> l
 }
@@ -887,8 +886,7 @@ const parselogandexpr = {p
 		;;
 		next(p)
 		r = parseorexpr(p)
-		// XXX: need new node type.
-		l = mkbinop(`Oand, l, r)
+		l = std.mk(`Elogbinop [.op=`Oland, .l=l, .r=r])
 	;;
 	-> l
 }

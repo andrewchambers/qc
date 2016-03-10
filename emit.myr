@@ -150,9 +150,12 @@ const valstr = {v
 	;;
 }
 
+var curfunc
+
 const emitfunc = {f
 	var alloca, namestoparamregs, reg
 	
+	curfunc = f
 	allocas = std.mkht({x; -> x castto(uint32)}, {x, y; -> x == y})
 	nreg = 0
 	
@@ -458,6 +461,8 @@ const emitexpr = {expr
 		-> emitcall(call)
 	| &(`Ecast cast):
 		-> emitcast(cast)
+	| &(`Elogbinop b):
+		-> emitlogbinop(b)
 	| &(`Eidx idx):
 		-> emitidx(idx)
 	| &(`Eintlit v):
@@ -536,6 +541,46 @@ const emitidx = {idx
 	
 	p = emitlidx(idx)
 	-> emitload(p, idx.ty)
+}
+
+const emitlogbinop = {b
+	var lrhs, lone, lzero, end
+	var l, r
+	var zero, one, result
+	
+	zero = newreg()
+	one = newreg()
+	result = newreg()
+	lrhs = nextlbl(curfunc)
+	lone = nextlbl(curfunc)
+	lzero = nextlbl(curfunc)
+	end = nextlbl(curfunc)
+	
+	l = emitexpr(b.l)
+	match b.op
+	| `Olor:
+		ot("jnz {}, @L{}, @L{}\n", valstr(l), lone, lrhs)
+	| `Oland:
+		ot("jnz {}, @L{}, @L{}\n", valstr(l), lrhs, lzero)
+	;;
+	ol("@L{}\n", lrhs)
+	r = emitexpr(b.r)
+	match b.op
+	| `Olor:
+		ot("jnz {}, @L{}, @L{}\n", valstr(r), lone, lzero)
+	| `Oland:
+		ot("jnz {}, @L{}, @L{}\n", valstr(r), lone, lzero)
+	;;
+
+	ol("@L{}\n", lone)
+	oi("{} =w copy 1\n", valstr(one))
+	ot("jmp @L{}\n", end)
+	ol("@L{}\n", lzero)
+	oi("{} =w copy 0\n", valstr(zero))
+	ot("jmp @L{}\n", end)
+	ol("@L{}\n", end)
+	oi("{} =w phi @L{} {}, @L{} {}\n", valstr(result), lone, valstr(one), lzero, valstr(zero))
+	-> result
 }
 
 const emitbinop = {b
