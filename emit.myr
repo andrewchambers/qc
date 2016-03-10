@@ -760,7 +760,16 @@ const emitpendingdata = {
 		| `Dzero sz:
 			o("data ${} = {{z {}}}\n", data.label, sz)
 		| `Dstr s:
-			o("data ${} = {{b \"{}\", b 0}}\n", data.label, s)
+			o("data ${} = {{b \"", data.label)
+			for b in s
+				match b castto(char)
+				| '\n':
+					o("\\n")
+				| _:
+					o("{}", b castto(char))
+				;;	
+			;;
+			o("\", b 0}}\n")
 		| _:
 			std.fatal("unsupported data")
 		;;
