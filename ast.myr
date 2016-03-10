@@ -105,6 +105,8 @@ pkg qc =
 	
 	type aop = union
 		`Oasn
+		`Oaddasn
+		`Osubasn
 	;;
 	
 	type bop = union

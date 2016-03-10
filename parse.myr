@@ -878,17 +878,22 @@ const parseconstexpr = {p
 }
 
 const parseassign = {p
-	var l, r
+	var l, r, op
 	
 	l = parselogorexpr(p)
 	match peek(p)
 	| (_, `Tasn):
+		op = `Oasn
+	| (_, `Taddeq):
+		op = `Oaddasn
+	| (_, `Tsubeq):
+		op = `Osubasn
 	| _:
 		-> l
 	;;
 	next(p)
 	r = parseassign(p)
-	-> std.mk(`Eassign [.ty=exprtype(l), .op=`Oasn, .l=l, .r=mkcast(exprtype(l), r)])
+	-> std.mk(`Eassign [.ty=exprtype(l), .op=op, .l=l, .r=mkcast(exprtype(l), r)])
 }
 
 const parselogorexpr = {p
