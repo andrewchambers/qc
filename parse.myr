@@ -795,6 +795,17 @@ const mkrelop = {op, l, r
 const mkbinop = {op, l, r
 	var ty
 	
+	match (op, exprtype(l), exprtype(r))
+	| (`Oplus ,`Tyaggr &(`Typtr _), `Tyaggr &(`Typtr _)):
+		std.fatal("XXX unhandled adding two pointers")
+	| (`Ominus ,`Tyaggr &(`Typtr _), `Tyaggr &(`Typtr _)):
+		-> std.mk(`Eptrdiff [.l=l, .r=r])
+	| (`Oplus ,`Tyaggr &(`Typtr _), _):
+		-> std.mk(`Eptradd [.ptr=l, .amnt=r])
+	| (`Oplus , _, `Tyaggr &(`Typtr _)):
+		-> std.mk(`Eptradd [.ptr=r, .amnt=l])
+	| _:
+	;;	
 	l = usualconv(l)
 	r = usualconv(r)
 	(l, r) = arithconv(l, r)

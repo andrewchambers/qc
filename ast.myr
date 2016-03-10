@@ -67,6 +67,8 @@ pkg qc =
 		`Ebinop binop
 		`Elogop logop
 		`Erelop relop
+		`Eptradd ptradd
+		`Eptrdiff ptrdiff
 		`Eunop unop
 		`Eassign assign
 		`Eintlit int64
@@ -84,7 +86,6 @@ pkg qc =
 		expr : expr#
 	;;
 
-	
 	type selector = struct
 		ty : ctype
 		expr : expr#
@@ -174,6 +175,16 @@ pkg qc =
 		r : expr#
 	;;
 	
+	type ptradd = struct
+		ptr : expr#
+		amnt : expr#
+	;;
+	
+	type ptrdiff = struct
+		l : expr#
+		r : expr#
+	;;
+	
 	type unop = struct
 		ty : ctype
 		op : uop
@@ -225,6 +236,11 @@ const exprtype = {e
 		-> bop.ty
 	| &(`Eunop uop):
 		-> uop.ty
+	| &(`Eptrdiff _):
+		/* XXX correct type? */
+		-> `Typrim `Tylong
+	| &(`Eptradd add):
+		-> exprtype(add.ptr)
 	| &(`Eassign asn):
 		-> asn.ty
 	| &(`Eintlit _):

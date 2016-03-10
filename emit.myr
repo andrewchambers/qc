@@ -477,6 +477,10 @@ const emitexpr = {expr
 		-> emitcast(cast)
 	| &(`Ebinop b):
 		-> emitbinop(b)
+	| &(`Eptradd b):
+		-> emitptradd(b)
+	| &(`Eptrdiff b):
+		-> emitptrdiff(b)
 	| &(`Elogop b):
 		-> emitlogop(b)
 	| &(`Erelop b):
@@ -507,6 +511,44 @@ const emitexpr = {expr
 	| &(`Esel sel):
 		-> emitsel(sel)
 	;;
+}
+
+const pointsto = {ptr
+	match ptr
+	| `Tyaggr &(`Typtr t):
+		-> t
+	| _:
+		std.fatal("internal error\n")
+	;;
+}
+
+const emitptradd = {add
+	var p, amnt, offset, result
+	var tysz
+	
+	tysz = std.get(typesize(pointsto(exprtype(add.ptr))))
+	amnt = emitexpr(add.amnt)
+	offset = newreg()
+	oi("{} =l mul {}, {}\n", valstr(offset), valstr(amnt), tysz)
+	p = emitexpr(add.ptr)
+	result = newreg()
+	oi("{} =l add {}, {}\n", valstr(result), valstr(p), valstr(offset))
+	-> result
+}
+
+
+const emitptrdiff = {diff
+	var l, r, amnt, result
+	var tysz
+	
+	tysz = std.get(typesize(pointsto(exprtype(diff.l))))
+	l = emitexpr(diff.l)
+	r = emitexpr(diff.r)
+	amnt = newreg()
+	oi("{} =l sub {}, {}\n", valstr(amnt), valstr(l), valstr(r))
+	result = newreg()
+	oi("{} =l div {}, {}\n", valstr(result), valstr(amnt), tysz)
+	-> result
 }
 
 const emitassign = {a
