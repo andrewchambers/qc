@@ -785,16 +785,11 @@ const parseexpr = {p
 	-> parseassign(p)
 }
 
-const isrelop = {op
-	match op
-	| `One: -> true
-	| `Oeq: -> true
-	| `Ole: -> true
-	| `Oge: -> true
-	| `Ogt: -> true
-	| `Olt: -> true
-	| _: -> false
-	;;
+const mkrelop = {op, l, r
+	l = usualconv(l)
+	r = usualconv(r)
+	(l, r) = arithconv(l, r)
+	-> std.mk(`Erelop [.op=op, .l=l, .r=r])
 }
 
 const mkbinop = {op, l, r
@@ -803,11 +798,7 @@ const mkbinop = {op, l, r
 	l = usualconv(l)
 	r = usualconv(r)
 	(l, r) = arithconv(l, r)
-	if isrelop(op)
-		ty = `Typrim `Tyint
-	else 
-		ty = exprtype(l)
-	;;
+	ty = exprtype(l)
 	-> std.mk(`Ebinop [.op=op, .ty=ty, .l=l, .r=r])
 }
 
@@ -912,7 +903,7 @@ const parselogorexpr = {p
 		;;
 		next(p)
 		r = parselogandexpr(p)
-		l = std.mk(`Elogbinop [.op=`Olor, .l=l, .r=r])
+		l = std.mk(`Elogop [.op=`Olor, .l=l, .r=r])
 	;;
 	-> l
 }
@@ -929,7 +920,7 @@ const parselogandexpr = {p
 		;;
 		next(p)
 		r = parseorexpr(p)
-		l = std.mk(`Elogbinop [.op=`Oland, .l=l, .r=r])
+		l = std.mk(`Elogop [.op=`Oland, .l=l, .r=r])
 	;;
 	-> l
 }
@@ -1000,7 +991,7 @@ const parseeqlexpr = {p
 		;;
 		next(p)
 		r = parserelexpr(p)
-		l = mkbinop(op, l, r)
+		l = mkrelop(op, l, r)
 	;;
 	-> l
 }
@@ -1024,7 +1015,7 @@ const parserelexpr = {p
 		;;
 		next(p)
 		r = parseaddexpr(p)
-		l = mkbinop(op, l, r)
+		l = mkrelop(op, l, r)
 	;;
 	-> l
 }
@@ -1094,7 +1085,22 @@ const parseunop = {p
 	| (l, `Tband):
 		next(p)
 		operand = parseunop(p)
-		-> std.mk(`Eunop [.ty=`Typrim `Tyint, .op=`Oaddr, .operand=operand])
+		if !islval(operand)
+			err(l, "can only take the address of an lvalue")
+		;;
+		-> std.mk(`Eunop [.op=`Oaddr, .ty=`Tyaggr std.mk(`Typtr exprtype(operand)), .operand=operand])
+	| (l, `Tminus):
+		next(p)
+		operand = parseunop(p)
+		-> std.mk(`Eunop [.op=`Oneg, .ty=exprtype(operand), .operand=operand])
+	| (l, `Tlnot):
+		next(p)
+		operand = parseunop(p)
+		-> std.mk(`Eunop [.op=`Olnot, .ty=exprtype(operand), .operand=operand])
+	| (l, `Tbnot):
+		next(p)
+		operand = parseunop(p)
+		-> std.mk(`Eunop [.op=`Obnot, .ty=exprtype(operand), .operand=operand])
 	| (l, `Tmul):
 		next(p)
 		operand = parseunop(p)

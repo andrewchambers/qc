@@ -65,7 +65,8 @@ pkg qc =
 	
 	type expr = union
 		`Ebinop binop
-		`Elogbinop logbinop
+		`Elogop logop
+		`Erelop relop
 		`Eunop unop
 		`Eassign assign
 		`Eintlit int64
@@ -112,18 +113,15 @@ pkg qc =
 		`Omul
 		`Odiv
 		`Omod
-		`Oeq
-		`One
-		`Olt
-		`Ogt
-		`Oge
-		`Ole
 		`Oxor
 		`Oor
 		`Oand
 	;;
 	
 	type uop = union
+		`Olnot
+		`Obnot
+		`Oneg
 		`Oaddr
 		`Oderef
 	;;
@@ -135,13 +133,28 @@ pkg qc =
 		`Opostdec
 	;;
 	
-	type logop = union
+	type logbinop = union
 		`Olor
 		`Oland
 	;;
 	
-	type logbinop = struct
-		op : logop
+	type relbinop = union
+		`Oeq
+		`One
+		`Olt
+		`Ogt
+		`Oge
+		`Ole
+	;;
+	
+	type relop = struct
+		op : relbinop
+		l : expr#
+		r : expr#
+	;;
+	
+	type logop = struct
+		op : logbinop
 		l : expr#
 		r : expr#
 	;;
@@ -214,7 +227,9 @@ const exprtype = {e
 		-> asn.ty
 	| &(`Eintlit _):
 		-> `Typrim `Tyint
-	| &(`Elogbinop _):
+	| &(`Elogop _):
+		-> `Typrim `Tyint
+	| &(`Erelop _):
 		-> `Typrim `Tyint
 	| &(`Estrlit _):
 		-> `Tyaggr std.mk(`Typtr `Typrim `Tychar)
