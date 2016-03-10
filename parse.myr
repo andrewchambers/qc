@@ -446,6 +446,9 @@ const parsedeclspecs = {p
 		| (l, `Tlong):
 			next(p)
 			-> (sclass, `Typrim `Tylong)
+		| (l, `Tvoid):
+			next(p)
+			-> (sclass, `Tyvoid)
 		| (l, `Tstruct):
 			-> (sclass, parsetagtype(p))
 		| (l, _):
@@ -1176,7 +1179,7 @@ const parseprimaryexpr = {p
 		expectcparen(p)
 		-> expr
 	| (l, t):
-		err(l, "expected 'integer literal', got {}\n", t)
+		err(l, "expected expression, got {}\n", t)
 	;;	
 }
 
