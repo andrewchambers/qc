@@ -151,7 +151,6 @@ const valstr = {v
 }
 
 var curfunc
-
 const emitfunc = {f
 	var alloca, namestoparamregs, reg
 	
@@ -202,6 +201,21 @@ const emitfunc = {f
 	o("}}\n\n")
 	std.htfree(allocas)
 	std.htfree(namestoparamregs)
+}
+
+const type2class = {t
+	match t
+	| `Typrim `Tychar:
+		-> "w"
+	| `Typrim `Tyint:
+		-> "w"
+	| `Typrim `Tylong:
+		-> "l"
+	| `Tyaggr &(`Typtr ty):
+		-> "l"
+	| _:
+		std.fatal("unhandled type2class type\n")
+	;;
 }
 
 const emitcall = {call
@@ -357,7 +371,7 @@ const emitlval = {expr
 	;;
 }
 
-const emitload = {val, ty
+const emitload = {ty, val
 	var v
 	
 	match ty
@@ -404,7 +418,7 @@ const emitincdec = {incdec
 	var amnt, class
 	
 	v1 = emitlval(incdec.expr)
-	v2 = emitload(v1, exprtype(incdec.expr))
+	v2 = emitload(exprtype(incdec.expr), v1)
 	
 	match exprtype(incdec.expr)
 	| `Typrim `Tychar:
@@ -454,15 +468,23 @@ const emitincdec = {incdec
 }
 
 const emitexpr = {expr
-	var v1, v2
+	var v1
 
 	match expr
 	| &(`Ecall call):
 		-> emitcall(call)
 	| &(`Ecast cast):
 		-> emitcast(cast)
-	| &(`Elogbinop b):
-		-> emitlogbinop(b)
+	| &(`Ebinop b):
+		-> emitbinop(b)
+	| &(`Eptradd b):
+		-> emitptradd(b)
+	| &(`Eptrdiff b):
+		-> emitptrdiff(b)
+	| &(`Elogop b):
+		-> emitlogop(b)
+	| &(`Erelop b):
+		-> emitrelop(b)
 	| &(`Eidx idx):
 		-> emitidx(idx)
 	| &(`Eintlit v):
@@ -477,30 +499,116 @@ const emitexpr = {expr
 		v1 = newreg()
 		oi("{} =l copy ${}\n", valstr(v1), d.label)
 		-> v1
-	| &(`Ebinop b):
-		-> emitbinop(b)
 	| &(`Eincdec incdec):
 		-> emitincdec(incdec)
 	| &(`Eunop u):
-		match u.op
-		| `Oaddr:
-			-> emitlval(u.operand)
-		| `Oderef:
-			v1 = emitexpr(u.operand)
-			-> emitload(v1, u.ty)
-		| _:
-			std.fatal("unsupported unop: {}\n", u.op)
-		;;
+		-> emitunop(u)
 	| &(`Eident sym):
 		v1 = emitlval(expr)
-		-> emitload(v1, sym.ty)
+		-> emitload(sym.ty, v1)
 	| &(`Eassign assign):
-		v1 = emitlval(assign.l)
-		v2 = emitexpr(assign.r)
-		emitstore(assign.ty, v1, v2)
-		-> v2
+		-> emitassign(assign)
 	| &(`Esel sel):
 		-> emitsel(sel)
+	;;
+}
+
+const pointsto = {ptr
+	match ptr
+	| `Tyaggr &(`Typtr t):
+		-> t
+	| _:
+		std.fatal("internal error\n")
+	;;
+}
+
+const emitptradd = {add
+	var p, amnt, offset, result
+	var tysz
+	
+	tysz = std.get(typesize(pointsto(exprtype(add.ptr))))
+	amnt = emitexpr(add.amnt)
+	offset = newreg()
+	oi("{} =l mul {}, {}\n", valstr(offset), valstr(amnt), tysz)
+	p = emitexpr(add.ptr)
+	result = newreg()
+	oi("{} =l add {}, {}\n", valstr(result), valstr(p), valstr(offset))
+	-> result
+}
+
+
+const emitptrdiff = {diff
+	var l, r, amnt, result
+	var tysz
+	
+	tysz = std.get(typesize(pointsto(exprtype(diff.l))))
+	l = emitexpr(diff.l)
+	r = emitexpr(diff.r)
+	amnt = newreg()
+	oi("{} =l sub {}, {}\n", valstr(amnt), valstr(l), valstr(r))
+	result = newreg()
+	oi("{} =l div {}, {}\n", valstr(result), valstr(amnt), tysz)
+	-> result
+}
+
+const emitassign = {a
+	var v1, v2, v3
+	
+	v1 = emitlval(a.l)
+	v2 = emitexpr(a.r)
+	match a.op
+	| `Oasn:
+		emitstore(a.ty, v1, v2)
+		-> v2
+	| _:
+	;;
+	
+	v3 = emitload(a.ty, v1)
+	match a.op
+	| `Oaddasn:
+		v3 = emitbinop2(`Oplus, a.ty, a.l, a.r)
+	| `Osubasn:
+		v3 = emitbinop2(`Ominus, a.ty, a.l, a.r)
+	| _:
+		std.fatal("internal error\n")
+	;;
+	emitstore(a.ty, v1, v3)
+	-> v3
+}
+
+const emitunop = {u
+	var v1, v2, class
+	var lone, lzero, lend
+	
+	class = type2class(u.ty)
+	match u.op
+	| `Oaddr:
+		-> emitlval(u.operand)
+	| `Oderef:
+		v1 = emitexpr(u.operand)
+		-> emitload(u.ty, v1)
+	| `Olnot:
+		v1 = emitexpr(u.operand)
+		v2 = newreg()
+		lone = nextlbl(curfunc)
+		lzero = nextlbl(curfunc)
+		lend = nextlbl(curfunc)
+		ot("jnz {}, @L{}, @L{}\n", valstr(v1), lzero, lone)
+		ol("@L{}\n", lone)
+		oi("{} ={} copy 1\n", valstr(v2), class)
+		ot("jmp @L{}\n", lend)
+		ol("@L{}\n", lzero)
+		oi("{} ={} copy 0\n", valstr(v2), class)
+		ot("jmp @L{}\n", lend)
+		ol("@L{}\n", lend)
+		-> v2
+	| `Oneg:
+		v1 = emitexpr(u.operand)
+		v2 = newreg()
+		oi("{} ={} sub 0, {}\n", valstr(v2), class, valstr(v1))
+		-> v2
+	| _:
+		std.fatal("unsupported unop: {}\n", u.op)
 	;;
 }
 
@@ -520,7 +628,7 @@ const emitlsel = {sel
 const emitsel = {sel
 	var p
 	p = emitlsel(sel)
-	-> emitload(p, sel.ty)
+	-> emitload(sel.ty, p)
 }
 
 const emitlidx = {idx
@@ -540,16 +648,14 @@ const emitidx = {idx
 	var p
 	
 	p = emitlidx(idx)
-	-> emitload(p, idx.ty)
+	-> emitload(idx.ty, p)
 }
 
-const emitlogbinop = {b
+const emitlogop = {b
 	var lrhs, lone, lzero, end
 	var l, r
-	var zero, one, result
+	var result
 	
-	zero = newreg()
-	one = newreg()
 	result = newreg()
 	lrhs = nextlbl(curfunc)
 	lone = nextlbl(curfunc)
@@ -573,32 +679,26 @@ const emitlogbinop = {b
 	;;
 
 	ol("@L{}\n", lone)
-	oi("{} =w copy 1\n", valstr(one))
+	oi("{} =w copy 1\n", valstr(result))
 	ot("jmp @L{}\n", end)
 	ol("@L{}\n", lzero)
-	oi("{} =w copy 0\n", valstr(zero))
+	oi("{} =w copy 0\n", valstr(result))
 	ot("jmp @L{}\n", end)
 	ol("@L{}\n", end)
-	oi("{} =w phi @L{} {}, @L{} {}\n", valstr(result), lone, valstr(one), lzero, valstr(zero))
 	-> result
 }
 
-const emitbinop = {b
+
+const emitbinop2 = {op, ty, lexpr, rexpr
 	var l, r, o, result
-	var width
+	var class
 	
-	match b.ty
-	| `Typrim `Tylong:
-		width = "l"
-	|  `Typrim `Tyint:
-		width = "w"
-	| _:
-	;;
+	class = type2class(ty)
 	
-	l = emitexpr(b.l)
-	r = emitexpr(b.r)
+	l = emitexpr(lexpr)
+	r = emitexpr(rexpr)
 	result = newreg()
-	match b.op
+	match op
 	| `Oplus:
 		o = "add"
 	| `Ominus:
@@ -609,18 +709,6 @@ const emitbinop = {b
 		o = "mul"
 	| `Omod:
 		o = "rem"
-	| `Oeq:
-		o = "ceql"
-	| `One:
-		o = "cnel"
-	| `Olt:
-		o = "csltl"
-	| `Ogt:
-		o = "csgtl"
-	| `Oge:
-		o = "csgel"
-	| `Ole:
-		o = "cslel"
 	| `Oxor:
 		o = "xor"
 	| `Oand:
@@ -629,7 +717,39 @@ const emitbinop = {b
 		o = "or"
 	;;
 	
-	oi("{} ={} {} {}, {}\n", valstr(result), width, o, valstr(l), valstr(r))
+	oi("{} ={} {} {}, {}\n", valstr(result), class, o, valstr(l), valstr(r))
+	-> result
+}
+
+const emitbinop = {b
+	-> emitbinop2(b.op, b.ty, b.l, b.r)
+}
+
+const emitrelop = {b
+	var l, r, o, result
+	var class
+	
+	class = type2class(exprtype(b.l))
+	
+	l = emitexpr(b.l)
+	r = emitexpr(b.r)
+	result = newreg()
+	match b.op
+	| `Oeq:
+		o = "ceq"
+	| `One:
+		o = "cne"
+	| `Olt:
+		o = "cslt"
+	| `Ogt:
+		o = "csgt"
+	| `Oge:
+		o = "csge"
+	| `Ole:
+		o = "csle"
+	;;
+	
+	oi("{} =w {}{} {}, {}\n", valstr(result), o, class, valstr(l), valstr(r))
 	-> result
 }
 

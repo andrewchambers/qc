@@ -65,7 +65,10 @@ pkg qc =
 	
 	type expr = union
 		`Ebinop binop
-		`Elogbinop logbinop
+		`Elogop logop
+		`Erelop relop
+		`Eptradd ptradd
+		`Eptrdiff ptrdiff
 		`Eunop unop
 		`Eassign assign
 		`Eintlit int64
@@ -83,7 +86,6 @@ pkg qc =
 		expr : expr#
 	;;
 
-	
 	type selector = struct
 		ty : ctype
 		expr : expr#
@@ -104,6 +106,8 @@ pkg qc =
 	
 	type aop = union
 		`Oasn
+		`Oaddasn
+		`Osubasn
 	;;
 	
 	type bop = union
@@ -112,18 +116,15 @@ pkg qc =
 		`Omul
 		`Odiv
 		`Omod
-		`Oeq
-		`One
-		`Olt
-		`Ogt
-		`Oge
-		`Ole
 		`Oxor
 		`Oor
 		`Oand
 	;;
 	
 	type uop = union
+		`Olnot
+		`Obnot
+		`Oneg
 		`Oaddr
 		`Oderef
 	;;
@@ -135,13 +136,28 @@ pkg qc =
 		`Opostdec
 	;;
 	
-	type logop = union
+	type logbinop = union
 		`Olor
 		`Oland
 	;;
 	
-	type logbinop = struct
-		op : logop
+	type relbinop = union
+		`Oeq
+		`One
+		`Olt
+		`Ogt
+		`Oge
+		`Ole
+	;;
+	
+	type relop = struct
+		op : relbinop
+		l : expr#
+		r : expr#
+	;;
+	
+	type logop = struct
+		op : logbinop
 		l : expr#
 		r : expr#
 	;;
@@ -155,6 +171,16 @@ pkg qc =
 	type binop = struct
 		ty : ctype
 		op : bop
+		l : expr#
+		r : expr#
+	;;
+	
+	type ptradd = struct
+		ptr : expr#
+		amnt : expr#
+	;;
+	
+	type ptrdiff = struct
 		l : expr#
 		r : expr#
 	;;
@@ -210,11 +236,18 @@ const exprtype = {e
 		-> bop.ty
 	| &(`Eunop uop):
 		-> uop.ty
+	| &(`Eptrdiff _):
+		/* XXX correct type? */
+		-> `Typrim `Tylong
+	| &(`Eptradd add):
+		-> exprtype(add.ptr)
 	| &(`Eassign asn):
 		-> asn.ty
 	| &(`Eintlit _):
 		-> `Typrim `Tyint
-	| &(`Elogbinop _):
+	| &(`Elogop _):
+		-> `Typrim `Tyint
+	| &(`Erelop _):
 		-> `Typrim `Tyint
 	| &(`Estrlit _):
 		-> `Tyaggr std.mk(`Typtr `Typrim `Tychar)
