@@ -487,6 +487,8 @@ const emitexpr = {expr
 		-> emitrelop(b)
 	| &(`Eidx idx):
 		-> emitidx(idx)
+	| &(`Esizeof sz):
+		-> `Vlit (sz castto(int64))
 	| &(`Eintlit v):
 		-> `Vlit v
 	| &(`Estrlit s):
@@ -761,12 +763,12 @@ const emitpendingdata = {
 			o("data ${} = {{z {}}}\n", data.label, sz)
 		| `Dstr s:
 			o("data ${} = {{b \"", data.label)
-			for b in s
-				match b castto(char)
+			for c in std.bychar(s)
+				match c
 				| '\n':
 					o("\\n")
 				| _:
-					o("{}", b castto(char))
+					o("{}", c)
 				;;	
 			;;
 			o("\", b 0}}\n")

@@ -352,7 +352,8 @@ const expectsemi = {p
 	;;
 }
 
-const startofdecl = {p
+
+const startoftype = {p
 	match peek(p)
 	| (_, `Tstruct):
 	| (_, `Tchar):
@@ -370,6 +371,11 @@ const startofdecl = {p
 		-> false
 	;;
 	-> true
+}
+
+
+const startofdecl = {p
+	-> startoftype(p)
 }
 
 const parsetagtype = {p
@@ -1129,6 +1135,8 @@ const parseunop = {p
 			err(l, "can only dereference pointer types")
 		;;
 		
+	| (l, `Tsizeof):
+		-> parsesizeof(p)
 	| _:
 		-> parsepostexpr(p)
 	;;
@@ -1219,6 +1227,44 @@ const parsepostexpr = {p
 		;;
 	;;
 	-> expr
+}
+
+const parsetypename = {p
+	var sc, name, ty
+	(sc, ty) = parsedeclspecs(p);
+	(name, ty) = parsedecl(p, ty);
+	/* XXX: disallow sclass or name? */
+	-> ty;
+}
+
+const parsesizeof = {p
+	var loc, ty
+	
+	// XXX I think this may be incorrect.
+	// needs more edge test cases.
+	(loc, _) = next(p)
+	match peek(p)
+	| (l, `Toparen):
+		expectoparen(p)
+		if startoftype(p)
+			ty = parsetypename(p)
+		else
+			ty = exprtype(parseunop(p))
+		;;
+		expectcparen(p)
+	| _:
+		if startoftype(p)
+			ty = parsetypename(p)
+		else
+			ty = exprtype(parseunop(p))
+		;;
+	;;
+	match typesize(ty)
+	| `std.None:
+		err(loc, "cannot do sizeof on incomplete type\n")
+	| `std.Some sz:
+		-> std.mk(`Esizeof (sz castto(int)))
+	;;
 }
 
 const parseprimaryexpr = {p
