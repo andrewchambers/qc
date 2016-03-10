@@ -35,11 +35,23 @@ type parser = struct
 	typetab : std.htab(byte[:], ctype)#[:]
 	tagtab : std.htab(byte[:], caggr#)#[:]
 	lbltab : std.htab(byte[:], lblstate)#
+	breaks : int[:]
+	conts : int[:]
 	curfunc : func#
 ;;
 
 const inglobalscope = {p
 	-> p.symtab.len == 1
+}
+
+const pushbreakcont = {p, blbl, clbl
+	std.slpush(&p.breaks, blbl)
+	std.slpush(&p.conts, clbl)
+}
+
+const popbreakcont = {p
+	std.slpop(&p.breaks)
+	std.slpop(&p.conts)
 }
 
 const pushscope = {p
@@ -125,6 +137,8 @@ const parse = {ts
 		.symtab = [][:],
 		.tagtab = [][:],
 		.typetab = [][:],
+		.breaks = [][:],
+		.conts = [][:],
 	])
 	pushscope(p)
 	p.toks[0] = toknext(ts)
@@ -217,27 +231,38 @@ const parseif = {p
 
 const parsewhile = {p
 	var cond, stmt
+	var breaklbl, contlbl
 	
 	next(p)
 	expectoparen(p)
 	cond = parseexpr(p)
 	expectcparen(p)
+	breaklbl = nextlbl(p.curfunc)
+	contlbl = nextlbl(p.curfunc)
+	pushbreakcont(p, breaklbl, contlbl)
 	stmt = parsestmt(p)
+	popbreakcont(p)
 	
 	-> std.mk(`Swhile [
 		.cond=cond,
 		.stmt=stmt,
-		.contlbl=nextlbl(p.curfunc),
+		.contlbl=contlbl,
 		.stmtlbl=nextlbl(p.curfunc),
-		.breaklbl=nextlbl(p.curfunc),
+		.breaklbl=breaklbl,
 	])
 }
 
 const parsedowhile = {p
 	var cond, stmt
+	var breaklbl, contlbl
+	
 	
 	next(p)
+	breaklbl = nextlbl(p.curfunc)
+	contlbl = nextlbl(p.curfunc)
+	pushbreakcont(p, breaklbl, contlbl)
 	stmt = parsestmt(p)
+	popbreakcont(p)
 	match next(p)
 	| (_, `Twhile):
 	| (l, _):
@@ -251,9 +276,9 @@ const parsedowhile = {p
 	-> std.mk(`Sdowhile [
 		.cond=cond,
 		.stmt=stmt,
-		.contlbl=nextlbl(p.curfunc),
+		.contlbl=contlbl,
 		.stmtlbl=nextlbl(p.curfunc),
-		.breaklbl=nextlbl(p.curfunc),
+		.breaklbl=breaklbl,
 	])
 }
 
@@ -286,10 +311,13 @@ const parsefor = {p
 		forstmt.step = `std.Some parseexpr(p)
 		expectcparen(p)
 	;;
-	forstmt.stmt = parsestmt(p)
 	forstmt.contlbl=nextlbl(p.curfunc)
 	forstmt.stmtlbl=nextlbl(p.curfunc)
 	forstmt.breaklbl=nextlbl(p.curfunc)
+	pushbreakcont(p, forstmt.breaklbl, forstmt.contlbl)
+	forstmt.stmt = parsestmt(p)
+	popbreakcont(p)
+	
 	-> std.mk(`Sfor forstmt)
 }
 
@@ -446,6 +474,9 @@ const parsedeclspecs = {p
 		| (l, `Tlong):
 			next(p)
 			-> (sclass, `Typrim `Tylong)
+		| (l, `Tvoid):
+			next(p)
+			-> (sclass, `Tyvoid)
 		| (l, `Tstruct):
 			-> (sclass, parsetagtype(p))
 		| (l, _):
@@ -668,6 +699,18 @@ const parsestmt = {p
 		-> parsedowhile(p)
 	| (l, `Treturn):
 		-> parsereturn(p)
+	| (l, `Tbreak):
+		next(p)
+		if p.breaks.len == 0
+			err(l, "cannot break outside of a loop")
+		;;
+		-> std.mk(`Sgoto p.breaks[p.breaks.len - 1])
+	| (l, `Tcontinue):
+		next(p)
+		if p.conts.len == 0
+			err(l, "cannot continue outside of a loop")
+		;;
+		-> std.mk(`Sgoto p.conts[p.conts.len - 1])
 	| (l, `Tobrace):
 		-> std.mk(`Sblock parseblock(p))
 	| _:
