@@ -353,14 +353,14 @@ const expectsemi = {p
 }
 
 
-const startoftype = {p
-	match peek(p)
-	| (_, `Tstruct):
-	| (_, `Tchar):
-	| (_, `Tint):
-	| (_, `Tlong):
-	| (_, `Tvoid):
-	| (_, `Tident n):
+const startoftype = {p, tok
+	match tok
+	| `Tstruct: -> true
+	| `Tchar: -> true
+	| `Tint: -> true
+	| `Tlong: -> true
+	| `Tvoid: -> true
+	| `Tident n:
 		match lookuptype(p, n)
 		| `std.Some _:
 			-> true
@@ -370,12 +370,14 @@ const startoftype = {p
 	| _:
 		-> false
 	;;
-	-> true
 }
 
 
 const startofdecl = {p
-	-> startoftype(p)
+	var tok
+	
+	(_, tok) = peek(p)
+	-> startoftype(p, tok)
 }
 
 const parsetagtype = {p
@@ -1065,7 +1067,7 @@ const parseaddexpr = {p
 const parsemulexpr = {p
 	var l, r, op
 	
-	l = parseunop(p)
+	l = parsecastexpr(p)
 	while true
 		match peek(p)
 		| (_, `Tmul):
@@ -1078,10 +1080,29 @@ const parsemulexpr = {p
 			break
 		;;
 		next(p)
-		r = parseunop(p)
+		r = parsecastexpr(p)
 		l = mkbinop(op, l, r)
 	;;
 	-> l
+}
+
+const parsecastexpr = {p
+	var tok, ty, expr
+	
+	match peek(p)
+	| (_, `Toparen):
+		(_, tok) = lookahead(p)
+		if !startoftype(p, tok)
+			goto notcast
+		;;
+		expectoparen(p)
+		ty = parsetypename(p)
+		expectcparen(p)
+		expr = parseunop(p)
+		-> mkcast(ty, expr)
+	;;
+	:notcast
+	-> parseunop(p)
 }
 
 const mkincdec = {l, op, expr
@@ -1238,7 +1259,7 @@ const parsetypename = {p
 }
 
 const parsesizeof = {p
-	var loc, ty
+	var loc, ty, tok
 	
 	// XXX I think this may be incorrect.
 	// needs more edge test cases.
@@ -1246,14 +1267,16 @@ const parsesizeof = {p
 	match peek(p)
 	| (l, `Toparen):
 		expectoparen(p)
-		if startoftype(p)
+		(_, tok) = peek(p)
+		if startoftype(p, tok)
 			ty = parsetypename(p)
 		else
 			ty = exprtype(parseunop(p))
 		;;
 		expectcparen(p)
 	| _:
-		if startoftype(p)
+		(_, tok) = peek(p)
+		if startoftype(p, tok)
 			ty = parsetypename(p)
 		else
 			ty = exprtype(parseunop(p))
