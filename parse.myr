@@ -352,14 +352,15 @@ const expectsemi = {p
 	;;
 }
 
-const startofdecl = {p
-	match peek(p)
-	| (_, `Tstruct):
-	| (_, `Tchar):
-	| (_, `Tint):
-	| (_, `Tlong):
-	| (_, `Tvoid):
-	| (_, `Tident n):
+
+const startoftype = {p, tok
+	match tok
+	| `Tstruct: -> true
+	| `Tchar: -> true
+	| `Tint: -> true
+	| `Tlong: -> true
+	| `Tvoid: -> true
+	| `Tident n:
 		match lookuptype(p, n)
 		| `std.Some _:
 			-> true
@@ -369,7 +370,14 @@ const startofdecl = {p
 	| _:
 		-> false
 	;;
-	-> true
+}
+
+
+const startofdecl = {p
+	var tok
+	
+	(_, tok) = peek(p)
+	-> startoftype(p, tok)
 }
 
 const parsetagtype = {p
@@ -1059,7 +1067,7 @@ const parseaddexpr = {p
 const parsemulexpr = {p
 	var l, r, op
 	
-	l = parseunop(p)
+	l = parsecastexpr(p)
 	while true
 		match peek(p)
 		| (_, `Tmul):
@@ -1072,10 +1080,29 @@ const parsemulexpr = {p
 			break
 		;;
 		next(p)
-		r = parseunop(p)
+		r = parsecastexpr(p)
 		l = mkbinop(op, l, r)
 	;;
 	-> l
+}
+
+const parsecastexpr = {p
+	var tok, ty, expr
+	
+	match peek(p)
+	| (_, `Toparen):
+		(_, tok) = lookahead(p)
+		if !startoftype(p, tok)
+			goto notcast
+		;;
+		expectoparen(p)
+		ty = parsetypename(p)
+		expectcparen(p)
+		expr = parseunop(p)
+		-> mkcast(ty, expr)
+	;;
+	:notcast
+	-> parseunop(p)
 }
 
 const mkincdec = {l, op, expr
@@ -1129,6 +1156,8 @@ const parseunop = {p
 			err(l, "can only dereference pointer types")
 		;;
 		
+	| (l, `Tsizeof):
+		-> parsesizeof(p)
 	| _:
 		-> parsepostexpr(p)
 	;;
@@ -1221,6 +1250,46 @@ const parsepostexpr = {p
 	-> expr
 }
 
+const parsetypename = {p
+	var sc, name, ty
+	(sc, ty) = parsedeclspecs(p);
+	(name, ty) = parsedecl(p, ty);
+	/* XXX: disallow sclass or name? */
+	-> ty;
+}
+
+const parsesizeof = {p
+	var loc, ty, tok
+	
+	// XXX I think this may be incorrect.
+	// needs more edge test cases.
+	(loc, _) = next(p)
+	match peek(p)
+	| (l, `Toparen):
+		expectoparen(p)
+		(_, tok) = peek(p)
+		if startoftype(p, tok)
+			ty = parsetypename(p)
+		else
+			ty = exprtype(parseunop(p))
+		;;
+		expectcparen(p)
+	| _:
+		(_, tok) = peek(p)
+		if startoftype(p, tok)
+			ty = parsetypename(p)
+		else
+			ty = exprtype(parseunop(p))
+		;;
+	;;
+	match typesize(ty)
+	| `std.None:
+		err(loc, "cannot do sizeof on incomplete type\n")
+	| `std.Some sz:
+		-> std.mk(`Esizeof (sz castto(int)))
+	;;
+}
+
 const parseprimaryexpr = {p
 	var expr
 	
@@ -1241,7 +1310,7 @@ const parseprimaryexpr = {p
 		expectcparen(p)
 		-> expr
 	| (l, t):
-		err(l, "expected 'integer literal', got {}\n", t)
+		err(l, "expected expression, got {}\n", t)
 	;;	
 }
 

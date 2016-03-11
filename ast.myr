@@ -79,6 +79,7 @@ pkg qc =
 		`Ecall call
 		`Ecast cast
 		`Eincdec incdec
+		`Esizeof int
 	;;
 	
 	type cast = struct
@@ -257,6 +258,8 @@ const exprtype = {e
 		-> `Typrim `Tyint
 	| &(`Eincdec incdec):
 		-> exprtype(incdec.expr)
+	| &(`Esizeof _):
+		-> `Typrim `Tyint
 	;;
 }
 
