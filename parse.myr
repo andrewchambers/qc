@@ -428,7 +428,7 @@ const parsestructbody = {p
 	var namety
 	var s
 	
-	s = mkcstruct()
+	s = mkcstruct(false)
 	match next(p)
 	| (l, `Tobrace):
 	| (l, _):
