@@ -1,7 +1,6 @@
 
 int x = 5;
 long y = 6;
-
 int *p = &x;
 
 int
