@@ -8,10 +8,11 @@ pkg qc =
 		`Tylong
 		`Tyint
 		`Tychar
+		`Typtr ctype#
 	;;
 
 	type caggr = union
-		`Typtr ctype
+		
 		`Tyarr carr
 		`Tystruct std.option(cstruct#)
 		`Tyfunc cfunc
