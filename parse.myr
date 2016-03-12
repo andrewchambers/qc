@@ -3,6 +3,7 @@ use "tok"
 use "err"
 use "ctypes"
 use "ast"
+use "fold"
 
 pkg qc =
 	const parse : (ts : tokstream# -> node#[:])
@@ -535,6 +536,30 @@ const parsedeclspecs = {p
 	std.fatal("unreachable\n")
 }
 
+const parseinit = {p, ty
+	match ty
+	| `Tystruct _:
+		std.fatal("unimplemented")
+		//-> `Initstruct parseinitstruct(p, ty)
+	| _:
+		-> `Initexpr mkcast(ty, parseassign(p))
+	;;
+}
+
+const parsedeclinit = {p, basety
+	var name, ty
+	(name, ty) = parsedecl(p, basety)
+	
+	match peek(p)
+	| (l, `Tasn):
+		next(p)
+		-> (name, ty, `std.Some parseinit(p, ty))
+	| _:
+		-> (name, ty, `std.None)
+	;;
+	
+}
+
 const parsedecl = {p, basety
 	match peek(p)
 	| (_, `Tmul):
@@ -568,7 +593,12 @@ const parsedecltail = {p, basety
 				err(l, "unimplemented inferred arr size")
 			| _:
 			;;
-			arrlen = parseconstexpr(p) castto(uint32)
+			match parseconstexpr(p)
+			| `Constint v:
+				arrlen = v castto(uint32)
+			| `Constptr _:
+				err(l, "array length cannot be derived from a pointer\n")
+			;;
 			expectcsqbrac(p)
 			basety = `Tyarr std.mk([.len=arrlen, .subty=basety])
 		| (l, `Toparen):
@@ -612,13 +642,13 @@ const parsedecltail = {p, basety
 
 const parsedeclaration = {p
 	var sclass, name, ty, sym
-	var decls, loc, paramsym
+	var decls, loc, paramsym, init
 	
-	decls = [][:]
+	decls.syms = [][:]
 	(sclass, ty) = parsedeclspecs(p)
 	while true
 		(loc, _) = peek(p)
-		(name, ty) = parsedecl(p, ty)
+		(name, ty, init) = parsedeclinit(p, ty)
 		match name
 		| `std.Some n:
 			match sclass
@@ -654,7 +684,7 @@ const parsedeclaration = {p
 			| _:
 				std.fatal("unimplemented sclass\n")
 			;;
-			std.slpush(&decls, (sym, `std.None))
+			std.slpush(&decls.syms, (sym, init))
 		| `std.None:
 		;;
 		match peek(p)
@@ -664,9 +694,9 @@ const parsedeclaration = {p
 			match sclass
 			| `Sclassglobal:
 			| _:
-				goto done
+				err(l, "function outside of global scope")
 			;;
-			if decls.len != 1
+			if decls.syms.len != 1
 				err(l, "unexpected {\n")
 			;;
 			match name
@@ -927,13 +957,15 @@ const arithconv = {l, r
 	-> result
 }
 
-
 const parseconstexpr = {p
-	match next(p)
-	| (_, `Tintlit n):
-		-> n
-	| (l, _):
-		err(l, "expected a constant expression\n")
+	var l
+	
+	(l, _) = peek(p)
+	match foldexpr(parseexpr(p))
+	| `std.Some c:
+		-> c
+	| `std.None:
+		err(l, "expected a constant value")
 	;;
 }
 

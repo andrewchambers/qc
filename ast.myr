@@ -5,7 +5,11 @@ pkg qc =
 	
 	type node = union
 		`Nfunc func#
-		`Ndecl (sym#, std.option(expr#))[:]
+		`Ndecl decl
+	;;
+	
+	type decl = struct
+		syms : (sym#, std.option(init))[:]
 	;;
 	
 	type func = struct
@@ -18,7 +22,7 @@ pkg qc =
 	;;
 	
 	type stmt = union
-		`Sdecl (sym#, std.option(expr#))[:]
+		`Sdecl decl
 		`Sexpr expr#
 		`Sreturn expr#
 		`Sblock stmt#[:]
@@ -61,6 +65,10 @@ pkg qc =
 	type labeledstmt = struct
 		stmt : stmt#
 		lbl : int
+	;;
+	
+	type init = union
+		`Initexpr expr#
 	;;
 	
 	type expr = union

@@ -6,5 +6,5 @@ bin qc =
 	ast.myr
 	parse.myr
 	emit.myr
-	dumpast.myr
+	fold.myr
 ;;

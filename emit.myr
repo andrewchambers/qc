@@ -3,6 +3,7 @@ use std
 use "parse"
 use "ctypes"
 use "ast"
+use "fold"
 
 pkg qc =
 	const emit : (globals : node#[:] -> void)
@@ -19,11 +20,13 @@ type data = struct
 	val : union
 		`Dstr byte[:]
 		`Dzero uint32
+		`Dint constval
+		`Dlong constval
 	;;
 ;;
 
 var allocas : std.htab(sym#, Val)#
-var pendingdata : data#[:]
+var pendingdata : data[:]
 
 var nreg = 0
 const newreg = {
@@ -54,7 +57,7 @@ const emit = {globals
 }
 
 const emitdecls = {decls
-	for decl in decls
+	for decl in decls.syms
 		match decl
 		| (sym, `std.None):
 			match sym.ty
@@ -66,17 +69,44 @@ const emitdecls = {decls
 			| `Sclasstypedef:
 				continue
 			| `Sclassglobal:
-				var d : data = [
+				std.slpush(&pendingdata,  [
 					.isglobal= true,
 					.label=sym.name,
 					.val=`Dzero std.get(typesize(sym.ty)),
-				]
-				std.slpush(&pendingdata, std.mk(d))
+				])
 			| _:
 				std.fatal("internal error...\n")
 			;;
-		| _:
-			std.fatal("unimplemented global decl")
+		| (sym, `std.Some init):
+			match sym.sc
+			| `Sclasstypedef:
+				continue
+			| `Sclassglobal:
+				match init
+				| `Initexpr expr:
+					// XXX frontend doesn't check this...
+					var c = std.get(foldexpr(expr))
+					var d = [
+						.isglobal= true,
+						.label=sym.name,
+					]
+					match exprtype(expr)
+					| `Tyint:
+						d.val = `Dint c
+					| `Tylong:
+						d.val = `Dlong c
+					| `Typtr _:
+						d.val = `Dlong c
+					| _:
+						std.fatal("unimplemented initializer type")
+					;;
+					std.slpush(&pendingdata, d)
+				| _:
+					std.fatal("unimplemented initializer")
+				;;				
+			| _:
+				std.fatal("internal error...\n")
+			;;
 		;;
 	;;
 }
@@ -496,7 +526,7 @@ const emitexpr = {expr
 			.label=std.fmt(".D{}", nextdatalbl()),
 			.val=`Dstr s,
 		]
-		std.slpush(&pendingdata, std.mk(d) )
+		std.slpush(&pendingdata, d)
 		v1 = newreg()
 		oi("{} =l copy ${}\n", valstr(v1), d.label)
 		-> v1
@@ -771,6 +801,20 @@ const emitpendingdata = {
 				;;	
 			;;
 			o("\", b 0}}\n")
+		| `Dint c:
+			match c
+			| `Constint v:
+				o("data ${} = {{w {}}}\n", data.label, v)
+			| `Constptr (p, off):
+				std.fatal("unimplemented...")
+			;;
+		| `Dlong c:
+			match c
+			| `Constint v:
+				o("data ${} = {{l {}}}\n", data.label, v)
+			| `Constptr (p, off):
+				o("data ${} = {{l ${}+{}}}\n", data.label, p, off)
+			;;
 		| _:
 			std.fatal("unsupported data")
 		;;
