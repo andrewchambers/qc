@@ -1,10 +1,12 @@
 
 typedef struct {
-	int x;
+	int a;
 	union {
-		int b;
-		int c;
+		int b1;
+		int b2;
 	};
+	struct { union { struct { int c; }; struct {}; }; };
+	struct {};
 	struct {
 		int d;
 	};
@@ -15,16 +17,19 @@ main()
 {
 	s v;
 	
-	v.x = 1;
-	v.b = 2;
-	v.d = 3;
+	v.a = 1;
+	v.b1 = 2;
+	v.c = 3;
+	v.d = 4;
 	
-	if (v.x != 1)
+	if (v.a != 1)
 		return 1;
-	if (v.b != 2 && v.c != 2)
+	if (v.b1 != 2 && v.b2 != 2)
 		return 2;
-	if (v.d != 3)
+	if (v.c != 3)
 		return 3;
+	if (v.d != 4)
+		return 4;
 	
 	return 0;
 }
