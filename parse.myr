@@ -185,6 +185,22 @@ const parsetype = {p
 	;;
 }
 
+const expectobrace = {p
+	match next(p)
+	| (_, `Tobrace):
+	| (l, _):
+		err(l, "expected '{'")
+	;;
+}
+
+const expectcbrace = {p
+	match next(p)
+	| (_, `Tcbrace):
+	| (l, _):
+		err(l, "expected '}'")
+	;;
+}
+
 const expectoparen = {p
 	match next(p)
 	| (_, `Toparen):
@@ -536,11 +552,110 @@ const parsedeclspecs = {p
 	std.fatal("unreachable\n")
 }
 
+const blobfinalize = {blob
+	var cmp = {a, b
+		var off1, off2
+		(off1, _, _) = a
+		(off2, _, _) = b
+		-> std.numcmp(off1, off2)
+	}
+	var off1, off2, ty
+	std.sort(blob.vals, cmp)
+	for var i = 0; i < blob.vals.len - 1; i++
+		(off1, ty, _) = blob.vals[i]
+		(off2, _, _) = blob.vals[i+1]
+		if off1 + std.get(typesize(ty)) > off2
+			-> false
+		;;
+	;;
+	-> true
+}
+
+const parsestructinit = {p, s
+	var neednext, it, loc
+	var membname, memboffset, membty
+	var subinit
+	var blob
+	
+	
+	blob = [
+		.vals = [][:]
+	]
+	(loc, _) = peek(p)
+	expectobrace(p)
+	it = mkstructiter(s)
+	while true
+		match peek(p)
+		| (l, `Tcbrace):
+			break
+		| (l, `Tdot):
+			neednext = false
+			next(p)
+			match next(p)
+			| (nl, `Tident n):
+				match getstructiter(s, n)
+				| `std.None:
+					err(nl, "struct has no member {}", n)
+				| `std.Some newiter:
+					it = newiter
+				;;
+			| (nl, _):
+				err(nl, "expected ident")
+			;;
+			match next(p)
+			| (_, `Tasn):
+			| (nl, _):
+				err(nl, "expected '='")
+			;;
+		| _:
+			neednext = true
+		;;
+		
+		if neednext
+			if !structiternext(&it)
+				err(loc, "too many struct initializers")
+			;;
+		;;
+		
+		
+		(membname, memboffset, membty) = structiterwalk(it)
+		subinit = parseinit(p, membty)
+		
+		match subinit
+		| `Initexpr sube:
+			match foldexpr(sube)
+			| `std.None:
+				err(loc, "not a constant value")
+			| `std.Some c:
+				std.slpush(&blob.vals, (memboffset, membty, c))
+			;;
+		| `Initblob subblob:
+			for (o, t, c) in subblob.vals
+				std.slpush(&blob.vals, (o+memboffset, membty, c))
+			;;
+		;;
+		
+		match peek(p)
+		| (_, `Tcomma):
+			next(p)
+		| _:
+			break
+		;;
+		
+	;;
+	expectcbrace(p)
+	if !blobfinalize(&blob)
+		err(loc, "initializer has overlapping values\n")
+	;;
+	-> std.mk(blob)
+}
+
 const parseinit = {p, ty
 	match ty
-	| `Tystruct _:
-		std.fatal("unimplemented")
-		//-> `Initstruct parseinitstruct(p, ty)
+	| `Tystruct &(`std.None):
+		std.fatal("internal error\n")
+	| `Tystruct &(`std.Some s):
+		-> `Initblob parsestructinit(p, s)
 	| _:
 		-> `Initexpr mkcast(ty, parseassign(p))
 	;;

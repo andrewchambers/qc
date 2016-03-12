@@ -14,15 +14,18 @@ type Val = union
 	`Vreg byte[:]
 ;;
 
+type dataval = union
+	`Dstr byte[:]
+	`Dzero uint32
+	`Dint constval
+	`Dlong constval
+	`Darr dataval[:]
+;;
+
 type data = struct
 	isglobal : bool
 	label : byte[:]
-	val : union
-		`Dstr byte[:]
-		`Dzero uint32
-		`Dint constval
-		`Dlong constval
-	;;
+	val : dataval
 ;;
 
 var allocas : std.htab(sym#, Val)#
@@ -100,6 +103,32 @@ const emitdecls = {decls
 					| _:
 						std.fatal("unimplemented initializer type")
 					;;
+					std.slpush(&pendingdata, d)
+				| `Initblob blob:
+					var d = [
+						.isglobal= true,
+						.label=sym.name,
+					]
+					var arr = [][:]
+					var curoff = 0
+					for (off, ty, c) in blob.vals
+						if off > curoff
+							std.slpush(&arr, `Dzero off - curoff)
+							curoff = off
+						;;
+						match ty
+						| `Tyint:
+							std.slpush(&arr, `Dint c)
+						| `Tylong:
+							std.slpush(&arr, `Dlong c)
+						| `Typtr _:
+							std.slpush(&arr, `Dlong c)
+						| _:
+							std.fatal("unimplemented initializer type")
+						;;
+						curoff += std.get(typesize(ty))
+					;;
+					d.val = `Darr arr
 					std.slpush(&pendingdata, d)
 				| _:
 					std.fatal("unimplemented initializer")
@@ -815,6 +844,31 @@ const emitpendingdata = {
 			| `Constptr (p, off):
 				o("data ${} = {{l ${}+{}}}\n", data.label, p, off)
 			;;
+		| `Darr arr:
+			o("data ${} = {{", data.label)
+				for d in arr
+					match d
+					| `Dint c:
+						match c
+						| `Constint v:
+							o("w {},", v)
+						| `Constptr (p, off):
+							o("w {}+{},\n", p, off)
+						;;
+					| `Dlong c:
+						match c
+						| `Constint v:
+							o("l {}, ", v)
+						| `Constptr (p, off):
+							o("l {}+{}, ", p, off)
+						;;
+					| `Dzero z:
+						o("z {}, ", z)
+					| _:
+						std.fatal("unimplemented data array {}\n", d)
+					;;
+				;;
+			o("}}\n")
 		| _:
 			std.fatal("unsupported data")
 		;;

@@ -3,10 +3,6 @@ use "ctypes"
 use "ast"
 
 pkg qc =
-	type constval = union
-		`Constint int64
-		`Constptr (byte[:], int64)
-	;;
 	const foldexpr : (e : expr# -> std.option(constval))
 ;;
 

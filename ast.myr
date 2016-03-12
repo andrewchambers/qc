@@ -1,6 +1,7 @@
 use std
 use "ctypes"
 
+
 pkg qc = 
 	
 	type node = union
@@ -69,6 +70,16 @@ pkg qc =
 	
 	type init = union
 		`Initexpr expr#
+		`Initblob initblob#
+	;;
+	
+	type constval = union
+		`Constint int64
+		`Constptr (byte[:], int64)
+	;;
+	
+	type initblob = struct
+		vals : (uint32, ctype, constval)[:]
 	;;
 	
 	type expr = union
