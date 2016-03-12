@@ -205,11 +205,11 @@ const emitfunc = {f
 
 const type2class = {t
 	match t
-	| `Typrim `Tychar:
+	| `Tychar:
 		-> "w"
-	| `Typrim `Tyint:
+	| `Tyint:
 		-> "w"
-	| `Typrim `Tylong:
+	| `Tylong:
 		-> "l"
 	| `Tyaggr &(`Typtr ty):
 		-> "l"
@@ -383,11 +383,11 @@ const emitload = {ty, val
 	
 	v = newreg()
 	match ty
-	| `Typrim `Tychar:
+	| `Tychar:
 		oi("{} =w loadsb {}\n", valstr(v), valstr(val))
-	| `Typrim `Tyint:
+	| `Tyint:
 		oi("{} =w load {}\n", valstr(v), valstr(val))
-	| `Typrim `Tylong:
+	| `Tylong:
 		oi("{} =l load {}\n", valstr(v), valstr(val))
 	| `Tyaggr &(`Typtr _):
 		oi("{} =l load {}\n", valstr(v), valstr(val))
@@ -399,11 +399,11 @@ const emitload = {ty, val
 
 const emitstore = {ty, dst, v
 	match ty
-	| `Typrim `Tychar:
+	| `Tychar:
 		oi("storeb {}, {}\n", valstr(v), valstr(dst))
-	| `Typrim `Tyint:
+	| `Tyint:
 		oi("storew {}, {}\n", valstr(v), valstr(dst))
-	| `Typrim `Tylong:
+	| `Tylong:
 		oi("storel {}, {}\n", valstr(v), valstr(dst))
 	| `Tyaggr &(`Typtr _):
 		oi("storel {}, {}\n", valstr(v), valstr(dst))
@@ -420,13 +420,13 @@ const emitincdec = {incdec
 	v2 = emitload(exprtype(incdec.expr), v1)
 	
 	match exprtype(incdec.expr)
-	| `Typrim `Tychar:
+	| `Tychar:
 		amnt = 1
 		class = "w"
-	| `Typrim `Tyint:
+	| `Tyint:
 		amnt = 1
 		class = "w"
-	| `Typrim `Tylong:
+	| `Tylong:
 		amnt = 1
 		class = "l"
 	| `Tyaggr &(`Typtr ty):

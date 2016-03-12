@@ -178,7 +178,7 @@ const lookahead = {p
 const parsetype = {p
 	match next(p)
 	| (_, `Tint):
-		-> `Typrim `Tyint
+		-> `Tyint
 	| (l, _):
 		err(l, "expected type\n")
 	;;
@@ -490,17 +490,17 @@ const parsedeclspecs = {p
 				next(p)
 				-> (sclass, ty)
 			| `std.None:
-				-> (sclass, `Typrim `Tyint)
+				-> (sclass, `Tyint)
 			;;
 		| (l, `Tchar):
 			next(p)
-			-> (sclass, `Typrim `Tychar)
+			-> (sclass, `Tychar)
 		| (l, `Tint):
 			next(p)
-			-> (sclass, `Typrim `Tyint)
+			-> (sclass, `Tyint)
 		| (l, `Tlong):
 			next(p)
-			-> (sclass, `Typrim `Tylong)
+			-> (sclass, `Tylong)
 		| (l, `Tvoid):
 			next(p)
 			-> (sclass, `Tyvoid)
@@ -509,7 +509,7 @@ const parsedeclspecs = {p
 		| (l, `Tunion):
 			-> (sclass, parsetagtype(p))
 		| (l, _):
-			-> (sclass, `Typrim `Tyint)
+			-> (sclass, `Tyint)
 		;;
 	;;
 	std.fatal("unreachable\n")
@@ -849,11 +849,11 @@ const mkcast = {ty, expr
 
 const tyrank = {ty
 	match ty
-	| `Typrim `Tylong:
+	| `Tylong:
 		-> 3
-	| `Typrim `Tyint:
+	| `Tyint:
 		-> 2
-	| `Typrim `Tychar:
+	| `Tychar:
 		-> 1
 	| _:
 		std.fatal("tyrank internal error\n")
@@ -862,10 +862,10 @@ const tyrank = {ty
 
 const usualconv = {e
 	match exprtype(e)
-	| `Typrim `Tylong:
-	| `Typrim `Tyint:
-	| `Typrim `Tychar:
-		-> mkcast(`Typrim `Tyint, e)
+	| `Tylong:
+	| `Tyint:
+	| `Tychar:
+		-> mkcast(`Tyint, e)
 	| _:
 		std.fatal("unimplemented usualconv\n")
 	;;
@@ -889,13 +889,13 @@ const arithconv = {l, r
 	
 	result = (l, r)
 	match exprtype(l)
-	| `Typrim `Tylong:
+	| `Tylong:
 		match exprtype(r)
-		| `Typrim `Tylong:
+		| `Tylong:
 		| _:
-			result = (l, mkcast(`Typrim `Tylong, r))
+			result = (l, mkcast(`Tylong, r))
 		;;
-	| `Typrim `Tyint:
+	| `Tyint:
 	| _:
 		std.fatal("unimplemented arithconv")
 	;;
@@ -1221,7 +1221,7 @@ const parsepostexpr = {p
 			next(p)
 			idx = parseexpr(p)
 			expectcsqbrac(p)
-			expr = std.mk(`Eidx [.ty=`Typrim `Tyint, .expr=expr, .idx=idx])
+			expr = std.mk(`Eidx [.ty=`Tyint, .expr=expr, .idx=idx])
 		| (l, `Tdot):
 			next(p)
 			match exprtype(expr)
@@ -1260,7 +1260,7 @@ const parsepostexpr = {p
 				;;
 			;;
 			expr = std.mk(`Ecall [
-				.ty=`Typrim `Tyint,
+				.ty=`Tyint,
 				.func=funclike,
 				.args=args
 			])

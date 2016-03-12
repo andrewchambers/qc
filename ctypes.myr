@@ -3,12 +3,8 @@ use std
 pkg qc =
 
 	type ctype = union
-		`Typrim cprim
 		`Tyaggr caggr#
 		`Tyvoid
-	;;
-
-	type cprim = union
 		`Tylong
 		`Tyint
 		`Tychar
@@ -55,11 +51,11 @@ const typealign = {ty
 	var align
 	
 	match ty
-	| `Typrim `Tylong:
+	| `Tylong:
 		align = 8
-	| `Typrim `Tyint:
+	| `Tyint:
 		align = 4
-	| `Typrim `Tychar:
+	| `Tychar:
 		align = 1
 	| `Tyaggr &(`Typtr _):
 		align = 8
@@ -79,11 +75,11 @@ const typesize = {ty
 	var sz
 	
 	match ty
-	| `Typrim `Tylong:
+	| `Tylong:
 		sz = 8
-	| `Typrim `Tyint:
+	| `Tyint:
 		sz = 4
-	| `Typrim `Tychar:
+	| `Tychar:
 		sz = 1
 	| `Tyaggr &(`Typtr _):
 		sz = 8
