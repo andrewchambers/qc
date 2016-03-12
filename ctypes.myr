@@ -3,21 +3,16 @@ use std
 pkg qc =
 
 	type ctype = union
-		`Tyaggr caggr#
 		`Tyvoid
 		`Tylong
 		`Tyint
 		`Tychar
 		`Typtr ctype#
+		`Tyarr carr#
+		`Tystruct std.option(cstruct#)#
+		`Tyfunc cfunc#
 	;;
 
-	type caggr = union
-		
-		`Tyarr carr
-		`Tystruct std.option(cstruct#)
-		`Tyfunc cfunc
-	;;
-	
 	type cstruct = struct
 		isunion : bool
 		align : uint32
@@ -58,13 +53,13 @@ const typealign = {ty
 		align = 4
 	| `Tychar:
 		align = 1
-	| `Tyaggr &(`Typtr _):
+	| `Typtr _:
 		align = 8
-	| `Tyaggr &(`Tyarr arr):
+	| `Tyarr arr:
 		-> typealign(arr.subty)
-	| `Tyaggr &(`Tystruct `std.None):
+	| `Tystruct &(`std.None):
 		-> `std.None
-	| `Tyaggr &(`Tystruct `std.Some s):
+	| `Tystruct &(`std.Some s):
 		align = s.align
 	| _:
 		std.fatal("unimplemented typesize\n")
@@ -82,18 +77,18 @@ const typesize = {ty
 		sz = 4
 	| `Tychar:
 		sz = 1
-	| `Tyaggr &(`Typtr _):
+	| `Typtr _:
 		sz = 8
-	| `Tyaggr &(`Tyarr arr):
+	| `Tyarr arr:
 		match typesize(arr.subty)
 		| `std.None:
 			-> `std.None
 		| `std.Some subtysz:
 			sz = arr.len * subtysz
 		;;
-	| `Tyaggr &(`Tystruct `std.None):
+	| `Tystruct &(`std.None):
 		-> `std.None
-	| `Tyaggr &(`Tystruct `std.Some s):
+	| `Tystruct &(`std.Some s):
 		sz = s.size
 	| _:
 		std.fatal("unimplemented typesize\n")
@@ -154,7 +149,7 @@ const finalizestruct = {s
 		match name
 		| `std.None:
 			match ty
-			| `Tyaggr &(`Tystruct `std.Some sub):
+			| `Tystruct &(`std.Some sub):
 				for (xname, (xoff, xty)) in std.htbykeyvals(sub.exports)
 					// XXX check for duplicates
 					std.htput(s.exports, xname, (s.offsets[i]+xoff, xty))

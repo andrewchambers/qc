@@ -386,57 +386,77 @@ const startofdecl = {p
 }
 
 const parsetagtype = {p
-	var tagloc
-	var tagname, tag
-	var tagty
+	var tagloc, tagname, tag, ty
 	
 	match next(p)
 	| (l, `Tstruct):
 		tagloc = l
-		tagty = tagstruct
+		tag = tagstruct
 	| (l, `Tunion):
 		tagloc = l
-		tagty = tagunion
+		tag = tagunion
 	| (l, _):
 		err(l, "expected struct/union/enum\n")
 	;;
+	
 	match peek(p)
 	| (_, `Tident tname):
 		next(p)
 		tagname = `std.Some tname
-		match lookuptag(p, tname)
-		| `std.Some (oldtagty, oldtag):
-			if oldtagty != tagty
-				err(tagloc, "tag {} redeclared with different tag type\n", tagname)
-			;;
-			tag = oldtag
-		| `std.None:
-			tag = `Tyaggr std.mk(`Tystruct `std.None)
-			declaretag(p, tname, (tagty, tag))
-		;;
 	| (l, _):
 		tagname = `std.None
-		tag = `Tyaggr std.mk(`Tystruct `std.None)
 	;;
-	match peek(p)
-	| (l, `Tobrace):
-		match (tagname, tag)
-		| (`std.Some _, `Tyaggr &(`Tystruct `std.Some _)):
-			err(l, "redfinition of struct\n")
-		| (`std.Some _, `Tyaggr paggr):
-			paggr# = `Tystruct `std.Some (parsestructbody(p, tagty == tagunion))
-		| (`std.None, `Tyaggr paggr):
-			paggr# = `Tystruct `std.Some (parsestructbody(p, tagty == tagunion))
-		| _:
-			std.fatal("internal err...\n")
+	
+	match (peek(p), tagname)
+	| ((l, `Tobrace), `std.Some name):
+		match lookuptag(p, name)
+		| `std.None:
+			var pstruct = std.mk(`std.None)
+			ty = `Tystruct pstruct
+			if !declaretag(p, name, (tag, ty))
+				std.fatal("internal error\n")
+			;;
+			pstruct# = `std.Some parsestructbody(p, tag == tagunion)
+			-> ty
+		| `std.Some (oldtag, oldty):
+			if oldtag != tag
+				err(tagloc, "struct/union/enum accessed with wrong tag type")
+			;;
+			match oldty
+			| `Tystruct pstruct:
+				match pstruct
+				| &(`std.Some _):
+					ty = `Tystruct std.mk(`std.Some parsestructbody(p, tag == tagunion))
+					if !declaretag(p, name, (tag, ty))
+						err(tagloc, "redefinition of tag {}", name)
+					;;
+					-> ty
+				| &(`std.None):
+					pstruct# = `std.Some parsestructbody(p, tag == tagunion)
+				;;
+			| _:	
+				std.fatal("internal error\n")
+			;;
+			-> oldty
 		;;
-	| (l, _):
-	;;
-	match (tagname, tag)
-	| (`std.None,  `Tyaggr &(`Tystruct `std.None)):
-		err(tagloc, "struct without a tag requires a body\n")
-	| _:
-		-> tag
+	| ((l, `Tobrace), `std.None):
+		-> `Tystruct std.mk(`std.Some parsestructbody(p, tag == tagunion))
+	| ((l, _), `std.Some name):
+		match lookuptag(p, name)
+		| `std.None:
+			ty = `Tystruct std.mk(`std.None)
+			if !declaretag(p, name, (tag, ty))
+				std.fatal("internal error\n")
+			;;
+			-> ty
+		| `std.Some (oldtag, oldty):
+			if oldtag != tag
+				err(tagloc, "struct/union/enum accessed with wrong tag type")
+			;;
+			-> oldty
+		;;
+	| ((l, _), `std.None):
+		err(tagloc, "struct/union/enum with no name and not body")
 	;;
 }
 
@@ -519,7 +539,7 @@ const parsedecl = {p, basety
 	match peek(p)
 	| (_, `Tmul):
 		next(p)
-		-> parsedecl(p, `Tyaggr std.mk(`Typtr basety))
+		-> parsedecl(p, `Typtr std.mk(basety))
 	| _:
 		-> parsedirectdecl(p, basety)
 	;;
@@ -550,7 +570,7 @@ const parsedecltail = {p, basety
 			;;
 			arrlen = parseconstexpr(p) castto(uint32)
 			expectcsqbrac(p)
-			basety = `Tyaggr std.mk(`Tyarr [.len=arrlen, .subty=basety])
+			basety = `Tyarr std.mk([.len=arrlen, .subty=basety])
 		| (l, `Toparen):
 			next(p)
 			cfunc.isvararg = false
@@ -558,7 +578,7 @@ const parsedecltail = {p, basety
 			cfunc.rty = basety
 			match peek(p)
 			| (_, `Tcparen):
-				basety = `Tyaggr std.mk(`Tyfunc cfunc)
+				basety = `Tyfunc std.mk(cfunc)
 				next(p)
 				continue
 			| _:
@@ -582,7 +602,7 @@ const parsedecltail = {p, basety
 				/* XXX ellipsis */
 			;;
 			expectcparen(p)
-			basety = `Tyaggr std.mk(`Tyfunc cfunc)
+			basety = `Tyfunc std.mk(cfunc)
 		| _:
 			break
 		;;
@@ -636,7 +656,6 @@ const parsedeclaration = {p
 			;;
 			std.slpush(&decls, (sym, `std.None))
 		| `std.None:
-			err(loc, "declaration defines no name\n")
 		;;
 		match peek(p)
 		| (_, `Tcomma):
@@ -645,7 +664,7 @@ const parsedeclaration = {p
 			match sclass
 			| `Sclassglobal:
 			| _:
-				err(loc, "function definition must be global\n")
+				goto done
 			;;
 			if decls.len != 1
 				err(l, "unexpected {\n")
@@ -663,7 +682,7 @@ const parsedeclaration = {p
 				err(l, "function requires a name\n")
 			;;
 			match ty
-			| `Tyaggr &(`Tyfunc fty):
+			| `Tyfunc fty:
 				p.curfunc.functy = fty
 			| _:
 				err(loc, "non function type cannot have a function\n")
@@ -687,6 +706,7 @@ const parsedeclaration = {p
 			break
 		;;
 	;;
+	:done
 	expectsemi(p)
 	-> std.mk(`Ndecl decls)
 }
@@ -825,13 +845,13 @@ const mkbinop = {op, l, r
 	var ty
 	
 	match (op, exprtype(l), exprtype(r))
-	| (`Oplus ,`Tyaggr &(`Typtr _), `Tyaggr &(`Typtr _)):
+	| (`Oplus , `Typtr _, `Typtr _):
 		std.fatal("XXX unhandled adding two pointers")
-	| (`Ominus ,`Tyaggr &(`Typtr _), `Tyaggr &(`Typtr _)):
+	| (`Ominus , `Typtr _, `Typtr _):
 		-> std.mk(`Eptrdiff [.l=l, .r=r])
-	| (`Oplus ,`Tyaggr &(`Typtr _), _):
+	| (`Oplus ,`Typtr _, _):
 		-> std.mk(`Eptradd [.ptr=l, .amnt=r])
-	| (`Oplus , _, `Tyaggr &(`Typtr _)):
+	| (`Oplus , _, `Typtr _):
 		-> std.mk(`Eptradd [.ptr=r, .amnt=l])
 	| _:
 	;;	
@@ -1152,7 +1172,7 @@ const parseunop = {p
 		if !islval(operand)
 			err(l, "can only take the address of an lvalue")
 		;;
-		-> std.mk(`Eunop [.op=`Oaddr, .ty=`Tyaggr std.mk(`Typtr exprtype(operand)), .operand=operand])
+		-> std.mk(`Eunop [.op=`Oaddr, .ty=`Typtr std.mk(exprtype(operand)), .operand=operand])
 	| (l, `Tminus):
 		next(p)
 		operand = parseunop(p)
@@ -1169,9 +1189,9 @@ const parseunop = {p
 		next(p)
 		operand = parseunop(p)
 		match exprtype(operand)
-		| `Tyaggr &(`Typtr `Tyvoid):
+		|`Typtr &(`Tyvoid):
 			err(l, "dereference of a void*")
-		| `Tyaggr &(`Typtr ty):
+		|  `Typtr &(ty):
 			-> std.mk(`Eunop [.ty=ty, .op=`Oderef, .operand=operand])
 		| _:
 			err(l, "can only dereference pointer types")
@@ -1225,7 +1245,7 @@ const parsepostexpr = {p
 		| (l, `Tdot):
 			next(p)
 			match exprtype(expr)
-			| `Tyaggr &(`Tystruct `std.Some s):
+			|  `Tystruct &(`std.Some s):
 				selstruct = s
 			| _:
 				err(l, "'.' can only be used on complete structs or unions\n")
@@ -1234,7 +1254,7 @@ const parsepostexpr = {p
 		| (l, `Tarrow):
 			next(p)
 			match exprtype(expr)
-			| `Tyaggr &(`Typtr `Tyaggr &(`Tystruct `std.Some s)):
+			| `Typtr &(`Tystruct &(`std.Some s)):
 				selstruct = s
 			| _:
 				err(l, "'->' can only be used on struct or union pointers\n")

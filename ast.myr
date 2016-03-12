@@ -10,7 +10,7 @@ pkg qc =
 	
 	type func = struct
 		name : byte[:]
-		functy : cfunc
+		functy : cfunc#
 		body : stmt#[:]
 		locals : sym#[:]
 		params : sym#[:]
@@ -251,7 +251,7 @@ const exprtype = {e
 	| &(`Erelop _):
 		-> `Tyint
 	| &(`Estrlit _):
-		-> `Tyaggr std.mk(`Typtr `Tychar)
+		-> `Typtr std.mk(`Tychar)
 	| &(`Eidx idx):
 		-> idx.ty
 	| &(`Ecall call):

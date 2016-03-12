@@ -58,7 +58,7 @@ const emitdecls = {decls
 		match decl
 		| (sym, `std.None):
 			match sym.ty
-			| `Tyaggr &(`Tyfunc _):
+			| `Tyfunc _:
 				continue
 			| _:
 			;;
@@ -211,7 +211,7 @@ const type2class = {t
 		-> "w"
 	| `Tylong:
 		-> "l"
-	| `Tyaggr &(`Typtr ty):
+	| `Typtr _:
 		-> "l"
 	| _:
 		std.fatal("unhandled type2class type\n")
@@ -374,9 +374,9 @@ const emitload = {ty, val
 	var v
 	
 	match ty
-	| `Tyaggr &(`Tyarr _):
+	| `Tyarr _:
 		-> val
-	| `Tyaggr &(`Tystruct _):
+	| `Tystruct _:
 		-> val
 	| _:
 	;;
@@ -389,7 +389,7 @@ const emitload = {ty, val
 		oi("{} =w load {}\n", valstr(v), valstr(val))
 	| `Tylong:
 		oi("{} =l load {}\n", valstr(v), valstr(val))
-	| `Tyaggr &(`Typtr _):
+	| `Typtr _:
 		oi("{} =l load {}\n", valstr(v), valstr(val))
 	| _:
 		std.fatal("unimplemented load {}\n", ty)
@@ -405,7 +405,7 @@ const emitstore = {ty, dst, v
 		oi("storew {}, {}\n", valstr(v), valstr(dst))
 	| `Tylong:
 		oi("storel {}, {}\n", valstr(v), valstr(dst))
-	| `Tyaggr &(`Typtr _):
+	| `Typtr _:
 		oi("storel {}, {}\n", valstr(v), valstr(dst))
 	| _:
 		std.fatal("unimplemented store {}\n", ty)
@@ -429,7 +429,7 @@ const emitincdec = {incdec
 	| `Tylong:
 		amnt = 1
 		class = "l"
-	| `Tyaggr &(`Typtr ty):
+	| `Typtr &(ty):
 		match typesize(ty)
 		| `std.Some sz:
 			amnt = sz
@@ -516,7 +516,7 @@ const emitexpr = {expr
 
 const pointsto = {ptr
 	match ptr
-	| `Tyaggr &(`Typtr t):
+	| `Typtr &(t):
 		-> t
 	| _:
 		std.fatal("internal error\n")
