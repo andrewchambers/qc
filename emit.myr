@@ -851,16 +851,16 @@ const emitpendingdata = {
 					| `Dint c:
 						match c
 						| `Constint v:
-							o("w {},", v)
+							o("w {}, ", v)
 						| `Constptr (p, off):
-							o("w {}+{},\n", p, off)
+							o("w {}+{}, ", p, off)
 						;;
 					| `Dlong c:
 						match c
 						| `Constint v:
 							o("l {}, ", v)
 						| `Constptr (p, off):
-							o("l {}+{}, ", p, off)
+							o("l ${}+{}, ", p, off)
 						;;
 					| `Dzero z:
 						o("z {}, ", z)

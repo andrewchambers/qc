@@ -617,7 +617,6 @@ const parsestructinit = {p, s
 			;;
 		;;
 		
-		
 		(membname, memboffset, membty) = structiterwalk(it)
 		subinit = parseinit(p, membty)
 		
@@ -631,7 +630,7 @@ const parsestructinit = {p, s
 			;;
 		| `Initblob subblob:
 			for (o, t, c) in subblob.vals
-				std.slpush(&blob.vals, (o+memboffset, membty, c))
+				std.slpush(&blob.vals, (o+memboffset, t, c))
 			;;
 		;;
 		
