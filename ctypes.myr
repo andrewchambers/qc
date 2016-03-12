@@ -19,7 +19,23 @@ pkg qc =
 		size : uint32
 		membs : (std.option(byte[:]), ctype)[:]
 		offsets : uint32[:]
-		exports : std.htab(byte[:], (uint32, ctype))#
+		exports : std.htab(byte[:], structexport)#
+	;;
+	
+	type structexport = struct
+		ty : ctype
+		offset : uint32
+		path : exportpath
+	;;
+
+	type exportpath = union
+		`Exportend int
+		`Exportpath (int, exportpath#)
+	;;
+	
+	type structiter = struct
+		root : cstruct#
+		pos : int[:]
 	;;
 
 	type carr = struct
@@ -39,7 +55,11 @@ pkg qc =
 	const mkcstruct : (isunion : bool -> cstruct#)
 	const addtostruct : (s : cstruct#, namety : (std.option(byte[:]), ctype) -> void)
 	const finalizestruct : (s : cstruct# -> void)
-	const structmemb : (s : cstruct#, name : byte[:] -> std.option((uint32, ctype)))
+	const structmemb : (s : cstruct#, name : byte[:] -> std.option(structexport))
+	const getstructiter : (s : cstruct#, name : byte[:] -> std.option(structiter))
+	const mkstructiter : (s : cstruct# -> structiter)
+	const structiterwalk : (iter : structiter -> (std.option(byte[:]), uint32, ctype))
+	const structiternext : (piter : structiter# -> bool)
 ;;
 
 
@@ -110,7 +130,7 @@ const mkcstruct = {isunion
 		.size = 0,
 		.membs = [][:],
 		.offsets = [][:],
-		.exports=std.mkht(std.strhash, std.streq),
+		.exports = std.mkht(std.strhash, std.streq),
 	])
 }
 
@@ -144,22 +164,30 @@ const finalizestruct = {s
 		;;
 		s.size = curoffset
 	;;
-	/* exports including anonymous subunions */
+	/* exports */
 	for (i, (name, ty)) in std.byenum(s.membs)
 		match name
 		| `std.None:
 			match ty
 			| `Tystruct &(`std.Some sub):
-				for (xname, (xoff, xty)) in std.htbykeyvals(sub.exports)
+				for (xname, [.offset=xoff, .ty=xty, .path=xpath]) in std.htbykeyvals(sub.exports)
 					// XXX check for duplicates
-					std.htput(s.exports, xname, (s.offsets[i]+xoff, xty))
+					std.htput(s.exports, xname, [
+						.offset=s.offsets[i]+xoff,
+						.ty=xty,
+						.path=`Exportpath (i castto(int), std.mk(xpath)),
+					])
 				;;
 			| _:
 				continue
 			;;
 		| `std.Some n:
 			// XXX check for duplicates
-			std.htput(s.exports, n, (s.offsets[i], ty))
+			std.htput(s.exports, n, [
+				.offset=s.offsets[i],
+				.ty=ty,
+				.path=`Exportend (i castto(int)),
+			])
 		;;
 	;;
 	s.size = alignoff(s.size, s.align)
@@ -168,3 +196,115 @@ const finalizestruct = {s
 const structmemb = {s, name
 	-> std.htget(s.exports, name)
 }
+
+const mkstructiter = {s
+	var iter
+	
+	iter.root = s
+	iter.pos = [][:]
+	std.slpush(&iter.pos, -1)
+	-> iter
+}
+
+const getstructiter = {s, name
+	var iter, p
+	
+	iter.root = s
+	iter.pos = [][:]
+	match structmemb(s, name)
+	| `std.None:
+		-> `std.None
+	| `std.Some export:
+		p = export.path
+		while true
+			match p
+			| `Exportend v:
+				std.slpush(&iter.pos, v)
+				break
+			| `Exportpath (v, next):
+				std.slpush(&iter.pos, v)
+				p = next#
+			;;
+		;;
+	;;
+	
+	-> `std.Some iter
+}
+
+const _structiterwalk = {path, off, s
+	var membname, memboff, membty
+	
+	(membname, membty) = s.membs[path[0]]
+	memboff = s.offsets[path[0]]
+	if path.len == 1
+		-> (membname, off+memboff, membty)
+	;;
+	match membty
+	| `Tystruct &(`std.Some submemb):
+		-> _structiterwalk(path[1:], off+memboff, submemb)
+	| _:
+		std.fatal("internal error\n")
+	;;
+}
+
+const structiterwalk = {iter
+	-> _structiterwalk(iter.pos, 0, iter.root)
+}
+
+const structiternext = {piter
+	var cur, name, ty
+	
+	if piter.pos.len == 0
+		-> false
+	;;
+	
+	if piter.pos.len == 1
+		if piter.pos[0] == -1
+			if piter.root.membs.len == 0
+				-> false
+			;;
+			piter.pos[0] = 0
+			-> true
+		;;
+		cur = piter.root
+	else
+		(_, _, ty) = _structiterwalk(piter.pos[:piter.pos.len-1], 0, piter.root)
+		match ty
+		| `Tystruct &(`std.Some s):
+			cur = s
+		| _:
+			std.fatal("internal error\n")
+		;;
+	;;
+	
+	if cur.isunion
+		std.slpop(&piter.pos)
+		-> structiternext(piter)
+	;;
+	
+	piter.pos[piter.pos.len-1]++
+	if piter.pos[piter.pos.len-1] == cur.membs.len
+		std.slpop(&piter.pos)
+		-> structiternext(piter)
+	;;
+	while true
+		(name, _, ty) = _structiterwalk(piter.pos, 0, piter.root)
+		match name
+		| `std.None:
+			match ty
+			| `Tystruct &(`std.Some s):
+				if s.membs.len == 0
+					-> structiternext(piter)
+				;;
+				std.slpush(&piter.pos, 0)
+				continue
+			| _:
+			;;
+		| `std.Some n:
+		;;
+		break
+	;;
+	-> true
+}
+
+

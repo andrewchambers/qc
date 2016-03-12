@@ -1243,7 +1243,7 @@ const parseseltail = {p, expr, selstruct
 	match next(p)
 	| (selloc, `Tident name):
 		match structmemb(selstruct, name)
-		| `std.Some (off, ty):
+		| `std.Some [.offset=off, .ty=ty]:
 			seloff = off
 			selty = ty
 		| `std.None:
