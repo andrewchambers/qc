@@ -28,12 +28,16 @@ type lblstate = union
 	`Lbldefined int
 ;;
 
+type tagty = int
+const tagstruct : tagty = 0
+const tagunion : tagty = 1
+
 type parser = struct
 	ts : tokstream#
 	toks : (srcloc, tok)[2]
 	symtab : std.htab(byte[:], sym#)#[:]
 	typetab : std.htab(byte[:], ctype)#[:]
-	tagtab : std.htab(byte[:], caggr#)#[:]
+	tagtab : std.htab(byte[:], (tagty, ctype))#[:]
 	lbltab : std.htab(byte[:], lblstate)#
 	breaks : int[:]
 	conts : int[:]
@@ -356,6 +360,7 @@ const expectsemi = {p
 const startoftype = {p, tok
 	match tok
 	| `Tstruct: -> true
+	| `Tunion: -> true
 	| `Tchar: -> true
 	| `Tint: -> true
 	| `Tlong: -> true
@@ -381,54 +386,66 @@ const startofdecl = {p
 }
 
 const parsetagtype = {p
-	var structloc
-	var tagname, body
+	var tagloc
+	var tagname, tag
+	var tagty
 	
 	match next(p)
 	| (l, `Tstruct):
-		structloc = l
+		tagloc = l
+		tagty = tagstruct
+	| (l, `Tunion):
+		tagloc = l
+		tagty = tagunion
 	| (l, _):
-		err(l, "expected 'struct'\n")
+		err(l, "expected struct/union/enum\n")
 	;;
 	match peek(p)
 	| (_, `Tident tname):
 		next(p)
 		tagname = `std.Some tname
 		match lookuptag(p, tname)
-		| `std.Some tagty:
-			body = tagty
+		| `std.Some (oldtagty, oldtag):
+			if oldtagty != tagty
+				err(tagloc, "tag {} redeclared with different tag type\n", tagname)
+			;;
+			tag = oldtag
 		| `std.None:
-			body = std.mk(`Tystruct `std.None)
-			declaretag(p, tname, body)
+			tag = `Tyaggr std.mk(`Tystruct `std.None)
+			declaretag(p, tname, (tagty, tag))
 		;;
 	| (l, _):
 		tagname = `std.None
-		body = std.mk(`Tystruct `std.None)
+		tag = `Tyaggr std.mk(`Tystruct `std.None)
 	;;
 	match peek(p)
 	| (l, `Tobrace):
-		match (tagname, body)
-		| (`std.Some _, &(`Tystruct `std.Some _)):
+		match (tagname, tag)
+		| (`std.Some _, `Tyaggr &(`Tystruct `std.Some _)):
 			err(l, "redfinition of struct\n")
+		| (`std.Some _, `Tyaggr paggr):
+			paggr# = `Tystruct `std.Some (parsestructbody(p, tagty == tagunion))
+		| (`std.None, `Tyaggr paggr):
+			paggr# = `Tystruct `std.Some (parsestructbody(p, tagty == tagunion))
 		| _:
-			body# = parsestructbody(p)
+			std.fatal("internal err...\n")
 		;;
 	| (l, _):
 	;;
-	match (tagname, body)
-	| (`std.None, &(`Tystruct `std.None)):
-		err(structloc, "struct without a tag requires a body\n")
+	match (tagname, tag)
+	| (`std.None,  `Tyaggr &(`Tystruct `std.None)):
+		err(tagloc, "struct without a tag requires a body\n")
 	| _:
+		-> tag
 	;;
-	-> `Tyaggr body
 }
 
-const parsestructbody = {p
+const parsestructbody = {p, isunion
 	var sc, basety
 	var namety
 	var s
 	
-	s = mkcstruct(false)
+	s = mkcstruct(isunion)
 	match next(p)
 	| (l, `Tobrace):
 	| (l, _):
@@ -443,7 +460,7 @@ const parsestructbody = {p
 		(sc, basety) = parsedeclspecs(p);
 		while true
 			namety = parsedecl(p, basety);
-			addtostruct(&s, namety)
+			addtostruct(s, namety)
 			match peek(p)
 			| (_, `Tcomma):
 				next(p)
@@ -454,8 +471,8 @@ const parsestructbody = {p
 		expectsemi(p);
 	;;
 	next(p)
-	finalizestruct(&s)
-	-> `Tystruct `std.Some s
+	finalizestruct(s)
+	-> s
 }
 
 const parsedeclspecs = {p
@@ -488,6 +505,8 @@ const parsedeclspecs = {p
 			next(p)
 			-> (sclass, `Tyvoid)
 		| (l, `Tstruct):
+			-> (sclass, parsetagtype(p))
+		| (l, `Tunion):
 			-> (sclass, parsetagtype(p))
 		| (l, _):
 			-> (sclass, `Typrim `Tyint)
@@ -1218,7 +1237,7 @@ const parsepostexpr = {p
 			| `Tyaggr &(`Typtr `Tyaggr &(`Tystruct `std.Some s)):
 				selstruct = s
 			| _:
-				err(l, "'->' can only be used on structs or unions\n")
+				err(l, "'->' can only be used on struct or union pointers\n")
 			;;
 			expr = parseseltail(p, expr, selstruct)
 		| (l, `Toparen):
