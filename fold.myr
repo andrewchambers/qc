@@ -1,0 +1,36 @@
+use std
+use "ctypes"
+use "ast"
+
+pkg qc =
+	type constval = union
+		`Constint int64
+		`Constptr (byte[:], int64)
+	;;
+	const foldexpr : (e : expr# -> std.option(constval))
+;;
+
+const foldexpr = {e
+	match e
+	| &(`Ecast c):
+		-> foldexpr(c.expr)
+	| &(`Eintlit v):
+		-> `std.Some `Constint v
+	| &(`Eunop [.op=`Oaddr, .operand=&(`Eident sym)]):
+		match sym.sc
+		| `Sclassglobal:
+			-> `std.Some `Constptr (sym.name, 0)
+		| _:
+			-> `std.None
+		;;
+	| &(`Eunop [.op=`Oneg, .operand=expr]):
+		match foldexpr(expr)
+		| `std.Some `Constint v:
+			-> `std.Some `Constint -v
+		| _:
+			-> `std.None
+		;;
+	| _:
+		-> `std.None
+	;;
+}
