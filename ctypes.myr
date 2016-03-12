@@ -22,7 +22,12 @@ pkg qc =
 	;;
 	
 	type cstruct = struct
+		isunion : bool
+		align : uint32
+		size : uint32
 		membs : (std.option(byte[:]), ctype)[:]
+		offsets : uint32[:]
+		exports : std.htab(byte[:], (uint32, ctype))#
 	;;
 
 	type carr = struct
@@ -37,12 +42,42 @@ pkg qc =
 	;;
 	
 	const typesize : (ty : ctype -> std.option(uint32))
-	const structmemb : (s : cstruct, name : byte[:] -> std.option((ctype, uint32)))
+	const typealign : (ty : ctype -> std.option(uint32))
+	
+	const mkcstruct : (-> cstruct)
+	const addtostruct : (s : cstruct#, namety : (std.option(byte[:]), ctype) -> void)
+	const finalizestruct : (s : cstruct# -> void)
+	const structmemb : (s : cstruct, name : byte[:] -> std.option((uint32, ctype)))
 ;;
+
+
+const typealign = {ty
+	var align
+	
+	match ty
+	| `Typrim `Tylong:
+		align = 8
+	| `Typrim `Tyint:
+		align = 4
+	| `Typrim `Tychar:
+		align = 1
+	| `Tyaggr &(`Typtr _):
+		align = 8
+	| `Tyaggr &(`Tyarr arr):
+		-> typealign(arr.subty)
+	| `Tyaggr &(`Tystruct `std.None):
+		-> `std.None
+	| `Tyaggr &(`Tystruct `std.Some s):
+		align = s.align
+	| _:
+		std.fatal("unimplemented typesize\n")
+	;;
+	-> `std.Some align
+}
 
 const typesize = {ty
 	var sz
-
+	
 	match ty
 	| `Typrim `Tylong:
 		sz = 8
@@ -62,39 +97,81 @@ const typesize = {ty
 	| `Tyaggr &(`Tystruct `std.None):
 		-> `std.None
 	| `Tyaggr &(`Tystruct `std.Some s):
-		sz = 0
-		for (_, membty) in s.membs
-			 match typesize(membty)
-			 | `std.None:
-			 	-> `std.None
-			 | `std.Some membsz:
-			 	sz += membsz
-			 ;;
-		;;
+		sz = s.size
 	| _:
 		std.fatal("unimplemented typesize\n")
 	;;
 	-> `std.Some sz
 }
 
-const structmemb = {s, name
-	var off
+const alignoff = {v, a
+	if v % a != 0
+		-> v + a - (v % a)
+	;;
+	-> v
+}
+
+const mkcstruct = {
+	-> [
+		.align = 1,
+		.size = 0,
+		.membs = [][:],
+		.offsets = [][:],
+		.exports=std.mkht(std.strhash, std.streq),
+	]
+}
+
+const addtostruct = {s, namety
+	/* XXX: check if size is complete */
+	std.slpush(&s.membs, namety)
+}
+
+const finalizestruct = {s
+	var curoffset
 	
-	off = 0
-	for (n, ty) in s.membs
-		match n
-		| `std.Some membname:
-			if std.sleq(name, membname)
-				-> `std.Some (ty, off)
+	/* calc alignment */
+	for (_, ty) in s.membs
+		s.align = alignoff(s.align, std.get(typealign(ty)))
+	;;
+	
+	/* calc member offsets */
+	if s.isunion
+		for (name, ty) in s.membs
+			std.slpush(&s.offsets, 0)
+			if std.get(typesize(ty)) > s.size
+				s.size = std.get(typesize(ty))
 			;;
+		;;
+	else
+		curoffset = 0
+		for (name, ty) in s.membs
+			curoffset = alignoff(curoffset, std.get(typealign(ty)))
+			std.slpush(&s.offsets, curoffset)
+			curoffset += std.get(typesize(ty))
+		;;
+		s.size = curoffset
+	;;
+	/* exports including anonymous subunions */
+	for (i, (name, ty)) in std.byenum(s.membs)
+		match name
 		| `std.None:
-		;;	
-		match typesize(ty)
-		| `std.None:
-			-> `std.None
-		| `std.Some msz:
-			off += msz
+			match ty
+			| `Tyaggr &(`Tystruct `std.Some sub):
+				for (xname, (xoff, xty)) in std.htbykeyvals(sub.exports)
+					// XXX check for duplicates
+					std.htput(s.exports, xname, (s.offsets[i]+xoff, xty))
+				;;
+			| _:
+				continue
+			;;
+		| `std.Some n:
+			// XXX check for duplicates
+			std.htput(s.exports, n, (s.offsets[i], ty))
 		;;
 	;;
-	-> `std.None
+	s.size = alignoff(s.size, s.align)
+}
+
+const structmemb = {s, name
+	-> std.htget(s.exports, name)
 }
