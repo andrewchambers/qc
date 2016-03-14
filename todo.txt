@@ -20,6 +20,8 @@
 
 * float support
 
+* unsigned support
+
 * make the main unions all `T x#. This includes types, expr and stmt.
   Currently I am mixing large and small, it is inconsistent and ugly.
   
