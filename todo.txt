@@ -25,3 +25,12 @@
   
 * varargs
 
+* static array inits
+
+* any missing forms of static initializers, such as &{...} and more advanced
+  folding.
+
+* dynamic inits
+
+* static typeclass needs to emit anonymous labels
+
