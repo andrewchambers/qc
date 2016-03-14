@@ -33,7 +33,16 @@ pkg qc =
 		`Sdowhile whilestmt
 		`Slabeled labeledstmt
 		`Sgoto int
+		`Sswitch switchstmt
 		`Sempty
+	;;
+	
+	type switchstmt = struct
+		cases : (constval, int)[:]
+		expr : expr#
+		stmt : stmt#
+		breaklbl : int
+		contlbl : int
 	;;
 	
 	type ifstmt = struct

@@ -42,6 +42,7 @@ type parser = struct
 	lbltab : std.htab(byte[:], lblstate)#
 	breaks : int[:]
 	conts : int[:]
+	switchs : switchstmt#[:]
 	curfunc : func#
 ;;
 
@@ -144,6 +145,7 @@ const parse = {ts
 		.typetab = [][:],
 		.breaks = [][:],
 		.conts = [][:],
+		.switchs = [][:],
 	])
 	pushscope(p)
 	p.toks[0] = toknext(ts)
@@ -888,6 +890,8 @@ const parsestmt = {p
 		-> parsefor(p)
 	| (_, `Twhile):
 		-> parsewhile(p)
+	| (_, `Tswitch):
+		-> parseswitch(p)
 	| (_, `Tdo):
 		-> parsedowhile(p)
 	| (l, `Treturn):
@@ -913,6 +917,27 @@ const parsestmt = {p
 	;;
 }
 
+const parseswitch = {p
+	var sw
+	
+	match next(p)
+	| (_, `Tswitch):
+	| (l, _):
+		err(l, "expected 'switch'\n")
+	;;
+	sw = [
+		.cases=[][:],
+		.breaklbl=nextlbl(p.curfunc),
+		.contlbl=nextlbl(p.curfunc),
+	]
+	expectoparen(p)
+	sw.expr = parseexpr(p)
+	expectcparen(p)
+	std.slpush(&p.switchs, &sw)
+	sw.stmt = parsestmt(p)
+	std.slpop(&p.switchs)
+	-> std.mk(`Sswitch sw)
+}
 
 const parsegoto = {p
 	var loc, name, lbl

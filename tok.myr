@@ -61,6 +61,7 @@ pkg qc =
 		`Tosqbrac /* [ */
 		`Tcsqbrac /* ] */
 	
+		`Tswitch  /* switch */
 		`Tdo      /* do */
 		`Tfor     /* for */
 		`Twhile   /* while */
@@ -395,6 +396,7 @@ const kwident = {ts
 	| "return": -> `Treturn
 	| "char":	-> `Tchar
 	| "int":	-> `Tint
+	| "switch":	-> `Tswitch
 	| "long":	-> `Tlong
 	| ident:	-> `Tident std.sldup(ident)
 	;;
@@ -658,6 +660,7 @@ const tokfmt = {sb, ap, opts
 
 	| `Tfor:	std.sbfmt(sb, "for")
 	| `Twhile:	std.sbfmt(sb, "while")
+	| `Tswitch:	std.sbfmt(sb, "switch")
 	| `Tif:		std.sbfmt(sb, "if")
 	| `Telse:	std.sbfmt(sb, "else")
 	| `Tgoto:	std.sbfmt(sb, "goto")

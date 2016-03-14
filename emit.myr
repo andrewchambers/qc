@@ -315,6 +315,8 @@ const emitstmt = {stmt
 	| &(`Sreturn expr):
 		v = emitexpr(expr)
 		ot("ret {}\n", valstr(v))
+	| &(`Sswitch sw):
+		std.fatal("unimplement emit switch\n")
 	| &(`Sexpr expr):
 		emitexpr(expr)
 	| &(`Sif ifsmt):
