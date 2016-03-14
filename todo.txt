@@ -1,0 +1,27 @@
+
+* +=/-= for pointers is broken currently. Might need to be a special
+  case instead of it's own node type (unlike pointer arith).
+
+* enum support.
+
+* switch support (partially implemented).
+
+* actually emit cast instructions for sign extension etc.
+
+* actually perform checks and casts for function calls.
+
+* actually perform checks for assignment.
+
+* properly parse C declarations, long long, long unsigned etc etc.
+
+* char lit support
+
+* typed int literals, 0l, 0ll, 0llu etc.
+
+* float support
+
+* make the main unions all `T x#. This includes types, expr and stmt.
+  Currently I am mixing large and small, it is inconsistent and ugly.
+  
+* varargs
+
