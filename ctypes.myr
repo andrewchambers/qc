@@ -10,7 +10,11 @@ pkg qc =
 		`Typtr ctype#
 		`Tyarr carr#
 		`Tystruct std.option(cstruct#)#
+		`Tyenum std.option(cenum#)#
 		`Tyfunc cfunc#
+	;;
+
+	type cenum = struct
 	;;
 
 	type cstruct = struct
@@ -79,6 +83,8 @@ const typealign = {ty
 		-> typealign(arr.subty)
 	| `Tystruct &(`std.None):
 		-> `std.None
+	| `Tyenum _:
+		-> `std.Some 4
 	| `Tystruct &(`std.Some s):
 		align = s.align
 	| _:
@@ -106,6 +112,8 @@ const typesize = {ty
 		| `std.Some subtysz:
 			sz = arr.len * subtysz
 		;;
+	| `Tyenum _:
+		sz =  4
 	| `Tystruct &(`std.None):
 		-> `std.None
 	| `Tystruct &(`std.Some s):

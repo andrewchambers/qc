@@ -32,6 +32,7 @@ type lblstate = union
 type tagty = int
 const tagstruct : tagty = 0
 const tagunion : tagty = 1
+const tagenum : tagty = 2
 
 type parser = struct
 	ts : tokstream#
@@ -422,6 +423,9 @@ const parsetagtype = {p
 	| (l, `Tunion):
 		tagloc = l
 		tag = tagunion
+	| (l, `Tenum):
+		tagloc = l
+		tag = tagenum
 	| (l, _):
 		err(l, "expected struct/union/enum\n")
 	;;

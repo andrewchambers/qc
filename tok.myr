@@ -74,6 +74,7 @@ pkg qc =
 		`Tcontinue   /* continue */
 		`Tstruct  /* struct */
 		`Tunion   /* union */
+		`Tenum    /* enum */
 		`Textern  /* extern */
 		`Tconst   /* const */
 		`Treturn  /* return */
@@ -391,6 +392,7 @@ const kwident = {ts
 	| "if": 	-> `Tif
 	| "sizeof": 	-> `Tsizeof
 	| "struct": 	-> `Tstruct
+	| "enum": 	-> `Tenum
 	| "typedef":	-> `Ttypedef
 	| "union": 	-> `Tunion
 	| "void": 	-> `Tvoid
@@ -679,6 +681,7 @@ const tokfmt = {sb, ap, opts
 	| `Tvoid:	std.sbfmt(sb, "void")
 	| `Tstruct:	std.sbfmt(sb, "struct")
 	| `Tunion:	std.sbfmt(sb, "union")
+	| `Tenum:	std.sbfmt(sb, "num")
 	| `Tconst:	std.sbfmt(sb, "const")
 	| `Tlong:	std.sbfmt(sb, "long")
 	| `Tint:	std.sbfmt(sb, "int")
