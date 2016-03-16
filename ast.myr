@@ -38,11 +38,11 @@ pkg qc =
 	;;
 	
 	type switchstmt = struct
-		cases : (constval, int)[:]
+		cases : (int64, int)[:]
 		expr : expr#
 		stmt : stmt#
+		defaultlbl : std.option(int)
 		breaklbl : int
-		contlbl : int
 	;;
 	
 	type ifstmt = struct

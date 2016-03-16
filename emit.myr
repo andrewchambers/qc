@@ -303,6 +303,27 @@ const emitcall = {call
 	-> result
 }
 
+const emitswitch = {sw
+	var cond, eq
+	var nlbl
+
+	cond = emitexpr(sw.expr)
+	eq = newreg()
+	for (v, lbl) in sw.cases
+		oi("{} =w ceq {}, {}\n", valstr(eq), valstr(cond), v)
+		ot("jnz {}, @L{}, @L{}\n", valstr(eq), lbl, nlbl)
+		nlbl = nextlbl(curfunc)
+		ol("@L{}\n", nlbl)
+	;;
+	match sw.defaultlbl
+	| `std.Some dlbl:
+		ot("jmp @L{}\n", dlbl)
+	| `std.None:
+		ot("jmp @L{}\n", sw.breaklbl)
+	;;
+	ol("@L{}", sw.breaklbl)
+}
+
 const emitstmt = {stmt
 	var v
 	
@@ -316,7 +337,7 @@ const emitstmt = {stmt
 		v = emitexpr(expr)
 		ot("ret {}\n", valstr(v))
 	| &(`Sswitch sw):
-		std.fatal("unimplement emit switch\n")
+		emitswitch(sw)
 	| &(`Sexpr expr):
 		emitexpr(expr)
 	| &(`Sif ifsmt):

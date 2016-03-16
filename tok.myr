@@ -62,6 +62,8 @@ pkg qc =
 		`Tcsqbrac /* ] */
 	
 		`Tswitch  /* switch */
+		`Tcase    /* case */
+		`Tdefault /* default */
 		`Tdo      /* do */
 		`Tfor     /* for */
 		`Twhile   /* while */
@@ -397,6 +399,8 @@ const kwident = {ts
 	| "char":	-> `Tchar
 	| "int":	-> `Tint
 	| "switch":	-> `Tswitch
+	| "case":	-> `Tcase
+	| "default":	-> `Tdefault
 	| "long":	-> `Tlong
 	| ident:	-> `Tident std.sldup(ident)
 	;;
@@ -661,6 +665,8 @@ const tokfmt = {sb, ap, opts
 	| `Tfor:	std.sbfmt(sb, "for")
 	| `Twhile:	std.sbfmt(sb, "while")
 	| `Tswitch:	std.sbfmt(sb, "switch")
+	| `Tcase:	std.sbfmt(sb, "case")
+	| `Tdefault:	std.sbfmt(sb, "default")
 	| `Tif:		std.sbfmt(sb, "if")
 	| `Telse:	std.sbfmt(sb, "else")
 	| `Tgoto:	std.sbfmt(sb, "goto")

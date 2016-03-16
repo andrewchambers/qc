@@ -367,6 +367,14 @@ const parseblock = {p
 	-> stmts
 }
 
+const expectcolon = {p
+	match next(p)
+	| (l, `Tcolon):
+	| (l, t):
+		err(l, "expected ':', got {}", t)
+	;;
+}
+
 const expectsemi = {p
 	match next(p)
 	| (l, `Tsemi):
@@ -872,8 +880,11 @@ const parsedeclorstmt = {p
 const parsestmt = {p
 	var expr
 	
-	match (peek(p), lookahead(p))
+	var XX = peek(p)
+	var XXX = lookahead(p)
+	match (XX, XXX)
 	| ((_, `Tident _), (_, `Tcolon)):
+		std.put("{} {}\n", peek(p), lookahead(p))
 		-> parselabeled(p)
 	| _:
 	;;
@@ -892,6 +903,10 @@ const parsestmt = {p
 		-> parsewhile(p)
 	| (_, `Tswitch):
 		-> parseswitch(p)
+	| (_, `Tcase):
+		-> parsecase(p)
+	| (_, `Tdefault):
+		-> parsedefault(p)
 	| (_, `Tdo):
 		-> parsedowhile(p)
 	| (l, `Treturn):
@@ -928,15 +943,70 @@ const parseswitch = {p
 	sw = [
 		.cases=[][:],
 		.breaklbl=nextlbl(p.curfunc),
-		.contlbl=nextlbl(p.curfunc),
 	]
 	expectoparen(p)
 	sw.expr = parseexpr(p)
 	expectcparen(p)
 	std.slpush(&p.switchs, &sw)
+	std.slpush(&p.breaks, sw.breaklbl)
 	sw.stmt = parsestmt(p)
+	std.slpop(&p.breaks)
 	std.slpop(&p.switchs)
 	-> std.mk(`Sswitch sw)
+}
+
+const parsecase = {p
+	var loc, sw, lbl
+	
+	lbl = nextlbl(p.curfunc)
+	match next(p)
+	| (l, `Tcase):
+		if p.switchs.len == 0
+			err(l, "case outside of a switch")
+		;;
+		sw = p.switchs[p.switchs.len-1]
+	| (l, _):
+		err(l, "expected 'case'\n")
+	;;
+	
+	(loc, _) = peek(p)
+	match parseconstexpr(p)
+	| `Constint v:
+		for (caseval, _) in sw.cases
+			if caseval == v
+				err(loc, "duplicate case in switch")
+			;;
+		;;
+		std.slpush(&sw.cases, (v, nextlbl(p.curfunc)))
+	| `Constptr _:
+		err(loc, "pointer derived constant cannot be used in case")
+	;;
+	expectcolon(p)
+	-> std.mk(`Slabeled [.stmt=parsestmt(p), .lbl=lbl])
+}
+
+const parsedefault = {p
+	var loc, sw, lbl
+	
+	lbl = nextlbl(p.curfunc)
+	match next(p)
+	| (l, `Tdefault):
+		loc = l
+		if p.switchs.len == 0
+			err(l, "default outside of a switch")
+		;;
+		sw = p.switchs[p.switchs.len-1]
+	| (l, _):
+		err(l, "expected 'default'\n")
+	;;
+	match sw.defaultlbl
+	| `std.None:
+		sw.defaultlbl = `std.Some lbl
+	| `std.Some _:
+		err(loc, "switch has more than one default label")
+	;;
+	expectcolon(p)
+	-> std.mk(`Slabeled [.stmt=parsestmt(p), .lbl=lbl])
 }
 
 const parsegoto = {p
