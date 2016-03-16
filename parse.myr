@@ -882,7 +882,6 @@ const parsestmt = {p
 	
 	match (peek(p), lookahead(p))
 	| ((_, `Tident _), (_, `Tcolon)):
-		std.put("{} {}\n", peek(p), lookahead(p))
 		-> parselabeled(p)
 	| _:
 	;;
