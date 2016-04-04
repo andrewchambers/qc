@@ -944,6 +944,7 @@ const parseswitch = {p
 	sw = [
 		.cases=[][:],
 		.breaklbl=nextlbl(p.curfunc),
+		.defaultlbl=`std.None
 	]
 	expectoparen(p)
 	sw.expr = parseexpr(p)
@@ -978,7 +979,7 @@ const parsecase = {p
 				err(loc, "duplicate case in switch")
 			;;
 		;;
-		std.slpush(&sw.cases, (v, nextlbl(p.curfunc)))
+		std.slpush(&sw.cases, (v, lbl))
 	| `Constptr _:
 		err(loc, "pointer derived constant cannot be used in case")
 	;;
