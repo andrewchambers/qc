@@ -4,8 +4,6 @@
 
 * enum support.
 
-* switch support (partially implemented).
-
 * actually emit cast instructions for sign extension etc.
 
 * actually perform checks and casts for function calls.
