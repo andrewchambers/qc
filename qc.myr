@@ -8,15 +8,14 @@ const main = {args
 	var ts, cmd
 
 	cmd = std.optparse(args, &[
-		.argdesc="files..."
+		.argdesc="file.c",
+		.minargs=0,
+		.maxargs=1,
 	])
 
 	if cmd.args.len == 0
 		ts = qc.tokinitf(0, "stdin")
 	else
-		if cmd.args.len != 1
-			std.fatal("please specify a single file\n")
-		;;
 		ts = qc.tokinit(cmd.args[0])
 	;;
 	qc.emit(qc.parse(ts))
