@@ -228,7 +228,8 @@ const emitfunc = {f
 	allocas = std.mkht({x; -> x castto(uint32)}, {x, y; -> x == y})
 	nreg = 0
 	
-	o("export\nfunction l ${}(", f.name)
+	
+	o("export\nfunction {} ${}(", type2class(f.functy.rty), f.name)
 	
 	namestoparamregs = std.mkht(std.slhash, std.sleq)
 	for var i = 0; i < f.functy.params.len; i++

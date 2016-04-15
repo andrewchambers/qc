@@ -1,13 +1,8 @@
 
-long
+int
 f()
 {
-	long r;
-	int i;
-	
-	i = 100;
-	r = i;
-	return r;
+	return 100;
 }
 
 int
