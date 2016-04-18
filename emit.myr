@@ -697,7 +697,87 @@ const emitunop = {u
 }
 
 const emitcast = {cast
-	-> emitexpr(cast.expr)
+	var v1, v2
+	
+	v1 = emitexpr(cast.expr)
+	v2 = newreg()
+	
+	match exprtype(cast.expr)
+	| `Tychar:
+		match cast.ty
+		| `Tychar:
+			-> v1
+		| `Tyshort:
+			oi("{} =w extsb {}\n", v2, v1)
+		| `Tyint:
+			oi("{} =w extsb {}\n", v2, v1)
+		| `Tylong:
+			oi("{} =l extsb {}\n", v2, v1)
+		| `Typtr _:
+			oi("{} =l extsb {}\n", v2, v1)
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v2
+	| `Tyshort:
+		match cast.ty
+		| `Tychar:
+			-> v1
+		| `Tyshort:
+			-> v1
+		| `Tyint:
+			oi("{} =w extsh {}\n", v2, v1)
+		| `Tylong:
+			oi("{} =l extsh {}\n", v2, v1)
+		| `Typtr _:
+			oi("{} =l extsh {}\n", v2, v1)
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v2
+	| `Tyint:
+		match cast.ty
+		| `Tychar:
+			-> v1
+		| `Tyshort:
+			-> v1
+		| `Tyint:
+			-> v1
+		| `Tylong:
+			oi("{} =l extsw {}\n", v2, v1)
+		| `Typtr _:
+			oi("{} =l extsw {}\n", v2, v1)
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v2
+	| `Tylong:
+		// XXX: is it necessary to downcast to w?
+		match cast.ty
+		| `Tychar:
+		| `Tyshort:
+		| `Tyint:
+		| `Tylong:
+		| `Typtr _:
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v1
+	| `Typtr _:
+		// XXX: is it necessary to downcast to w?
+		match cast.ty
+		| `Tychar:
+		| `Tyshort:
+		| `Tyint:
+		| `Tylong:
+		| `Typtr _:
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v1
+	| _:
+		std.fatal("unhandled cast\n")
+	;;	
 }
 
 const emitlsel = {sel

@@ -6,6 +6,7 @@ pkg qc =
 		`Tyvoid
 		`Tylong
 		`Tyint
+		`Tyshort
 		`Tychar
 		`Typtr ctype#
 		`Tyarr carr#
@@ -75,6 +76,8 @@ const typealign = {ty
 		align = 8
 	| `Tyint:
 		align = 4
+	| `Tyshort:
+		align = 2
 	| `Tychar:
 		align = 1
 	| `Typtr _:
@@ -101,6 +104,8 @@ const typesize = {ty
 		sz = 8
 	| `Tyint:
 		sz = 4
+	| `Tyshort:
+		sz = 2
 	| `Tychar:
 		sz = 1
 	| `Typtr _:
