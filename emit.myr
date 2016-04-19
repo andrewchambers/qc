@@ -11,7 +11,8 @@ pkg qc =
 
 type Val = union
 	`Vlit int64
-	`Vreg byte[:]
+	/* number + optional human readable name */
+	`Vreg (int, byte[:])
 ;;
 
 type dataval = union
@@ -33,7 +34,26 @@ var pendingdata : data[:]
 
 var nreg = 0
 const newreg = {
-	-> `Vreg std.fmt("%v{}", nreg++) 
+	-> `Vreg (nreg++, [][:])
+}
+
+const fmtval = {sb, ap, opts
+	var v : Val
+	
+	v = std.vanext(ap)
+	match v
+	| `Vlit n:
+		std.sbfmt(sb, "{}", n) 
+	| `Vreg (regnum, name):
+		std.sbfmt(sb, "%v{}{}", regnum, name) 
+	;;
+}
+
+const __init__ = {
+	var v : Val
+	
+	v = `Vreg (0, [][:])
+	std.fmtinstall(std.typeof(v), fmtval, [][:])
 }
 
 var datalblcount = 0
@@ -42,7 +62,7 @@ const nextdatalbl = {
 }
 
 const newnamedreg = {name
-	-> `Vreg std.fmt("%v{}.{}", nreg++, name)
+	-> `Vreg (nreg++, std.fmt(".{}", name))
 }
 
 const emit = {globals
@@ -200,15 +220,6 @@ const ot = {msg : byte[:], args : ...
 	unreachable = true
 }
 
-const valstr = {v
-	match v
-	| `Vlit n:
-		-> std.fmt("{}", n) 
-	| `Vreg name:
-		-> name
-	;;
-}
-
 var curfunc
 const emitfunc = {f
 	var alloca, namestoparamregs, reg
@@ -217,7 +228,8 @@ const emitfunc = {f
 	allocas = std.mkht({x; -> x castto(uint32)}, {x, y; -> x == y})
 	nreg = 0
 	
-	o("export\nfunction l ${}(", f.name)
+	
+	o("export\nfunction {} ${}(", type2class(f.functy.rty), f.name)
 	
 	namestoparamregs = std.mkht(std.slhash, std.sleq)
 	for var i = 0; i < f.functy.params.len; i++
@@ -226,7 +238,7 @@ const emitfunc = {f
 		match name
 		| `std.Some n:
 			reg = newnamedreg(n)
-			o("l {}", valstr(reg))
+			o("l {}", reg)
 			if i != f.functy.params.len - 1
 				o(",")
 			;;
@@ -241,7 +253,7 @@ const emitfunc = {f
 	for l in f.locals
 		alloca = newnamedreg(l.name)
 		std.htput(allocas, l, alloca)
-		oi("{} =l alloc16 {}\n", valstr(alloca), std.get(typesize(l.ty)))
+		oi("{} =l alloc16 {}\n", alloca, std.get(typesize(l.ty)))
 	;;
 	
 	for param in f.params
@@ -288,10 +300,10 @@ const emitcall = {call
 	;;
 	match call.func
 	| &(`Eident &([.name=name, .sc=`Sclassglobal])):
-		oi("{} =l call ${}(", valstr(result), name)
+		oi("{} =l call ${}(", result, name)
 		for var i = 0; i < args.len; i++
 			var arg = args[i]
-			o("l {}", valstr(arg))
+			o("l {}", arg)
 			if i != args.len-1
 				o(",")
 			;;
@@ -311,8 +323,8 @@ const emitswitch = {sw
 	eq = newreg()
 	for (v, lbl) in sw.cases
 		nlbl = nextlbl(curfunc)
-		oi("{} =w ceql {}, {}\n", valstr(eq), valstr(cond), v)
-		ot("jnz {}, @L{}, @L{}\n", valstr(eq), lbl, nlbl)
+		oi("{} =w ceql {}, {}\n", eq, cond, v)
+		ot("jnz {}, @L{}, @L{}\n", eq, lbl, nlbl)
 		ol("@L{}\n", nlbl)
 	;;
 	match sw.defaultlbl
@@ -336,7 +348,7 @@ const emitstmt = {stmt
 		ot("jmp @L{}\n", lbl)
 	| &(`Sreturn expr):
 		v = emitexpr(expr)
-		ot("ret {}\n", valstr(v))
+		ot("ret {}\n", v)
 	| &(`Sswitch sw):
 		emitswitch(sw)
 	| &(`Sexpr expr):
@@ -364,7 +376,7 @@ const emitif = {ifstmt
 	var cond
 	
 	cond = emitexpr(ifstmt.cond)
-	ot("jnz {}, @L{}, @L{}\n", valstr(cond), ifstmt.truelbl, ifstmt.falselbl)
+	ot("jnz {}, @L{}, @L{}\n", cond, ifstmt.truelbl, ifstmt.falselbl)
 	ol("@L{}\n", ifstmt.truelbl)
 	emitstmt(ifstmt.iftrue)
 	ot("jmp @L{}\n", ifstmt.donelbl)
@@ -389,7 +401,7 @@ const emitfor = {forstmt
 	match forstmt.cond
 	| `std.Some expr:
 		cond = emitexpr(expr)
-		ot("jnz {}, @L{}, @L{}\n", valstr(cond), forstmt.stmtlbl, forstmt.breaklbl)
+		ot("jnz {}, @L{}, @L{}\n", cond, forstmt.stmtlbl, forstmt.breaklbl)
 	| `std.None:
 		ot("jmp @L{}\n", forstmt.stmtlbl)
 	;;
@@ -409,7 +421,7 @@ const emitwhile = {whilestmt
 	
 	ol("@L{}\n", whilestmt.contlbl)
 	cond = emitexpr(whilestmt.cond)
-	ot("jnz {}, @L{}, @L{}\n", valstr(cond), whilestmt.stmtlbl, whilestmt.breaklbl)
+	ot("jnz {}, @L{}, @L{}\n", cond, whilestmt.stmtlbl, whilestmt.breaklbl)
 	ol("@L{}\n", whilestmt.stmtlbl)
 	emitstmt(whilestmt.stmt)
 	ot("jmp @L{}\n", whilestmt.contlbl)
@@ -423,7 +435,7 @@ const emitdowhile = {whilestmt
 	emitstmt(whilestmt.stmt)
 	ol("@L{}\n", whilestmt.contlbl)
 	cond = emitexpr(whilestmt.cond)
-	ot("jnz {}, @L{}, @L{}\n", valstr(cond), whilestmt.stmtlbl, whilestmt.breaklbl)
+	ot("jnz {}, @L{}, @L{}\n", cond, whilestmt.stmtlbl, whilestmt.breaklbl)
 	ol("@L{}\n", whilestmt.breaklbl)
 }
 
@@ -435,7 +447,7 @@ const emitlval = {expr
 		match sym.sc
 		| `Sclassglobal:
 			v = newreg()
-			oi("{} =l copy ${}\n", valstr(v), sym.name)
+			oi("{} =l copy ${}\n", v, sym.name)
 			-> v
 		| `Sclasslocal:
 			-> std.get(std.htget(allocas, sym))
@@ -467,13 +479,13 @@ const emitload = {ty, val
 	v = newreg()
 	match ty
 	| `Tychar:
-		oi("{} =w loadsb {}\n", valstr(v), valstr(val))
+		oi("{} =w loadsb {}\n", v, val)
 	| `Tyint:
-		oi("{} =w load {}\n", valstr(v), valstr(val))
+		oi("{} =w load {}\n", v, val)
 	| `Tylong:
-		oi("{} =l load {}\n", valstr(v), valstr(val))
+		oi("{} =l load {}\n", v, val)
 	| `Typtr _:
-		oi("{} =l load {}\n", valstr(v), valstr(val))
+		oi("{} =l load {}\n", v, val)
 	| _:
 		std.fatal("unimplemented load {}\n", ty)
 	;;
@@ -483,13 +495,13 @@ const emitload = {ty, val
 const emitstore = {ty, dst, v
 	match ty
 	| `Tychar:
-		oi("storeb {}, {}\n", valstr(v), valstr(dst))
+		oi("storeb {}, {}\n", v, dst)
 	| `Tyint:
-		oi("storew {}, {}\n", valstr(v), valstr(dst))
+		oi("storew {}, {}\n", v, dst)
 	| `Tylong:
-		oi("storel {}, {}\n", valstr(v), valstr(dst))
+		oi("storel {}, {}\n", v, dst)
 	| `Typtr _:
-		oi("storel {}, {}\n", valstr(v), valstr(dst))
+		oi("storel {}, {}\n", v, dst)
 	| _:
 		std.fatal("unimplemented store {}\n", ty)
 	;;
@@ -526,13 +538,13 @@ const emitincdec = {incdec
 	v3 = newreg()
 	match incdec.op
 	| `Opostinc:
-		oi("{} ={} add {}, {}\n", valstr(v3), class, valstr(v2), amnt)
+		oi("{} ={} add {}, {}\n", v3, class, v2, amnt)
 	| `Opostdec:
-		oi("{} ={} sub {}, {}\n", valstr(v3), class, valstr(v2), amnt)
+		oi("{} ={} sub {}, {}\n", v3, class, v2, amnt)
 	| `Opreinc:
-		oi("{} ={} add {}, {}\n", valstr(v3), class, valstr(v2), amnt)
+		oi("{} ={} add {}, {}\n", v3, class, v2, amnt)
 	| `Opredec:
-		oi("{} ={} sub {}, {}\n", valstr(v3), class, valstr(v2), amnt)
+		oi("{} ={} sub {}, {}\n", v3, class, v2, amnt)
 	;;
 	
 	emitstore(exprtype(incdec.expr), v1, v3)
@@ -581,7 +593,7 @@ const emitexpr = {expr
 		]
 		std.slpush(&pendingdata, d)
 		v1 = newreg()
-		oi("{} =l copy ${}\n", valstr(v1), d.label)
+		oi("{} =l copy ${}\n", v1, d.label)
 		-> v1
 	| &(`Eincdec incdec):
 		-> emitincdec(incdec)
@@ -613,10 +625,10 @@ const emitptradd = {add
 	tysz = std.get(typesize(pointsto(exprtype(add.ptr))))
 	amnt = emitexpr(add.amnt)
 	offset = newreg()
-	oi("{} =l mul {}, {}\n", valstr(offset), valstr(amnt), tysz)
+	oi("{} =l mul {}, {}\n", offset, amnt, tysz)
 	p = emitexpr(add.ptr)
 	result = newreg()
-	oi("{} =l add {}, {}\n", valstr(result), valstr(p), valstr(offset))
+	oi("{} =l add {}, {}\n", result, p, offset)
 	-> result
 }
 
@@ -629,9 +641,9 @@ const emitptrdiff = {diff
 	l = emitexpr(diff.l)
 	r = emitexpr(diff.r)
 	amnt = newreg()
-	oi("{} =l sub {}, {}\n", valstr(amnt), valstr(l), valstr(r))
+	oi("{} =l sub {}, {}\n", amnt, l, r)
 	result = newreg()
-	oi("{} =l div {}, {}\n", valstr(result), valstr(amnt), tysz)
+	oi("{} =l div {}, {}\n", result, amnt, tysz)
 	-> result
 }
 
@@ -677,19 +689,19 @@ const emitunop = {u
 		lone = nextlbl(curfunc)
 		lzero = nextlbl(curfunc)
 		lend = nextlbl(curfunc)
-		ot("jnz {}, @L{}, @L{}\n", valstr(v1), lzero, lone)
+		ot("jnz {}, @L{}, @L{}\n", v1, lzero, lone)
 		ol("@L{}\n", lone)
-		oi("{} ={} copy 1\n", valstr(v2), class)
+		oi("{} ={} copy 1\n", v2, class)
 		ot("jmp @L{}\n", lend)
 		ol("@L{}\n", lzero)
-		oi("{} ={} copy 0\n", valstr(v2), class)
+		oi("{} ={} copy 0\n", v2, class)
 		ot("jmp @L{}\n", lend)
 		ol("@L{}\n", lend)
 		-> v2
 	| `Oneg:
 		v1 = emitexpr(u.operand)
 		v2 = newreg()
-		oi("{} ={} sub 0, {}\n", valstr(v2), class, valstr(v1))
+		oi("{} ={} sub 0, {}\n", v2, class, v1)
 		-> v2
 	| _:
 		std.fatal("unsupported unop: {}\n", u.op)
@@ -785,7 +797,7 @@ const emitlsel = {sel
 	
 	v = emitexpr(sel.expr)
 	p = newreg()
-	oi("{} =l add {}, {}\n", valstr(p), valstr(v), sel.off)
+	oi("{} =l add {}, {}\n", p, v, sel.off)
 	-> p
 }
 
@@ -802,9 +814,9 @@ const emitlidx = {idx
 	i = emitexpr(idx.idx)
 	off = newreg()
 	sz = std.get(typesize(idx.ty))
-	oi("{} =l mul {}, {}\n", valstr(off), sz, valstr(i))
+	oi("{} =l mul {}, {}\n", off, sz, i)
 	p = newreg()
-	oi("{} =l add {}, {}\n", valstr(p), valstr(v), valstr(off))
+	oi("{} =l add {}, {}\n", p, v, off)
 	-> p
 }
 
@@ -829,24 +841,24 @@ const emitlogop = {b
 	l = emitexpr(b.l)
 	match b.op
 	| `Olor:
-		ot("jnz {}, @L{}, @L{}\n", valstr(l), lone, lrhs)
+		ot("jnz {}, @L{}, @L{}\n", l, lone, lrhs)
 	| `Oland:
-		ot("jnz {}, @L{}, @L{}\n", valstr(l), lrhs, lzero)
+		ot("jnz {}, @L{}, @L{}\n", l, lrhs, lzero)
 	;;
 	ol("@L{}\n", lrhs)
 	r = emitexpr(b.r)
 	match b.op
 	| `Olor:
-		ot("jnz {}, @L{}, @L{}\n", valstr(r), lone, lzero)
+		ot("jnz {}, @L{}, @L{}\n", r, lone, lzero)
 	| `Oland:
-		ot("jnz {}, @L{}, @L{}\n", valstr(r), lone, lzero)
+		ot("jnz {}, @L{}, @L{}\n", r, lone, lzero)
 	;;
 
 	ol("@L{}\n", lone)
-	oi("{} =w copy 1\n", valstr(result))
+	oi("{} =w copy 1\n", result)
 	ot("jmp @L{}\n", end)
 	ol("@L{}\n", lzero)
-	oi("{} =w copy 0\n", valstr(result))
+	oi("{} =w copy 0\n", result)
 	ot("jmp @L{}\n", end)
 	ol("@L{}\n", end)
 	-> result
@@ -881,7 +893,7 @@ const emitbinop2 = {op, ty, lexpr, rexpr
 		o = "or"
 	;;
 	
-	oi("{} ={} {} {}, {}\n", valstr(result), class, o, valstr(l), valstr(r))
+	oi("{} ={} {} {}, {}\n", result, class, o, l, r)
 	-> result
 }
 
@@ -913,7 +925,7 @@ const emitrelop = {b
 		o = "csle"
 	;;
 	
-	oi("{} =w {}{} {}, {}\n", valstr(result), o, class, valstr(l), valstr(r))
+	oi("{} =w {}{} {}, {}\n", result, o, class, l, r)
 	-> result
 }
 
