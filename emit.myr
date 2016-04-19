@@ -808,10 +808,19 @@ const emitsel = {sel
 }
 
 const emitlidx = {idx
-	var v, i, p, off, sz
+	var v, tmp, i, p, off, sz
 	
 	v = emitexpr(idx.expr)
-	i = emitexpr(idx.idx)
+	tmp = emitexpr(idx.idx)
+	match exprtype(idx.idx)
+	| `Tyint:
+		i = newreg()
+		oi("{} =l extsw {}\n", i, tmp)
+	| `Tylong:
+		i = tmp
+	| _:
+		std.fatal("internal error\n")
+	;;
 	off = newreg()
 	sz = std.get(typesize(idx.ty))
 	oi("{} =l mul {}, {}\n", off, sz, i)
