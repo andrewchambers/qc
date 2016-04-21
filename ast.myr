@@ -122,7 +122,7 @@ pkg qc =
 	;;
 
 	type call = struct
-		ty : ctype
+		functy : cfunc#
 		func : expr#
 		args : expr#[:]
 	;;
@@ -283,7 +283,7 @@ const exprtype = {e
 	| &(`Eidx idx):
 		-> idx.ty
 	| &(`Ecall call):
-		-> `Tyint
+		-> call.functy.rty
 	| &(`Eincdec incdec):
 		-> exprtype(incdec.expr)
 	| &(`Esizeof _):

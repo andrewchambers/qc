@@ -1470,6 +1470,7 @@ const parsepostexpr = {p
 	var expr, idx
 	var selstruct
 	var funclike, args
+	var functy, paramty
 	
 	expr = parseprimaryexpr(p)
 	while true
@@ -1506,13 +1507,21 @@ const parsepostexpr = {p
 		| (l, `Toparen):
 			next(p)
 			funclike = expr
+			match exprtype(funclike)
+			| `Tyfunc fty:
+				functy = fty
+			| _:
+				err(l, "call of non function")
+			;;
 			args = [][:]
 			match peek(p)
 			| (_, `Tcparen):
 				next(p)
 			| _:
 				while true
-					std.slpush(&args, parseexpr(p))
+					(_, paramty) = functy.params[args.len]
+					expr = mkcast(paramty, parseexpr(p))
+					std.slpush(&args, expr)
 					match peek(p)
 					| (_, `Tcparen):
 						next(p)
@@ -1523,7 +1532,7 @@ const parsepostexpr = {p
 				;;
 			;;
 			expr = std.mk(`Ecall [
-				.ty=`Tyint,
+				.functy=functy,
 				.func=funclike,
 				.args=args
 			])
