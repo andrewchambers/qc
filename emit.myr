@@ -303,7 +303,7 @@ const emitcall = {call
 		oi("{} =l call ${}(", result, name)
 		for var i = 0; i < args.len; i++
 			var arg = args[i]
-			o("l {}", arg)
+			o("{} {}", type2class(exprtype(call.args[i])), arg)
 			if i != args.len-1
 				o(",")
 			;;
@@ -323,7 +323,7 @@ const emitswitch = {sw
 	eq = newreg()
 	for (v, lbl) in sw.cases
 		nlbl = nextlbl(curfunc)
-		oi("{} =w ceql {}, {}\n", eq, cond, v)
+		oi("{} =w ceq{} {}, {}\n", eq, type2class(exprtype(sw.expr)), cond, v)
 		ot("jnz {}, @L{}, @L{}\n", eq, lbl, nlbl)
 		ol("@L{}\n", nlbl)
 	;;
