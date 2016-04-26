@@ -1,10 +1,9 @@
+* preprocessor.
 
 * +=/-= for pointers is broken currently. Might need to be a special
   case instead of it's own node type (unlike pointer arith).
 
 * enum support.
-
-* actually emit cast instructions for sign extension etc.
 
 * actually perform checks and casts for function calls.
 
