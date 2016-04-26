@@ -54,6 +54,9 @@ pkg qc =
 		isvararg : bool
 	;;
 	
+	const compatibletypes : (t1 : ctype, t2 : ctype -> bool)
+	const isitype : (ty : ctype -> bool)
+	const isptr : (ty : ctype -> bool)
 	const typesize : (ty : ctype -> std.option(uint32))
 	const typealign : (ty : ctype -> std.option(uint32))
 	
@@ -127,6 +130,39 @@ const typesize = {ty
 		std.fatal("unimplemented typesize\n")
 	;;
 	-> `std.Some sz
+}
+
+const isitype = {t
+	match t
+	| `Tychar: -> true
+	| `Tyshort: -> true
+	| `Tyint: -> true
+	| `Tylong: -> true
+	| _: -> false
+	;;
+}
+
+const isptr = {t
+	match t
+	| `Typtr _: -> true
+	| _: -> false
+	;;
+}
+
+const compatibletypes = {t1, t2
+	if isitype(t1) && isitype(t2)
+		-> true
+	;;
+	if isitype(t1) && isptr(t2)
+		-> true
+	;;
+	if isptr(t1) && isitype(t2)
+		-> true
+	;;
+	if isptr(t1) && isptr(t2)
+		-> true
+	;;
+	-> false
 }
 
 const alignoff = {v, a
