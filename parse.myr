@@ -1554,7 +1554,7 @@ const parsetypename = {p
 const parsesizeof = {p
 	var loc, ty, tok
 	
-	// XXX I think this may be incorrect.
+	// XXX: This may be incorrect.
 	// needs more edge test cases.
 	(loc, _) = next(p)
 	match peek(p)

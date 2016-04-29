@@ -1,5 +1,6 @@
 use std
 use "ctypes"
+use "err"
 
 
 pkg qc = 
@@ -242,7 +243,9 @@ pkg qc =
 	
 	const nextlbl : (f : func# -> int)
 	const exprtype : (e : expr# -> ctype)
+	const exprloc : (e : expr# -> srcloc)
 	const islval : (e : expr# -> bool)
+	const stmtloc : (s : stmt# -> srcloc)
 ;;
 
 // XXX this label count is global until qbe supports func local labels.
@@ -255,58 +258,63 @@ const nextlbl = {f
 
 const exprtype = {e
 	match e
-	| &(`Ecast cast):
-		-> cast.ty
-	| &(`Esel sel):
-		-> sel.ty
-	| &(`Eident sym):
-		-> sym.ty
-	| &(`Ebinop bop):
-		-> bop.ty
-	| &(`Eunop uop):
-		-> uop.ty
-	| &(`Eptrdiff _):
-		/* XXX correct type? */
-		-> `Tylong
-	| &(`Eptradd add):
-		-> exprtype(add.ptr)
-	| &(`Eassign asn):
-		-> asn.ty
-	| &(`Eintlit _):
-		-> `Tyint
-	| &(`Elogop _):
-		-> `Tyint
-	| &(`Erelop _):
-		-> `Tyint
-	| &(`Estrlit _):
-		-> `Typtr std.mk(`Tychar)
-	| &(`Eidx idx):
-		-> idx.ty
-	| &(`Ecall call):
-		-> call.functy.rty
-	| &(`Eincdec incdec):
-		-> exprtype(incdec.expr)
-	| &(`Esizeof _):
-		-> `Tyint
+	| &(`Ecast cast): -> cast.ty
+	| &(`Esel sel): -> sel.ty
+	| &(`Eident sym): -> sym.ty
+	| &(`Ebinop bop): -> bop.ty
+	| &(`Eunop uop): -> uop.ty
+	| &(`Eptrdiff _): -> `Tylong
+	| &(`Eptradd add): -> exprtype(add.ptr)
+	| &(`Eassign asn): -> asn.ty
+	| &(`Eintlit _): -> `Tyint
+	| &(`Elogop _): -> `Tyint
+	| &(`Erelop _): -> `Tyint
+	| &(`Estrlit _): -> `Typtr std.mk(`Tychar)
+	| &(`Eidx idx): -> idx.ty
+	| &(`Ecall call): -> call.functy.rty
+	| &(`Eincdec incdec): -> exprtype(incdec.expr)
+	| &(`Esizeof _): -> `Tyint
 	;;
+}
+
+
+const exprloc = {e
+	match e
+	| &(`Ecast _):
+	| &(`Esel _):
+	| &(`Eident _):
+	| &(`Ebinop _):
+	| &(`Eunop _):
+	| &(`Eptrdiff _):
+	| &(`Eptradd _):
+	| &(`Eassign _):
+	| &(`Eintlit _):
+	| &(`Elogop _):
+	| &(`Erelop _):
+	| &(`Estrlit _):
+	| &(`Eidx _):
+	| &(`Ecall _):
+	| &(`Eincdec _):
+	| &(`Esizeof _):
+	;;
+	-> [.file=[][:], .line=0, .col=0 ]
+}
+
+
+const stmtloc = {s
+	-> [.file=[][:], .line=0, .col=0 ]
 }
 
 const islval = {n
 	match n#
 	| `Eunop unop:
 		match unop.op
-		| `Oderef:
-			-> true
-		| _:
-			-> false
+		| `Oderef: -> true
+		| _: -> false
 		;;
-	| `Eident _:
-		-> true
-	| `Eidx _:
-		-> true
-	| `Esel _:
-		-> true
-	|_:
-		-> false
+	| `Eident _: -> true
+	| `Eidx _: -> true
+	| `Esel _: -> true
+	|_: -> false
 	;;
 }
