@@ -466,11 +466,12 @@ const parsetagtype = {p
 			;;
 		| `std.None:
 			var pbody = std.mk(`std.None)
-			parsestructbody(p, pbody, tag == tagunion)
+			ty = `Tystruct pbody
 			if !declaretag(p, name, (tag, ty))
-				std.fatal("internal error\n")
+				std.fatal("internal error x\n")
 			;;
-			-> `Tystruct pbody
+			parsestructbody(p, pbody, tag == tagunion)
+			-> ty
 		;;
 	| (`std.None, `Tobrace):
 		var pbody = std.mk(`std.None)
