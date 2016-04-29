@@ -454,7 +454,7 @@ const parsetagtype = {p
 		| `std.Some (oldtag, oldty):
 			match oldty
 			| `Tystruct pbody:
-				 match pbody
+				match pbody
 				| &(`std.Some _):
 					err(tagloc, "redefinition of tag {}", name)
 				| &(`std.None):
