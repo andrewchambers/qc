@@ -24,6 +24,14 @@ const mkglobal = {p, name, ty
 	-> g
 }
 
+const mkenumsym = {p, name, ty
+	var e
+	
+	e = std.mk([.ty=ty, .name=name, .sc=`Sclassenum])
+	-> e
+}
+
+
 type lblstate = union
 	`Lblforward (srcloc, int)
 	`Lbldefined int
@@ -414,7 +422,8 @@ const startofdecl = {p
 }
 
 const parsetagtype = {p
-	var tagloc, tagname, tag, ty
+	var tagloc, tagname
+	var tag, ty, tok
 	
 	match next(p)
 	| (l, `Tstruct):
@@ -438,41 +447,36 @@ const parsetagtype = {p
 		tagname = `std.None
 	;;
 	
-	match (peek(p), tagname)
-	| ((l, `Tobrace), `std.Some name):
-		match lookuptag(p, name)
+	(_, tok) = peek(p)
+	match (tagname, tok)
+	| (`std.Some name, `Tobrace):
+		match std.htget(p.tagtab[p.tagtab.len - 1], name)
+		| `std.Some (oldtag, oldty):
+			match oldty
+			| `Tystruct pbody:
+				 match pbody
+				| &(`std.Some _):
+					err(tagloc, "redefinition of tag {}", name)
+				| &(`std.None):
+				;;
+				parsestructbody(p, pbody, tag == tagunion)
+				-> `Tystruct pbody
+			| _:
+				std.fatal("internal error\n")
+			;;
 		| `std.None:
-			var pstruct = std.mk(`std.None)
-			ty = `Tystruct pstruct
+			var pbody = std.mk(`std.None)
+			parsestructbody(p, pbody, tag == tagunion)
 			if !declaretag(p, name, (tag, ty))
 				std.fatal("internal error\n")
 			;;
-			pstruct# = `std.Some parsestructbody(p, tag == tagunion)
-			-> ty
-		| `std.Some (oldtag, oldty):
-			if oldtag != tag
-				err(tagloc, "struct/union/enum accessed with wrong tag type")
-			;;
-			match oldty
-			| `Tystruct pstruct:
-				match pstruct
-				| &(`std.Some _):
-					ty = `Tystruct std.mk(`std.Some parsestructbody(p, tag == tagunion))
-					if !declaretag(p, name, (tag, ty))
-						err(tagloc, "redefinition of tag {}", name)
-					;;
-					-> ty
-				| &(`std.None):
-					pstruct# = `std.Some parsestructbody(p, tag == tagunion)
-				;;
-			| _:	
-				std.fatal("internal error\n")
-			;;
-			-> oldty
+			-> `Tystruct pbody
 		;;
-	| ((l, `Tobrace), `std.None):
-		-> `Tystruct std.mk(`std.Some parsestructbody(p, tag == tagunion))
-	| ((l, _), `std.Some name):
+	| (`std.None, `Tobrace):
+		var pbody = std.mk(`std.None)
+		parsestructbody(p, pbody, tag == tagunion)
+		-> `Tystruct pbody
+	| (`std.Some name, _):
 		match lookuptag(p, name)
 		| `std.None:
 			ty = `Tystruct std.mk(`std.None)
@@ -486,17 +490,24 @@ const parsetagtype = {p
 			;;
 			-> oldty
 		;;
-	| ((l, _), `std.None):
+	| (`std.None, _):
 		err(tagloc, "struct/union/enum with no name and not body")
 	;;
 }
 
-const parsestructbody = {p, isunion
+const parsestructbody = {p, pbody, isunion
 	var sc, basety
 	var namety
 	var s
 	
-	s = mkcstruct(isunion)
+	s = std.mk([
+		.isunion = isunion,
+		.align = 1,
+		.size = 0,
+		.membs = [][:],
+		.offsets = [][:],
+		.exports = std.mkht(std.strhash, std.streq),
+	])
 	match next(p)
 	| (l, `Tobrace):
 	| (l, _):
@@ -523,8 +534,46 @@ const parsestructbody = {p, isunion
 	;;
 	next(p)
 	finalizestruct(s)
-	-> s
+	pbody# = `std.Some s
 }
+
+const parseenumbody = {p, pbody
+	var e, v
+	
+	e = std.mk([
+		.membs= [][:]
+	])
+	v = 0 castto(int64)
+	match next(p)
+	| (l, `Tobrace):
+	| (l, _):
+		err(l, "expected '{'\n")
+	;;
+	v = 0
+	while true
+		match peek(p)
+		| (_, `Tcbrace):
+			break
+		| (l, `Tident name):
+			v += 1	
+			if !declare(p, name, mkenumsym(p, name, `Tyenum pbody))
+				err(l, "redefinition of {}", name)
+			;;
+			match peek(p)
+			| (_, `Tcomma):
+				next(p)
+			| _:
+				break
+			;;
+		| (l, _):
+			err(l, "expected ident or '}'")
+		;;
+		expectcbrace(p);
+	;;
+	next(p)
+	pbody# = `std.Some e
+}
+
 
 const parsedeclspecs = {p
 	var sclass

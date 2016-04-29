@@ -16,6 +16,7 @@ pkg qc =
 	;;
 
 	type cenum = struct
+		membs : byte[:][:]
 	;;
 
 	type cstruct = struct
@@ -61,7 +62,6 @@ pkg qc =
 	const typesize : (ty : ctype -> std.option(uint32))
 	const typealign : (ty : ctype -> std.option(uint32))
 	
-	const mkcstruct : (isunion : bool -> cstruct#)
 	const addtostruct : (s : cstruct#, namety : (std.option(byte[:]), ctype) -> void)
 	const finalizestruct : (s : cstruct# -> void)
 	const structmemb : (s : cstruct#, name : byte[:] -> std.option(structexport))
@@ -158,17 +158,6 @@ const alignoff = {v, a
 		-> v + a - (v % a)
 	;;
 	-> v
-}
-
-const mkcstruct = {isunion
-	-> std.mk([
-		.isunion = isunion,
-		.align = 1,
-		.size = 0,
-		.membs = [][:],
-		.offsets = [][:],
-		.exports = std.mkht(std.strhash, std.streq),
-	])
 }
 
 const addtostruct = {s, namety
