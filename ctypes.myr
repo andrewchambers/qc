@@ -100,8 +100,6 @@ const typealign = {ty
 }
 
 const typesize = {ty
-	var sz
-	
 	match ty
 	| `Tychar: -> `std.Some 1
 	| `Tyshort: -> `std.Some 2
