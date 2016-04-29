@@ -276,14 +276,11 @@ const emitfunc = {f
 
 const type2class = {t
 	match t
-	| `Tychar:
-		-> "w"
-	| `Tyint:
-		-> "w"
-	| `Tylong:
-		-> "l"
-	| `Typtr _:
-		-> "l"
+	| `Tychar: -> "w"
+	| `Tyint: -> "w"
+	| `Tyenum _: -> "w"
+	| `Tylong: -> "l"
+	| `Typtr _: -> "l"
 	| _:
 		std.fatal("unhandled type2class type\n")
 	;;
@@ -452,7 +449,7 @@ const emitlval = {expr
 		| `Sclasslocal:
 			-> std.get(std.htget(allocas, sym))
 		| _:
-			std.fatal("emitlval internal error\n")
+			std.fatal("emitlval sym internal error symname={}\n", sym.name)
 		;;
 	| &(`Eunop [.op=`Oderef, .operand=operand]):
 		-> emitexpr(operand)
@@ -482,6 +479,8 @@ const emitload = {ty, val
 		oi("{} =w loadsb {}\n", v, val)
 	| `Tyint:
 		oi("{} =w load {}\n", v, val)
+ 	| `Tyenum _:
+		oi("{} =w load {}\n", v, val)
 	| `Tylong:
 		oi("{} =l load {}\n", v, val)
 	| `Typtr _:
@@ -497,6 +496,8 @@ const emitstore = {ty, dst, v
 	| `Tychar:
 		oi("storeb {}, {}\n", v, dst)
 	| `Tyint:
+		oi("storew {}, {}\n", v, dst)
+	| `Tyenum _:
 		oi("storew {}, {}\n", v, dst)
 	| `Tylong:
 		oi("storel {}, {}\n", v, dst)
@@ -585,6 +586,10 @@ const emitexpr = {expr
 		-> `Vlit (sz castto(int64))
 	| &(`Eintlit v):
 		-> `Vlit v
+	| &(`Eincdec incdec):
+		-> emitincdec(incdec)
+	| &(`Eunop u):
+		-> emitunop(u)
 	| &(`Estrlit s):
 		var d = [
 			.isglobal=false,
@@ -595,13 +600,19 @@ const emitexpr = {expr
 		v1 = newreg()
 		oi("{} =l copy ${}\n", v1, d.label)
 		-> v1
-	| &(`Eincdec incdec):
-		-> emitincdec(incdec)
-	| &(`Eunop u):
-		-> emitunop(u)
 	| &(`Eident sym):
-		v1 = emitlval(expr)
-		-> emitload(sym.ty, v1)
+		match sym.sc
+		| `Sclassenum:
+			match sym.ty
+			| `Tyenum &(`std.Some e):
+				-> `Vlit std.get(std.htget(e.membs, sym.name))
+			| _:
+				std.fatal("internal error: sclass enum on non enum\n")
+			;;
+		| _:
+			v1 = emitlval(expr)
+			-> emitload(sym.ty, v1)
+		;;
 	| &(`Eassign assign):
 		-> emitassign(assign)
 	| &(`Esel sel):
@@ -721,6 +732,8 @@ const emitcast = {cast
 			-> v1
 		| `Tyshort:
 			oi("{} =w extsb {}\n", v2, v1)
+		| `Tyenum _:
+			oi("{} =w extsb {}\n", v2, v1)
 		| `Tyint:
 			oi("{} =w extsb {}\n", v2, v1)
 		| `Tylong:
@@ -737,6 +750,8 @@ const emitcast = {cast
 			-> v1
 		| `Tyshort:
 			-> v1
+		| `Tyenum _:
+			oi("{} =w extsh {}\n", v2, v1)
 		| `Tyint:
 			oi("{} =w extsh {}\n", v2, v1)
 		| `Tylong:
@@ -747,11 +762,31 @@ const emitcast = {cast
 			std.fatal("unhandled cast\n")
 		;;
 		-> v2
+	| `Tyenum _:
+		match cast.ty
+		| `Tychar:
+			-> v1
+		| `Tyshort:
+			-> v1
+		| `Tyenum _:
+			-> v1
+		| `Tyint:
+			-> v1
+		| `Tylong:
+			oi("{} =l extsw {}\n", v2, v1)
+		| `Typtr _:
+			oi("{} =l extsw {}\n", v2, v1)
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v2
 	| `Tyint:
 		match cast.ty
 		| `Tychar:
 			-> v1
 		| `Tyshort:
+			-> v1
+		| `Tyenum _:
 			-> v1
 		| `Tyint:
 			-> v1
@@ -768,6 +803,7 @@ const emitcast = {cast
 		match cast.ty
 		| `Tychar:
 		| `Tyshort:
+		| `Tyenum _:
 		| `Tyint:
 		| `Tylong:
 		| `Typtr _:
@@ -780,6 +816,7 @@ const emitcast = {cast
 		match cast.ty
 		| `Tychar:
 		| `Tyshort:
+		| `Tyenum _:
 		| `Tyint:
 		| `Tylong:
 		| `Typtr _:

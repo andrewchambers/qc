@@ -16,7 +16,7 @@ pkg qc =
 	;;
 
 	type cenum = struct
-		membs : byte[:][:]
+		membs : std.htab(byte[:], int64)#
 	;;
 
 	type cstruct = struct
@@ -112,6 +112,7 @@ const isitype = {t
 	match t
 	| `Tychar: -> true
 	| `Tyshort: -> true
+	| `Tyenum _: -> true
 	| `Tyint: -> true
 	| `Tylong: -> true
 	| _: -> false

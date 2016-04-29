@@ -395,11 +395,15 @@ const expectsemi = {p
 
 const startoftype = {p, tok
 	match tok
+	| `Tenum: -> true
 	| `Tstruct: -> true
 	| `Tunion: -> true
 	| `Tchar: -> true
+	// | `Tshort: -> true
 	| `Tint: -> true
 	| `Tlong: -> true
+	// | `Tyunsigned: -> true
+	// | `Tysigned: -> true
 	| `Tvoid: -> true
 	| `Tident n:
 		match lookuptype(p, n)
@@ -452,6 +456,9 @@ const parsetagtype = {p
 	| (`std.Some name, `Tobrace):
 		match std.htget(p.tagtab[p.tagtab.len - 1], name)
 		| `std.Some (oldtag, oldty):
+			if tag != oldtag
+				err(tagloc, "struct/union/enum accessed with wrong tag type")
+			;;
 			match oldty
 			| `Tystruct pbody:
 				match pbody
@@ -461,26 +468,55 @@ const parsetagtype = {p
 				;;
 				parsestructbody(p, pbody, tag == tagunion)
 				-> `Tystruct pbody
+			| `Tyenum pbody:
+				match pbody
+				| &(`std.Some _):
+					err(tagloc, "redefinition of tag {}", name)
+				| &(`std.None):
+				;;
+				parseenumbody(p, pbody)
+				-> `Tyenum pbody
 			| _:
 				std.fatal("internal error\n")
 			;;
 		| `std.None:
-			var pbody = std.mk(`std.None)
-			ty = `Tystruct pbody
-			if !declaretag(p, name, (tag, ty))
-				std.fatal("internal error x\n")
+			if tag == tagstruct || tag == tagunion
+				var pbody = std.mk(`std.None)
+				ty = `Tystruct pbody
+				if !declaretag(p, name, (tag, ty))
+					std.fatal("internal error\n")
+				;;
+				parsestructbody(p, pbody, tag == tagunion)
+				-> ty
+			else
+				var pbody = std.mk(`std.None)
+				ty = `Tyenum pbody
+				if !declaretag(p, name, (tag, ty))
+					std.fatal("internal error\n")
+				;;
+				parseenumbody(p, pbody)
+				-> ty
 			;;
-			parsestructbody(p, pbody, tag == tagunion)
-			-> ty
+			
 		;;
 	| (`std.None, `Tobrace):
-		var pbody = std.mk(`std.None)
-		parsestructbody(p, pbody, tag == tagunion)
-		-> `Tystruct pbody
+		if tag == tagstruct || tag == tagunion
+			var pbody = std.mk(`std.None)
+			parsestructbody(p, pbody, tag == tagunion)
+			-> `Tystruct pbody
+		else
+			var pbody = std.mk(`std.None)
+			parseenumbody(p, pbody)
+			-> `Tyenum pbody
+		;;
 	| (`std.Some name, _):
 		match lookuptag(p, name)
 		| `std.None:
-			ty = `Tystruct std.mk(`std.None)
+			if tag == tagstruct || tag == tagunion
+				ty = `Tystruct std.mk(`std.None)
+			else
+				ty = `Tyenum std.mk(`std.None)
+			;;
 			if !declaretag(p, name, (tag, ty))
 				std.fatal("internal error\n")
 			;;
@@ -542,7 +578,7 @@ const parseenumbody = {p, pbody
 	var e, v
 	
 	e = std.mk([
-		.membs= [][:]
+		.membs=std.mkht(std.strhash, std.streq)
 	])
 	v = 0 castto(int64)
 	match next(p)
@@ -556,10 +592,23 @@ const parseenumbody = {p, pbody
 		| (_, `Tcbrace):
 			break
 		| (l, `Tident name):
-			v += 1	
+			next(p)
 			if !declare(p, name, mkenumsym(p, name, `Tyenum pbody))
 				err(l, "redefinition of {}", name)
 			;;
+			match peek(p)
+			| (_, `Tasn):
+				next(p)
+				match parseconstexpr(p)
+				| `Constint c:
+					v = c
+				| `Constptr _:
+					err(l, "enum value cannot be derived from a pointer\n")
+				;;
+			| _:
+			;;
+			std.htput(e.membs, name, v)
+			v += 1	
 			match peek(p)
 			| (_, `Tcomma):
 				next(p)
@@ -569,7 +618,6 @@ const parseenumbody = {p, pbody
 		| (l, _):
 			err(l, "expected ident or '}'")
 		;;
-		expectcbrace(p);
 	;;
 	next(p)
 	pbody# = `std.Some e
@@ -608,6 +656,8 @@ const parsedeclspecs = {p
 		| (l, `Tstruct):
 			-> (sclass, parsetagtype(p))
 		| (l, `Tunion):
+			-> (sclass, parsetagtype(p))
+		| (l, `Tenum):
 			-> (sclass, parsetagtype(p))
 		| (l, _):
 			-> (sclass, `Tyint)
@@ -1170,6 +1220,8 @@ const tyrank = {ty
 	match ty
 	| `Tylong:
 		-> 3
+	| `Tyenum _:
+		-> 2
 	| `Tyint:
 		-> 2
 	| `Tychar:
@@ -1181,6 +1233,7 @@ const tyrank = {ty
 
 const usualconv = {e
 	match exprtype(e)
+	| `Tyenum _:
 	| `Tylong:
 	| `Tyint:
 	| `Tychar:
@@ -1214,6 +1267,7 @@ const arithconv = {l, r
 		| _:
 			result = (l, mkcast(`Tylong, r))
 		;;
+	| `Tyenum _:
 	| `Tyint:
 	| _:
 		std.fatal("unimplemented arithconv")

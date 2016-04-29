@@ -313,7 +313,11 @@ const islval = {n
 		| `Oderef: -> true
 		| _: -> false
 		;;
-	| `Eident _: -> true
+	| `Eident sym:
+		match sym.sc
+		| `Sclassenum: -> false
+		| _: -> true
+		;;
 	| `Eidx _: -> true
 	| `Esel _: -> true
 	|_: -> false
