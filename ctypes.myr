@@ -55,6 +55,7 @@ pkg qc =
 	;;
 	
 	const compatibletypes : (t1 : ctype, t2 : ctype -> bool)
+	const sametype : (t1 : ctype, t2 : ctype -> bool)
 	const isitype : (ty : ctype -> bool)
 	const isptr : (ty : ctype -> bool)
 	const typesize : (ty : ctype -> std.option(uint32))
@@ -122,6 +123,18 @@ const isptr = {t
 	| `Typtr _: -> true
 	| _: -> false
 	;;
+}
+
+const sametype = {t1, t2
+	match (t1, t2)
+	| (`Tychar, `Tychar): -> true
+	| (`Tyshort,`Tyshort): -> true
+	| (`Tyint, `Tyint): -> true
+	| (`Tylong, `Tylong): -> true
+	| (`Typtr sub1, `Typtr sub2): -> sametype(sub1#, sub2#)
+	| _:
+	;;
+	-> false
 }
 
 const compatibletypes = {t1, t2

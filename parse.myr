@@ -1104,7 +1104,15 @@ const mkbinop = {op, l, r
 }
 
 const mkcast = {ty, expr
-	/* XXX check for errors */
+	var ety
+	
+	ety = exprtype(expr)
+	if sametype(ty, ety)
+		-> expr
+	;;
+	if !compatibletypes(ty, ety)
+		err(exprloc(expr), "invalid cast")
+	;;
 	-> std.mk(`Ecast [.ty=ty, .expr=expr])
 }
 
