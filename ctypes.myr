@@ -72,31 +72,19 @@ pkg qc =
 
 
 const typealign = {ty
-	var align
-	
 	match ty
-	| `Tylong:
-		align = 8
-	| `Tyint:
-		align = 4
-	| `Tyshort:
-		align = 2
-	| `Tychar:
-		align = 1
-	| `Typtr _:
-		align = 8
-	| `Tyarr arr:
-		-> typealign(arr.subty)
-	| `Tystruct &(`std.None):
-		-> `std.None
-	| `Tyenum _:
-		-> `std.Some 4
-	| `Tystruct &(`std.Some s):
-		align = s.align
+	| `Tychar: -> `std.Some 1
+	| `Tyshort: -> `std.Some 2
+	| `Tyint: -> `std.Some 4
+	| `Tyenum _: -> `std.Some 4
+	| `Tylong: -> `std.Some 8
+	| `Typtr _: -> `std.Some 8
+	| `Tyarr arr: -> typealign(arr.subty)
+	| `Tystruct &(`std.None): -> `std.None
+	| `Tystruct &(`std.Some s): -> `std.Some s.align
 	| _:
 		std.fatal("unimplemented typesize\n")
 	;;
-	-> `std.Some align
 }
 
 const typesize = {ty
