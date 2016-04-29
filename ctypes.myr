@@ -103,33 +103,22 @@ const typesize = {ty
 	var sz
 	
 	match ty
-	| `Tylong:
-		sz = 8
-	| `Tyint:
-		sz = 4
-	| `Tyshort:
-		sz = 2
-	| `Tychar:
-		sz = 1
-	| `Typtr _:
-		sz = 8
+	| `Tychar: -> `std.Some 1
+	| `Tyshort: -> `std.Some 2
+	| `Tyint: -> `std.Some 4
+	| `Tyenum _: -> `std.Some 4
+	| `Tylong: -> `std.Some 8
+	| `Typtr _: -> `std.Some 8
 	| `Tyarr arr:
 		match typesize(arr.subty)
-		| `std.None:
-			-> `std.None
-		| `std.Some subtysz:
-			sz = arr.len * subtysz
+		| `std.None: -> `std.None
+		| `std.Some subtysz: -> `std.Some (arr.len * subtysz)
 		;;
-	| `Tyenum _:
-		sz =  4
-	| `Tystruct &(`std.None):
-		-> `std.None
-	| `Tystruct &(`std.Some s):
-		sz = s.size
+	| `Tystruct &(`std.None): -> `std.None
+	| `Tystruct &(`std.Some s): -> `std.Some s.size
 	| _:
 		std.fatal("unimplemented typesize\n")
 	;;
-	-> `std.Some sz
 }
 
 const isitype = {t
