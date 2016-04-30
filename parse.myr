@@ -1597,7 +1597,21 @@ const parsepostexpr = {p
 			next(p)
 			idx = parseexpr(p)
 			expectcsqbrac(p)
-			expr = std.mk(`Eidx [.ty=`Tyint, .expr=expr, .idx=idx])
+			var idxty
+			match exprtype(expr)
+			|  `Tyarr arr:
+				idxty = arr.subty
+			|  `Typtr subty:
+				idxty = subty#
+			| _:
+				err(l, "[] be used on pointers or arrays\n")
+			;;
+			match typesize(idxty)
+			| `std.None:
+				err(l, "[] cannot be used on an incomplete type\n")
+			| _:
+			;;
+			expr = std.mk(`Eidx [.ty=idxty, .expr=expr, .idx=idx])
 		| (l, `Tdot):
 			next(p)
 			match exprtype(expr)
