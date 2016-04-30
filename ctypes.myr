@@ -151,6 +151,13 @@ const compatibletypes = {t1, t2
 	if isptr(t1) && isptr(t2)
 		-> true
 	;;
+	match (t1, t2)
+	| (`Typtr l, `Tyarr r):
+		-> compatibletypes(l#, r.subty)
+	| (`Tyarr l, `Typtr r):
+		-> compatibletypes(l.subty, r#)
+	| _:
+	;;
 	-> false
 }
 

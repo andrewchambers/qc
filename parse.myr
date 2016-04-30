@@ -1211,7 +1211,7 @@ const mkcast = {ty, expr
 		-> expr
 	;;
 	if !compatibletypes(ty, ety)
-		err(exprloc(expr), "invalid cast")
+		err(exprloc(expr), "invalid cast {} {}")
 	;;
 	-> std.mk(`Ecast [.ty=ty, .expr=expr])
 }

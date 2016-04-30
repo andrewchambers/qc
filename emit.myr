@@ -820,6 +820,21 @@ const emitcast = {cast
 		| `Tyint:
 		| `Tylong:
 		| `Typtr _:
+		| `Tyarr _:
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v1
+	| `Tyarr _:
+		// XXX: is it necessary to downcast to w?
+		match cast.ty
+		| `Tychar:
+		| `Tyshort:
+		| `Tyenum _:
+		| `Tyint:
+		| `Tylong:
+		| `Typtr _:
+		| `Tyarr _:
 		| _:
 			std.fatal("unhandled cast\n")
 		;;
