@@ -1722,6 +1722,8 @@ const parseprimaryexpr = {p
 		;;
 	| (l, `Tintlit v):
 		-> std.mk(`Eintlit v)
+	| (l, `Tchrlit c):
+		-> std.mk(`Echrlit c)
 	| (l, `Tstrlit s):
 		str = s
 		while true

@@ -101,6 +101,7 @@ pkg qc =
 		`Eunop unop
 		`Eassign assign
 		`Eintlit int64
+		`Echrlit char
 		`Estrlit byte[:]
 		`Eident sym#
 		`Eidx index
@@ -271,6 +272,7 @@ const exprtype = {e
 	| &(`Elogop _): -> `Tyint
 	| &(`Erelop _): -> `Tyint
 	| &(`Estrlit _): -> `Typtr std.mk(`Tychar)
+	| &(`Echrlit _): -> `Tychar
 	| &(`Eidx idx): -> idx.ty
 	| &(`Ecall call): -> call.functy.rty
 	| &(`Eincdec incdec): -> exprtype(incdec.expr)
@@ -293,6 +295,7 @@ const exprloc = {e
 	| &(`Elogop _):
 	| &(`Erelop _):
 	| &(`Estrlit _):
+	| &(`Echrlit _):
 	| &(`Eidx _):
 	| &(`Ecall _):
 	| &(`Eincdec _):

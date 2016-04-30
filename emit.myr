@@ -586,6 +586,8 @@ const emitexpr = {expr
 		-> `Vlit (sz castto(int64))
 	| &(`Eintlit v):
 		-> `Vlit v
+	| &(`Echrlit c):
+		-> `Vlit (c castto(int64))
 	| &(`Eincdec incdec):
 		-> emitincdec(incdec)
 	| &(`Eunop u):
