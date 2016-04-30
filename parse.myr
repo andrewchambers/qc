@@ -869,14 +869,14 @@ const parsedecltail = {p, basety
 }
 
 const parsedeclaration = {p
-	var sclass, name, ty, sym
+	var sclass, name, basety, ty, sym
 	var decls, loc, paramsym, init
 	
 	decls.syms = [][:]
-	(sclass, ty) = parsedeclspecs(p)
+	(sclass, basety) = parsedeclspecs(p)
 	while true
 		(loc, _) = peek(p)
-		(name, ty, init) = parsedeclinit(p, ty)
+		(name, ty, init) = parsedeclinit(p, basety)
 		match name
 		| `std.Some n:
 			match sclass
