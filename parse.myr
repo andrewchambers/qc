@@ -1710,7 +1710,7 @@ const parsesizeof = {p
 }
 
 const parseprimaryexpr = {p
-	var expr
+	var expr, str
 	
 	match next(p)
 	| (l, `Tident n):
@@ -1723,6 +1723,16 @@ const parseprimaryexpr = {p
 	| (l, `Tintlit v):
 		-> std.mk(`Eintlit v)
 	| (l, `Tstrlit s):
+		str = s
+		while true
+			match peek(p)
+			| (_, `Tstrlit s2):
+				next(p)
+				str = std.strcat(str, s2[1:])
+			| _:
+				break
+			;;
+		;;
 		-> std.mk(`Estrlit s)
 	| (_, `Toparen):
 		expr = parseexpr(p)
