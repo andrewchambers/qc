@@ -225,7 +225,7 @@ const emitfunc = {f
 	var alloca, namestoparamregs, reg
 	
 	curfunc = f
-	allocas = std.mkht({x; -> x castto(uint32)}, {x, y; -> x == y})
+	allocas = std.mkht({x; -> (x : uint32)}, {x, y; -> x == y})
 	nreg = 0
 	
 	
@@ -583,11 +583,11 @@ const emitexpr = {expr
 	| &(`Eidx idx):
 		-> emitidx(idx)
 	| &(`Esizeof sz):
-		-> `Vlit (sz castto(int64))
+		-> `Vlit (sz : int64)
 	| &(`Eintlit v):
 		-> `Vlit v
 	| &(`Echrlit c):
-		-> `Vlit (c castto(int64))
+		-> `Vlit (c : int64)
 	| &(`Eincdec incdec):
 		-> emitincdec(incdec)
 	| &(`Eunop u):

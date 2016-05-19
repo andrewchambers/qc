@@ -580,7 +580,7 @@ const parseenumbody = {p, pbody
 	e = std.mk([
 		.membs=std.mkht(std.strhash, std.streq)
 	])
-	v = 0 castto(int64)
+	v = (0 : int64)
 	match next(p)
 	| (l, `Tobrace):
 	| (l, _):
@@ -823,7 +823,7 @@ const parsedecltail = {p, basety
 			;;
 			match parseconstexpr(p)
 			| `Constint v:
-				arrlen = v castto(uint32)
+				arrlen = (v : uint32)
 			| `Constptr _:
 				err(l, "array length cannot be derived from a pointer\n")
 			;;
@@ -1705,7 +1705,7 @@ const parsesizeof = {p
 	| `std.None:
 		err(loc, "cannot do sizeof on incomplete type\n")
 	| `std.Some sz:
-		-> std.mk(`Esizeof (sz castto(int)))
+		-> std.mk(`Esizeof (sz : int))
 	;;
 }
 

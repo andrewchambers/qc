@@ -209,7 +209,7 @@ const finalizestruct = {s
 					std.htput(s.exports, xname, [
 						.offset=s.offsets[i]+xoff,
 						.ty=xty,
-						.path=`Exportpath (i castto(int), std.mk(xpath)),
+						.path=`Exportpath ((i : int), std.mk(xpath)),
 					])
 				;;
 			| _:
@@ -220,7 +220,7 @@ const finalizestruct = {s
 			std.htput(s.exports, n, [
 				.offset=s.offsets[i],
 				.ty=ty,
-				.path=`Exportend (i castto(int)),
+				.path=`Exportend (i : int),
 			])
 		;;
 	;;
