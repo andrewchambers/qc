@@ -1,6 +1,5 @@
 set -e
 
-
 echo "MTEST -1"
 for t in ./test/*.c
 do
