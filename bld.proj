@@ -8,3 +8,5 @@ bin qc =
 	emit.myr
 	fold.myr
 ;;
+
+cmd tests {test} = bash test.sh ;;

@@ -1,16 +1,34 @@
 set -e
 
-mbld
 
+echo "MTEST -1"
 for t in ./test/*.c
 do
-	timeout 2s ./qc < $t > $t.ssa
-	timeout 2s ../qbe/obj/qbe $t.ssa > $t.s
-	timeout 2s gcc $t.s -o $t.bin
-	if ! timeout 2s $t.bin
+	echo "test $t <<{!"
+	
+	if ! timeout 2s ./qc < $t > $t.ssa
 	then
-		echo "$t.bin returned non zero"
-		exit $?
+		echo "!}>> fail qc failed"
+		continue
 	fi
-	echo $t PASS	
+	
+	if ! timeout 2s ../qbe/obj/qbe $t.ssa > $t.s
+	then
+		echo "!}>> fail qbe failed"
+		continue
+	fi
+	
+	if ! timeout 2s gcc $t.s -o $t.bin
+	then
+		echo "!}>> fail assembling failed"
+		continue
+	fi
+	
+	if ! timeout 2s $t.bin 
+	then
+		echo "!}>> returned non zero"
+		continue
+	fi
+	
+	echo "!}>> ok"
 done
