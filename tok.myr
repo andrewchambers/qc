@@ -6,6 +6,7 @@ pkg qc =
 		rest	: byte[:]
 		data	: byte[:]
 		prevtokline	: int
+		indirective : bool
 		loc	: srcloc
 	;;
 
@@ -62,8 +63,9 @@ pkg qc =
 		`Tosqbrac /* [ */
 		`Tcsqbrac /* ] */
 		
-		`Thash      /* # */
-		`Tdirective /* # */
+		`Thash         /* # */
+		`Tdirective    /* # */
+		`Tenddirective /* \n */
 	
 		`Tswitch  /* switch */
 		`Tcase    /* case */
@@ -127,6 +129,7 @@ const mklexer = {name, data
 		.rest=data,
 		.data=data,
 		.prevtokline=0,
+		.indirective=false
 	])
 }
 
@@ -143,6 +146,7 @@ const toknext = {ts
 	| `Thash:
 		if ts.prevtokline != loc.line
 			tok = `Tdirective
+			ts.indirective = true
 		;;
 	| _:
 	;;
@@ -157,9 +161,17 @@ const tokread = {ts
 	loc = ts.loc
 	c = peekc(ts)
 	if ts.rest.len == 0
+		if ts.indirective
+			ts.indirective = false
+			-> (loc, `Tdirective)
+		;;
 		-> (loc, `Teof)
 	elif c == '\n'
 		takec(ts)
+		if ts.indirective 
+			ts.indirective = false
+			-> (loc, `Tenddirective)
+		;;
 		-> tokread(ts)
 	elif c == '\''
 		-> (loc, chrlit(ts))
@@ -697,6 +709,7 @@ const tokfmt = {sb, ap, opts
 	
 	| `Thash:	std.sbfmt(sb, "#")
 	| `Tdirective:	std.sbfmt(sb, "#")
+	| `Tenddirective:	std.sbfmt(sb, "end directive")
 
 	| `Tintlit v:	std.sbfmt(sb, "{}", v)
 	| `Tstrlit v:	std.sbfmt(sb, "{e}", v)
