@@ -615,10 +615,11 @@ const skipto = {ts, chr
 	var c
 
 	while true
-		c = takec(ts)
+		c = peekc(ts)
 		if ts.rest.len == 0 || c == chr
 			break
 		;;
+		takec(ts)
 	;;
 }
 
