@@ -5,6 +5,7 @@ pkg qc =
 	type tokstream = struct
 		rest	: byte[:]
 		data	: byte[:]
+		prevtokline	: int
 		loc	: srcloc
 	;;
 
@@ -60,6 +61,9 @@ pkg qc =
 		`Tcparen  /* ) */
 		`Tosqbrac /* [ */
 		`Tcsqbrac /* ] */
+		
+		`Thash      /* # */
+		`Tdirective /* # */
 	
 		`Tswitch  /* switch */
 		`Tcase    /* case */
@@ -122,6 +126,7 @@ const mklexer = {name, data
 		.loc = [.file=name, .line=1, .col=1],
 		.rest=data,
 		.data=data,
+		.prevtokline=0,
 	])
 }
 
@@ -131,7 +136,18 @@ const tokclose = {ts
 }
 
 const toknext = {ts
-	-> tokread(ts)
+	var loc, tok
+	
+	(loc, tok) = tokread(ts)
+	match tok
+	| `Thash:
+		if ts.prevtokline != loc.line
+			tok = `Tdirective
+		;;
+	| _:
+	;;
+	ts.prevtokline = loc.line
+	-> (loc, tok)
 }
 
 const tokread = {ts
@@ -517,6 +533,8 @@ const oper = {ts
 		else
 			t = `Tlnot
 		;;
+	| '#':
+		t = `Thash
 	| c:
 		t = `Terror;
 		err(ts.loc, "junk character {}", c);
@@ -582,16 +600,14 @@ const takec = {ts
 }
 
 const skipto = {ts, chr
-	var c, s
+	var c
 
-	s = ts.rest
 	while true
-		(c, s) = std.strstep(s)
-		if s.len == 0 || c == chr
+		c = takec(ts)
+		if ts.rest.len == 0 || c == chr
 			break
 		;;
 	;;
-	ts.rest = s
 }
 
 const matchc = {ts, chr
@@ -678,6 +694,9 @@ const tokfmt = {sb, ap, opts
 	| `Tlong:	std.sbfmt(sb, "long")
 	| `Tint:	std.sbfmt(sb, "int")
 	| `Tchar:	std.sbfmt(sb, "char")
+	
+	| `Thash:	std.sbfmt(sb, "#")
+	| `Tdirective:	std.sbfmt(sb, "#")
 
 	| `Tintlit v:	std.sbfmt(sb, "{}", v)
 	| `Tstrlit v:	std.sbfmt(sb, "{e}", v)
