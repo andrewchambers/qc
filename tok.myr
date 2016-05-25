@@ -191,27 +191,18 @@ const skipspace = {ts
 }
 
 const skipcomment = {ts
-	var depth, startln
+	var startln
 
-	depth = 0
 	startln = ts.loc.line
 	while true
 		match takec(ts)
-		| '/':
-			if matchc(ts, '*')
-				depth++
-			;;
 		| '*':
 			if matchc(ts, '/')
-				depth--
+				break
 			;;
 		| Eof:
 			err(ts.loc, "file ended in comment starting on line {}\n", startln)
 		| _:
-		;;
-
-		if depth == 0
-			break
 		;;
 	;;
 }
