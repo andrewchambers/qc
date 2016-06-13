@@ -686,6 +686,7 @@ const tokfmt = {sb, ap, opts
 	| `Tcsqbrac:	std.sbfmt(sb, "]")
 
 	| `Tfor:	std.sbfmt(sb, "for")
+	| `Tdo:	std.sbfmt(sb, "do")
 	| `Twhile:	std.sbfmt(sb, "while")
 	| `Tswitch:	std.sbfmt(sb, "switch")
 	| `Tcase:	std.sbfmt(sb, "case")
@@ -715,6 +716,7 @@ const tokfmt = {sb, ap, opts
 	| `Tintlit v:	std.sbfmt(sb, "{}", v)
 	| `Tstrlit v:	std.sbfmt(sb, "{e}", v)
 	| `Tchrlit v:	std.sbfmt(sb, "{}", v)
+	| `Tfltlit v:	std.sbfmt(sb, "{}", v)
 
 	| `Tellipsis:	std.sbfmt(sb, "...")
 	| `Tsemi:	std.sbfmt(sb, ";")
@@ -723,8 +725,6 @@ const tokfmt = {sb, ap, opts
 	| `Tcomma:	std.sbfmt(sb, ",")
 	| `Tarrow:	std.sbfmt(sb, "->")
 	| `Tident str:	std.sbfmt(sb, "{}", str)
-	| _:
-		std.fatal("XXX: TRACK UNMATCHED TOK DOWN...\n")
 	;;
 }
 
