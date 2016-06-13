@@ -1,0 +1,20 @@
+use std
+use "err"
+use "tok"
+
+pkg qc =
+	type pp = struct
+		ts : tokstream#
+	;;
+	
+	const mkcpp : (ts : tokstream# -> pp#) 
+	const cppnext : (pp : pp# -> (srcloc, tok))
+;;
+
+const mkcpp = {ts
+	-> std.mk([.ts = ts])
+}
+
+const cppnext = {pp
+	-> toknext(pp.ts)
+}

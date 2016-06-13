@@ -2,6 +2,7 @@ bin qc =
 	qc.myr
 	err.myr
 	tok.myr
+	cpp.myr
 	ctypes.myr
 	ast.myr
 	parse.myr

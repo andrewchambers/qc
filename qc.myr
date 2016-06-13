@@ -1,6 +1,7 @@
 use std
 
 use "tok"
+use "cpp"
 use "parse"
 use "emit"
 
@@ -18,5 +19,5 @@ const main = {args
 	else
 		ts = qc.tokinit(cmd.args[0])
 	;;
-	qc.emit(qc.parse(ts))
+	qc.emit(qc.parse(qc.mkcpp(ts)))
 }

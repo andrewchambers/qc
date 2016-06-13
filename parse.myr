@@ -1,12 +1,13 @@
 use std
 use "tok"
+use "cpp"
 use "err"
 use "ctypes"
 use "ast"
 use "fold"
 
 pkg qc =
-	const parse : (ts : tokstream# -> node#[:])
+	const parse : (pp : pp# -> node#[:])
 ;;
 
 const mklocal = {p, name, ty
@@ -43,7 +44,7 @@ const tagunion : tagty = 1
 const tagenum : tagty = 2
 
 type parser = struct
-	ts : tokstream#
+	pp : pp#
 	toks : (srcloc, tok)[2]
 	symtab : std.htab(byte[:], sym#)#[:]
 	typetab : std.htab(byte[:], ctype)#[:]
@@ -143,12 +144,12 @@ const lookup = {p, name
 	-> `std.None
 }
 
-const parse = {ts
+const parse = {pp
 	var p : parser#
 	var globals
 	
 	p = std.mk([
-		.ts = ts,
+		.pp = pp,
 		.symtab = [][:],
 		.tagtab = [][:],
 		.typetab = [][:],
@@ -157,8 +158,8 @@ const parse = {ts
 		.switchs = [][:],
 	])
 	pushscope(p)
-	p.toks[0] = toknext(ts)
-	p.toks[1] = toknext(ts)
+	p.toks[0] = cppnext(pp)
+	p.toks[1] = cppnext(pp)
 	
 	globals = [][:]
 	while true
@@ -175,7 +176,7 @@ const parse = {ts
 const next = {p
 	var t = p.toks[0]
 	p.toks[0] = p.toks[1]
-	p.toks[1] = toknext(p.ts)
+	p.toks[1] = cppnext(p.pp)
 	-> t
 }
 
