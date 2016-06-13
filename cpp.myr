@@ -8,7 +8,7 @@ pkg qc =
 	;;
 	
 	const mkcpp : (ts : tokstream# -> pp#) 
-	const cppnext : (pp : pp# -> (srcloc, tok))
+	const cppnext : (pp : pp# -> tok)
 ;;
 
 const mkcpp = {ts
@@ -20,15 +20,16 @@ const mkcpp = {ts
 }
 
 const cppnext = {pp
-	match toknext(pp.input[pp.input.len-1])
-	| (l, `Teof):
+	var tok = toknext(pp.input[pp.input.len-1])
+	match tok.kind
+	| `Teof:
 		if pp.input.len > 1
 			std.slpop(&pp.input)
 			-> cppnext(pp)
 		;;
-		-> (l, `Teof)
-	| t:
-		-> t
+		-> tok
+	| _:
+		-> tok
 	;;
 }
 
