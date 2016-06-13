@@ -14,9 +14,15 @@ pkg qc =
 	const tokinitf	: (fd : std.fd, path : byte[:]	-> tokstream#)
 	const tokclose	: (ts : tokstream#	-> void)
 
-	const toknext	: (ts : tokstream#	-> (srcloc, tok))
+	const toknext	: (ts : tokstream#	-> tok)
 
-	type tok = union
+	type tok = struct
+		kind : tokkind 
+		text : byte[:]
+		loc : srcloc
+	;;
+
+	type tokkind = union
 		`Terror
 		`Teof
 		`Tplus    /* + */
@@ -139,52 +145,56 @@ const tokclose = {ts
 }
 
 const toknext = {ts
-	var loc, tok
+	var tok
 	
-	(loc, tok) = tokread(ts)
-	match tok
+	tok = tokread(ts)
+	match tok.kind
 	| `Thash:
-		if ts.prevtokline != loc.line
-			tok = `Tdirective
+		if ts.prevtokline != tok.loc.line
+			tok.kind = `Tdirective
 			ts.indirective = true
 		;;
 	| _:
 	;;
-	ts.prevtokline = loc.line
-	-> (loc, tok)
+	ts.prevtokline = tok.loc.line
+	-> tok
 }
 
 const tokread = {ts
-	var c, loc, id
+	var c, loc, kind
+	var start, end
 
 	skipspace(ts)
+	start = ts.data.len - ts.rest.len
 	loc = ts.loc
 	c = peekc(ts)
 	if ts.rest.len == 0
 		if ts.indirective
 			ts.indirective = false
-			-> (loc, `Tdirective)
+			kind = `Tdirective
+		else
+			kind = `Teof
 		;;
-		-> (loc, `Teof)
 	elif c == '\n'
 		takec(ts)
-		if ts.indirective 
-			ts.indirective = false
-			-> (loc, `Tenddirective)
+		if !ts.indirective 
+			-> tokread(ts)
 		;;
-		-> tokread(ts)
+		ts.indirective = false
+		kind = `Tenddirective
 	elif c == '\''
-		-> (loc, chrlit(ts))
+		kind = chrlit(ts)
 	elif c == '"'
-		-> (loc, strlit(ts))
+		kind = strlit(ts)
 	elif std.isdigit(c)
-		-> (loc, numlit(ts))
+		kind = numlit(ts)
 	elif isident(c)
-		id = kwident(ts)
-		-> (loc, id)
+		kind = kwident(ts)
 	else
-		-> (loc, oper(ts))
+		kind = oper(ts)
 	;;
+	end = ts.data.len - ts.rest.len
+	-> [.loc = loc, .text = ts.data[start:end], .kind = kind]
 }
 
 const skipspace = {ts
@@ -635,102 +645,3 @@ const matchc = {ts, chr
 	;;
 }
 
-const tokfmt = {sb, ap, opts
-	var tok
-
-	tok = std.vanext(ap)
-	match tok
-	| `Terror:	std.sbfmt(sb, "ERROR")
-	| `Teof:	std.sbfmt(sb, "EOF")
-	| `Tplus:	std.sbfmt(sb, "+")
-	| `Tminus:	std.sbfmt(sb, "-")
-	| `Tmul:	std.sbfmt(sb, "*")
-	| `Tdiv:	std.sbfmt(sb, "/")
-	| `Tinc:	std.sbfmt(sb, "++")
-	| `Tdec:	std.sbfmt(sb, "--")
-	| `Tmod:	std.sbfmt(sb, "%")
-	| `Tasn:	std.sbfmt(sb, "=")
-	| `Taddeq:	std.sbfmt(sb, "+=")
-	| `Tsubeq:	std.sbfmt(sb, "-=")
-	| `Tmuleq:	std.sbfmt(sb, "*=")
-	| `Tdiveq:	std.sbfmt(sb, "/=")
-	| `Tmodeq:	std.sbfmt(sb, "%=")
-	| `Tboreq:	std.sbfmt(sb, "|=")
-	| `Tbxoreq:	std.sbfmt(sb, "^=")
-	| `Tbandeq:	std.sbfmt(sb, "&=")
-	| `Tbsleq:	std.sbfmt(sb, "<<=")
-	| `Tbsreq:	std.sbfmt(sb, ">>=")
-	| `Tbor:	std.sbfmt(sb, "|")
-	| `Tbxor:	std.sbfmt(sb, "^")
-	| `Tband:	std.sbfmt(sb, "&")
-	| `Tbsl:	std.sbfmt(sb, "<<")
-	| `Tbsr:	std.sbfmt(sb, ">>")
-	| `Tbnot:	std.sbfmt(sb, "~")
-
-	| `Teq:		std.sbfmt(sb, "==")
-	| `Tgt:		std.sbfmt(sb, ">")
-	| `Tlt:		std.sbfmt(sb, "<")
-	| `Tge:		std.sbfmt(sb, ">=")
-	| `Tle:		std.sbfmt(sb, "<=")
-	| `Tne:		std.sbfmt(sb, "!=")
-
-	| `Tlor:	std.sbfmt(sb, "||")
-	| `Tland:	std.sbfmt(sb, "&&")
-	| `Tlnot:	std.sbfmt(sb, "!")
-
-	| `Tobrace:	std.sbfmt(sb, "{{")
-	| `Tcbrace:	std.sbfmt(sb, "}}")
-	| `Toparen:	std.sbfmt(sb, "(")
-	| `Tcparen:	std.sbfmt(sb, ")")
-	| `Tosqbrac:	std.sbfmt(sb, "[")
-	| `Tcsqbrac:	std.sbfmt(sb, "]")
-
-	| `Tfor:	std.sbfmt(sb, "for")
-	| `Tdo:	std.sbfmt(sb, "do")
-	| `Twhile:	std.sbfmt(sb, "while")
-	| `Tswitch:	std.sbfmt(sb, "switch")
-	| `Tcase:	std.sbfmt(sb, "case")
-	| `Tdefault:	std.sbfmt(sb, "default")
-	| `Tif:		std.sbfmt(sb, "if")
-	| `Telse:	std.sbfmt(sb, "else")
-	| `Tgoto:	std.sbfmt(sb, "goto")
-	| `Tbreak:	std.sbfmt(sb, "break")
-	| `Tcontinue:	std.sbfmt(sb, "continue")
-	| `Tsizeof:	std.sbfmt(sb, "sizeof")
-	| `Treturn:	std.sbfmt(sb, "return")
-	| `Ttypedef:	std.sbfmt(sb, "typedef")
-	| `Textern:	std.sbfmt(sb, "extern")
-	| `Tvoid:	std.sbfmt(sb, "void")
-	| `Tstruct:	std.sbfmt(sb, "struct")
-	| `Tunion:	std.sbfmt(sb, "union")
-	| `Tenum:	std.sbfmt(sb, "num")
-	| `Tconst:	std.sbfmt(sb, "const")
-	| `Tlong:	std.sbfmt(sb, "long")
-	| `Tint:	std.sbfmt(sb, "int")
-	| `Tchar:	std.sbfmt(sb, "char")
-	
-	| `Thash:	std.sbfmt(sb, "#")
-	| `Tdirective:	std.sbfmt(sb, "#")
-	| `Tenddirective:	std.sbfmt(sb, "end directive")
-
-	| `Tintlit v:	std.sbfmt(sb, "{}", v)
-	| `Tstrlit v:	std.sbfmt(sb, "{e}", v)
-	| `Tchrlit v:	std.sbfmt(sb, "{}", v)
-	| `Tfltlit v:	std.sbfmt(sb, "{}", v)
-
-	| `Tellipsis:	std.sbfmt(sb, "...")
-	| `Tsemi:	std.sbfmt(sb, ";")
-	| `Tcolon:	std.sbfmt(sb, ":")
-	| `Tdot:	std.sbfmt(sb, ".")
-	| `Tcomma:	std.sbfmt(sb, ",")
-	| `Tarrow:	std.sbfmt(sb, "->")
-	| `Tident str:	std.sbfmt(sb, "{}", str)
-	;;
-}
-
-const __init__ = {
-	var dummy : tok
-
-	dummy = `Terror
-	std.fmtinstall(std.typeof(dummy), tokfmt, [][:])
-}
