@@ -938,22 +938,14 @@ const emitbinop2 = {op, ty, lexpr, rexpr
 	r = emitexpr(rexpr)
 	result = newreg()
 	match op
-	| `Oplus:
-		o = "add"
-	| `Ominus:
-		o = "sub"
-	| `Odiv:
-		o = "div"
-	| `Omul:
-		o = "mul"
-	| `Omod:
-		o = "rem"
-	| `Oxor:
-		o = "xor"
-	| `Oand:
-		o = "and"
-	| `Oor:
-		o = "or"
+	| `Oplus:  o = "add"
+	| `Ominus: o = "sub"
+	| `Odiv:   o = "div"
+	| `Omul:   o = "mul"
+	| `Omod:   o = "rem"
+	| `Oxor:   o = "xor"
+	| `Oand:   o = "and"
+	| `Oor:    o = "or"
 	;;
 	
 	oi("{} ={} {} {}, {}\n", result, class, o, l, r)
@@ -974,18 +966,12 @@ const emitrelop = {b
 	r = emitexpr(b.r)
 	result = newreg()
 	match b.op
-	| `Oeq:
-		o = "ceq"
-	| `One:
-		o = "cne"
-	| `Olt:
-		o = "cslt"
-	| `Ogt:
-		o = "csgt"
-	| `Oge:
-		o = "csge"
-	| `Ole:
-		o = "csle"
+	| `Oeq: o = "ceq"
+	| `One: o = "cne"
+	| `Olt: o = "cslt"
+	| `Ogt: o = "csgt"
+	| `Oge: o = "csge"
+	| `Ole: o = "csle"
 	;;
 	
 	oi("{} =w {}{} {}, {}\n", result, o, class, l, r)
