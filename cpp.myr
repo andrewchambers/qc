@@ -27,10 +27,9 @@ const cppnext = {pp
 			std.slpop(&pp.input)
 			-> cppnext(pp)
 		;;
-		-> tok
 	| _:
-		-> tok
 	;;
+	-> tok
 }
 
 const pushts = {pp, ts
