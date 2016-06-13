@@ -12,8 +12,6 @@ pkg qc =
 
 	const tokinit	: (path : byte[:]	-> tokstream#)
 	const tokinitf	: (fd : std.fd, path : byte[:]	-> tokstream#)
-	const tokclose	: (ts : tokstream#	-> void)
-
 	const toknext	: (ts : tokstream#	-> tok)
 
 	type tok = struct
@@ -137,11 +135,6 @@ const mklexer = {name, data
 		.prevtokline=0,
 		.indirective=false
 	])
-}
-
-const tokclose = {ts
-	std.slfree(ts.data)
-	std.free(ts)
 }
 
 const toknext = {ts
@@ -433,7 +426,7 @@ const kwident = {ts
 	| "case":	-> `Tcase
 	| "default":	-> `Tdefault
 	| "long":	-> `Tlong
-	| ident:	-> `Tident std.sldup(ident)
+	| ident:	-> `Tident ident
 	;;
 }
 
