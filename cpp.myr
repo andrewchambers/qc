@@ -4,7 +4,7 @@ use "tok"
 
 pkg qc =
 	type pp = struct
-		ts : tokstream#
+		input : tokstream#[:]
 	;;
 	
 	const mkcpp : (ts : tokstream# -> pp#) 
@@ -12,9 +12,26 @@ pkg qc =
 ;;
 
 const mkcpp = {ts
-	-> std.mk([.ts = ts])
+	var pp
+	
+	pp = std.mk([.input = [][:]])
+	pushts(pp, ts)
+	-> pp
 }
 
 const cppnext = {pp
-	-> toknext(pp.ts)
+	match toknext(pp.input[pp.input.len-1])
+	| (l, `Teof):
+		if pp.input.len > 1
+			std.slpop(&pp.input)
+			-> cppnext(pp)
+		;;
+		-> (l, `Teof)
+	| t:
+		-> t
+	;;
+}
+
+const pushts = {pp, ts
+	std.slpush(&pp.input, ts)
 }
