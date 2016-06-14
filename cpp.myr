@@ -6,6 +6,23 @@ pkg qc =
 	type pp = struct
 		input : tokstream#[:]
 		includedirs : byte[:][:]
+		expanded : tok[:]
+		
+		macros : std.htab(byte[:], macro)#
+	;;
+	
+	type objmacro = struct
+		tokens : tok[:]
+	;;
+	
+	type funcmacro = struct
+		args : tok[:]
+		tokens : tok[:]
+	;;
+	
+	type macro = union
+		`Mobj objmacro#
+		`Mfunc funcmacro#
 	;;
 	
 	const mkcpp : (ts : tokstream# -> pp#) 
@@ -15,7 +32,12 @@ pkg qc =
 const mkcpp = {ts
 	var pp
 	
-	pp = std.mk([.input=[][:], .includedirs=[][:]])
+	pp = std.mk([
+		.input=[][:],
+		.includedirs=[][:],
+		.expanded=[][:],
+		.macros=std.mkht(std.strhash, std.streq)
+	])
 	pushts(pp, ts)
 	-> pp
 }
@@ -23,7 +45,19 @@ const mkcpp = {ts
 const cppnext = {pp
 	var tok
 	
-	tok = toknext(pp.input[pp.input.len-1])
+	if pp.expanded.len != 0
+		tok = std.slpop(&pp.expanded)
+	else
+		tok = toknext(pp.input[pp.input.len-1])
+	;;
+	match std.htget(pp.macros, tok.text)
+	| `std.Some `Mobj m:
+		err(tok.loc, "unimplemented obj macros\n")
+	| `std.Some `Mfunc m:
+		err(tok.loc, "unimplemented funclike macros\n")
+	| `std.None:
+	;;
+	
 	match tok.kind
 	| `Tdirective:
 		directive(pp)
