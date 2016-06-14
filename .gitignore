@@ -1,6 +1,7 @@
 qc
 *.o
 *.use
-test/*.s
-test/*.ssa
-test/*.bin
+test/execute/*.s
+test/execute/*.ssa
+test/execute/*.bin
+test/error/*.stderr
