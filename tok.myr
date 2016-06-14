@@ -19,7 +19,7 @@ pkg qc =
 		kind : tokkind 
 		text : byte[:]
 		loc : srcloc
-		// hs : hideset
+		hs : int
 	;;
 
 	type tokkind = union
