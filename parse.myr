@@ -295,7 +295,6 @@ const parsedowhile = {p
 	var cond, stmt
 	var breaklbl, contlbl
 	
-	
 	next(p)
 	breaklbl = nextlbl(p.curfunc)
 	contlbl = nextlbl(p.curfunc)

@@ -20,8 +20,13 @@ const mkcpp = {ts
 }
 
 const cppnext = {pp
-	var tok = toknext(pp.input[pp.input.len-1])
+	var tok
+	
+	tok = toknext(pp.input[pp.input.len-1])
 	match tok.kind
+	| `Tdirective:
+		directive(pp)
+		-> cppnext(pp)
 	| `Teof:
 		if pp.input.len > 1
 			std.slpop(&pp.input)
@@ -35,3 +40,36 @@ const cppnext = {pp
 const pushts = {pp, ts
 	std.slpush(&pp.input, ts)
 }
+
+const directive = {pp
+	var tok
+	
+	tok = cppnext(pp)
+	match tok.text
+	| "include":
+		dirinclude(pp)
+	| dir:
+		err(tok.loc, "bad directive {}\n", dir)
+	;;
+}
+
+const dirinclude = {pp
+	var tok, path
+	
+	tok = cppnext(pp)
+	match tok.kind
+	| `Tstrlit s:
+		path = s
+	| _:
+		err(tok.loc, "bad include, expected a string\n")
+	;;
+	tok = cppnext(pp)
+	match tok.kind
+	| `Tenddirective:
+	| _:
+		err(tok.loc, "junk at end of include directive {}", tok.text)
+	;;
+	pushts(pp, tokinit(path))
+}
+
+
