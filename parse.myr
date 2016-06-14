@@ -45,7 +45,9 @@ const tagenum : tagty = 2
 
 type parser = struct
 	pp : pp#
-	toks : (srcloc, tok)[2]
+	tok : tok
+	lookahead: tok
+	
 	symtab : std.htab(byte[:], sym#)#[:]
 	typetab : std.htab(byte[:], ctype)#[:]
 	tagtab : std.htab(byte[:], (tagty, ctype))#[:]
@@ -158,13 +160,13 @@ const parse = {pp
 		.switchs = [][:],
 	])
 	pushscope(p)
-	p.toks[0] = cppnext(pp)
-	p.toks[1] = cppnext(pp)
+	p.tok = cppnext(pp)
+	p.lookahead = cppnext(pp)
 	
 	globals = [][:]
 	while true
-		match peek(p)
-		| (_, `Teof):
+		match p.tok.kind
+		| `Teof:
 			break
 		| _:
 			std.slpush(&globals, parsedeclaration(p))
@@ -174,66 +176,70 @@ const parse = {pp
 }
 
 const next = {p
-	var t = p.toks[0]
-	p.toks[0] = p.toks[1]
-	p.toks[1] = cppnext(p.pp)
-	-> t
-}
-
-const peek = {p
-	-> p.toks[0]
-}
-
-const lookahead = {p
-	-> p.toks[1]
-}
-
-const parsetype = {p
-	match next(p)
-	| (_, `Tint):
-		-> `Tyint
-	| (l, _):
-		err(l, "expected type\n")
-	;;
+	p.tok = p.lookahead
+	p.lookahead = cppnext(p.pp)
 }
 
 const expectobrace = {p
-	match next(p)
-	| (_, `Tobrace):
-	| (l, _):
-		err(l, "expected '{'")
+	match p.tok.kind
+	| `Tobrace:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected '{'\n")
 	;;
 }
 
 const expectcbrace = {p
-	match next(p)
-	| (_, `Tcbrace):
-	| (l, _):
-		err(l, "expected '}'")
+	match p.tok.kind
+	| `Tcbrace:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected '}'\n")
 	;;
 }
 
 const expectoparen = {p
-	match next(p)
-	| (_, `Toparen):
-	| (l, _):
-		err(l, "expected '('\n")
+	match p.tok.kind
+	| `Toparen:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected '('\n")
 	;;
 }
 
 const expectcparen = {p
-	match next(p)
-	| (_, `Tcparen):
-	| (l, _):
-		err(l, "expected ')'")
+	match p.tok.kind
+	| `Tcparen:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected ')'\n")
 	;;
 }
 
 const expectcsqbrac = {p
-	match next(p)
-	| (_, `Tcsqbrac):
-	| (l, _):
-		err(l, "expected ']'\n")
+	match p.tok.kind
+	| `Tcsqbrac:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected ']'\n")
+	;;
+}
+
+const expectcolon = {p
+	match p.tok.kind
+	| `Tcolon:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected ':'\n")
+	;;
+}
+
+const expectsemi = {p
+	match p.tok.kind
+	| `Tsemi:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected ';'\n")
 	;;
 }
 
@@ -245,8 +251,8 @@ const parseif = {p
 	cond = parseexpr(p)
 	expectcparen(p)
 	iftrue = parsestmt(p)
-	match peek(p)
-	| (_, `Telse):
+	match p.tok.kind
+	| `Telse:
 		next(p)
 		iffalse = `std.Some parsestmt(p)
 	| _:
@@ -296,10 +302,11 @@ const parsedowhile = {p
 	pushbreakcont(p, breaklbl, contlbl)
 	stmt = parsestmt(p)
 	popbreakcont(p)
-	match next(p)
-	| (_, `Twhile):
-	| (l, _):
-		err(l, "expected 'while'\n")
+	match p.tok.kind
+	| `Twhile:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected 'while'\n")
 	;;
 	expectoparen(p)
 	cond = parseexpr(p)
@@ -320,24 +327,24 @@ const parsefor = {p
 	
 	next(p)
 	expectoparen(p)
-	match peek(p)
-	| (_, `Tsemi):
+	match p.tok.kind
+	| `Tsemi:
 		forstmt.init = `std.None
 		next(p)
 	| _:
 		forstmt.init = `std.Some parseexpr(p)
 		expectsemi(p)
 	;;
-	match peek(p)
-	| (_, `Tsemi):
+	match p.tok.kind
+	| `Tsemi:
 		forstmt.cond = `std.None
 		next(p)
 	| _:
 		forstmt.cond = `std.Some parseexpr(p)
 		expectsemi(p)
 	;;
-	match peek(p)
-	| (_, `Tcparen):
+	match p.tok.kind
+	| `Tcparen:
 		forstmt.step = `std.None
 		next(p)
 	| _:
@@ -358,15 +365,16 @@ const parseblock = {p
 	var stmts
 	
 	stmts = [][:]
-	match next(p)
-	| (l, `Tobrace):
-	| (l, t):
-		err(l, "expected '{{', got {}\n", t)
+	match p.tok.kind
+	| `Tobrace:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected '{{'\n")
 	;;
 	pushscope(p)
 	while true
-		match peek(p)
-		| (_, `Tcbrace):
+		match p.tok.kind
+		| `Tcbrace:
 			next(p)
 			break
 		| _:
@@ -376,23 +384,6 @@ const parseblock = {p
 	popscope(p)
 	-> stmts
 }
-
-const expectcolon = {p
-	match next(p)
-	| (l, `Tcolon):
-	| (l, t):
-		err(l, "expected ':', got {}", t)
-	;;
-}
-
-const expectsemi = {p
-	match next(p)
-	| (l, `Tsemi):
-	| (l, t):
-		err(l, "expected ';', got {}", t)
-	;;
-}
-
 
 const startoftype = {p, tok
 	match tok
@@ -420,40 +411,35 @@ const startoftype = {p, tok
 
 
 const startofdecl = {p
-	var tok
-	
-	(_, tok) = peek(p)
-	-> startoftype(p, tok)
+	-> startoftype(p, p.tok.kind)
 }
 
 const parsetagtype = {p
 	var tagloc, tagname
-	var tag, ty, tok
+	var tag, ty
 	
-	match next(p)
-	| (l, `Tstruct):
-		tagloc = l
+	tagloc = p.tok.loc
+	match p.tok.kind
+	| `Tstruct:
 		tag = tagstruct
-	| (l, `Tunion):
-		tagloc = l
+	| `Tunion:
 		tag = tagunion
-	| (l, `Tenum):
-		tagloc = l
+	| `Tenum:
 		tag = tagenum
-	| (l, _):
-		err(l, "expected struct/union/enum\n")
+	| _:
+		err(p.tok.loc, "expected struct/union/enum\n")
 	;;
+	next(p)
 	
-	match peek(p)
-	| (_, `Tident tname):
+	match p.tok.kind
+	| `Tident tname:
 		next(p)
 		tagname = `std.Some tname
-	| (l, _):
+	| _:
 		tagname = `std.None
 	;;
 	
-	(_, tok) = peek(p)
-	match (tagname, tok)
+	match (tagname, p.tok.kind)
 	| (`std.Some name, `Tobrace):
 		match std.htget(p.tagtab[p.tagtab.len - 1], name)
 		| `std.Some (oldtag, oldty):
@@ -546,14 +532,10 @@ const parsestructbody = {p, pbody, isunion
 		.offsets = [][:],
 		.exports = std.mkht(std.strhash, std.streq),
 	])
-	match next(p)
-	| (l, `Tobrace):
-	| (l, _):
-		err(l, "expected '{'\n")
-	;;
+	expectobrace(p)
 	while true
-		match peek(p)
-		| (_, `Tcbrace):
+		match p.tok.kind
+		| `Tcbrace:
 			break
 		| _:
 		;;
@@ -561,8 +543,8 @@ const parsestructbody = {p, pbody, isunion
 		while true
 			namety = parsedecl(p, basety);
 			addtostruct(s, namety)
-			match peek(p)
-			| (_, `Tcomma):
+			match p.tok.kind
+			| `Tcomma:
 				next(p)
 			| _:
 				break
@@ -576,29 +558,31 @@ const parsestructbody = {p, pbody, isunion
 }
 
 const parseenumbody = {p, pbody
-	var e, v
+	var e, v, l
 	
 	e = std.mk([
 		.membs=std.mkht(std.strhash, std.streq)
 	])
 	v = (0 : int64)
-	match next(p)
-	| (l, `Tobrace):
-	| (l, _):
-		err(l, "expected '{'\n")
+	match p.tok.kind
+	| `Tobrace:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected '{'\n")
 	;;
 	v = 0
 	while true
-		match peek(p)
-		| (_, `Tcbrace):
+		match p.tok.kind
+		| `Tcbrace:
 			break
-		| (l, `Tident name):
+		| `Tident name:
+			l = p.tok.loc
 			next(p)
 			if !declare(p, name, mkenumsym(p, name, `Tyenum pbody))
 				err(l, "redefinition of {}", name)
 			;;
-			match peek(p)
-			| (_, `Tasn):
+			match p.tok.kind
+			| `Tasn:
 				next(p)
 				match parseconstexpr(p)
 				| `Constint c:
@@ -610,14 +594,14 @@ const parseenumbody = {p, pbody
 			;;
 			std.htput(e.membs, name, v)
 			v += 1	
-			match peek(p)
-			| (_, `Tcomma):
+			match p.tok.kind
+			| `Tcomma:
 				next(p)
 			| _:
 				break
 			;;
-		| (l, _):
-			err(l, "expected ident or '}'")
+		| _:
+			err(p.tok.loc, "expected ident or '}'")
 		;;
 	;;
 	next(p)
@@ -630,11 +614,11 @@ const parsedeclspecs = {p
 	
 	sclass = `Sclassnone
 	while true
-		match peek(p)
-		| (l, `Ttypedef):
+		match p.tok.kind
+		| `Ttypedef:
 			next(p)
 			sclass = `Sclasstypedef
-		| (l, `Tident n):
+		| `Tident n:
 			match lookuptype(p, n)
 			| `std.Some ty:
 				next(p)
@@ -642,25 +626,25 @@ const parsedeclspecs = {p
 			| `std.None:
 				-> (sclass, `Tyint)
 			;;
-		| (l, `Tchar):
+		| `Tchar:
 			next(p)
 			-> (sclass, `Tychar)
-		| (l, `Tint):
+		| `Tint:
 			next(p)
 			-> (sclass, `Tyint)
-		| (l, `Tlong):
+		| `Tlong:
 			next(p)
 			-> (sclass, `Tylong)
-		| (l, `Tvoid):
+		| `Tvoid:
 			next(p)
 			-> (sclass, `Tyvoid)
-		| (l, `Tstruct):
+		| `Tstruct:
 			-> (sclass, parsetagtype(p))
-		| (l, `Tunion):
+		| `Tunion:
 			-> (sclass, parsetagtype(p))
-		| (l, `Tenum):
+		| `Tenum:
 			-> (sclass, parsetagtype(p))
-		| (l, _):
+		| _:
 			-> (sclass, `Tyint)
 		;;
 	;;
@@ -696,31 +680,33 @@ const parsestructinit = {p, s
 	blob = [
 		.vals = [][:]
 	]
-	(loc, _) = peek(p)
+	loc = p.tok.loc
 	expectobrace(p)
 	it = mkstructiter(s)
 	while true
-		match peek(p)
-		| (l, `Tcbrace):
+		match p.tok.kind
+		| `Tcbrace:
 			break
-		| (l, `Tdot):
+		| `Tdot:
 			neednext = false
 			next(p)
-			match next(p)
-			| (nl, `Tident n):
+			match p.tok.kind
+			| `Tident n:
 				match getstructiter(s, n)
 				| `std.None:
-					err(nl, "struct has no member {}", n)
+					err(p.tok.loc, "struct has no member {}", n)
 				| `std.Some newiter:
 					it = newiter
 				;;
-			| (nl, _):
-				err(nl, "expected ident")
+				next(p)
+			| _:
+				err(p.tok.loc, "expected ident")
 			;;
-			match next(p)
-			| (_, `Tasn):
-			| (nl, _):
-				err(nl, "expected '='")
+			match p.tok.kind
+			| `Tasn:
+				next(p)
+			| _:
+				err(p.tok.loc, "expected '='")
 			;;
 		| _:
 			neednext = true
@@ -749,8 +735,8 @@ const parsestructinit = {p, s
 			;;
 		;;
 		
-		match peek(p)
-		| (_, `Tcomma):
+		match p.tok.kind
+		| `Tcomma:
 			next(p)
 		| _:
 			break
@@ -779,8 +765,8 @@ const parsedeclinit = {p, basety
 	var name, ty
 	(name, ty) = parsedecl(p, basety)
 	
-	match peek(p)
-	| (l, `Tasn):
+	match p.tok.kind
+	| `Tasn:
 		next(p)
 		-> (name, ty, `std.Some parseinit(p, ty))
 	| _:
@@ -790,8 +776,8 @@ const parsedeclinit = {p, basety
 }
 
 const parsedecl = {p, basety
-	match peek(p)
-	| (_, `Tmul):
+	match p.tok.kind
+	| `Tmul:
 		next(p)
 		-> parsedecl(p, `Typtr std.mk(basety))
 	| _:
@@ -800,8 +786,8 @@ const parsedecl = {p, basety
 }
 
 const parsedirectdecl = {p, basety
-	match peek(p)
-	| (_, `Tident name):
+	match p.tok.kind
+	| `Tident name:
 		next(p)
 		-> (`std.Some name, parsedecltail(p, basety))
 	| _:
@@ -814,46 +800,47 @@ const parsedecltail = {p, basety
 	var cfunc, paramty, sclass, name
 	
 	while true
-		match peek(p)
-		| (l, `Tosqbrac):
+		match p.tok.kind
+		| `Tosqbrac:
 			next(p)
-			match peek(p)
-			| (_, `Tcsqbrac):
-				err(l, "unimplemented inferred arr size")
+			match p.tok.kind
+			| `Tcsqbrac:
+				err(p.tok.loc, "unimplemented inferred arr size")
 			| _:
 			;;
+			var exprloc = p.tok.loc
 			match parseconstexpr(p)
 			| `Constint v:
 				arrlen = (v : uint32)
 			| `Constptr _:
-				err(l, "array length cannot be derived from a pointer\n")
+				err(exprloc, "array length cannot be derived from a pointer\n")
 			;;
 			expectcsqbrac(p)
 			basety = `Tyarr std.mk([.len=arrlen, .subty=basety])
-		| (l, `Toparen):
+		| `Toparen:
 			next(p)
 			cfunc.isvararg = false
 			cfunc.params = [][:]
 			cfunc.rty = basety
-			match peek(p)
-			| (_, `Tcparen):
+			match p.tok.kind
+			| `Tcparen:
 				basety = `Tyfunc std.mk(cfunc)
 				next(p)
 				continue
 			| _:
 			;;
 			while true
+				var ploc = p.tok.loc
 				(sclass, paramty) = parsedeclspecs(p)
 				match sclass
 				| `Sclassnone:
 				| _:
-					/* XXX error loc of param */
-					err(l, "parameters cannot have a storage class\n")
+					err(ploc, "parameters cannot have a storage class\n")
 				;;
 				(name, paramty) = parsedecl(p, paramty)
 				std.slpush(&cfunc.params, (name, paramty))
-				match peek(p)
-				| (_, `Tcomma):
+				match p.tok.kind
+				| `Tcomma:
 					next(p);
 				| _:
 					break
@@ -876,7 +863,7 @@ const parsedeclaration = {p
 	decls.syms = [][:]
 	(sclass, basety) = parsedeclspecs(p)
 	while true
-		(loc, _) = peek(p)
+		loc = p.tok.loc
 		(name, ty, init) = parsedeclinit(p, basety)
 		match name
 		| `std.Some n:
@@ -916,17 +903,17 @@ const parsedeclaration = {p
 			std.slpush(&decls.syms, (sym, init))
 		| `std.None:
 		;;
-		match peek(p)
-		| (_, `Tcomma):
+		match p.tok.kind
+		| `Tcomma:
 			next(p)
-		| (l, `Tobrace):
+		| `Tobrace:
 			match sclass
 			| `Sclassglobal:
 			| _:
-				err(l, "function outside of global scope")
+				err(p.tok.loc, "function outside of global scope")
 			;;
 			if decls.syms.len != 1
-				err(l, "unexpected {\n")
+				err(p.tok.loc, "unexpected {\n")
 			;;
 			match name
 			| `std.Some n:
@@ -938,7 +925,7 @@ const parsedeclaration = {p
 					.lblcnt= 0,
 				])
 			| `std.None:
-				err(l, "function requires a name\n")
+				err(loc, "function requires a name\n")
 			;;
 			match ty
 			| `Tyfunc fty:
@@ -985,47 +972,47 @@ const parsedeclorstmt = {p
 const parsestmt = {p
 	var expr
 	
-	match (peek(p), lookahead(p))
-	| ((_, `Tident _), (_, `Tcolon)):
+	match (p.tok.kind, p.lookahead.kind)
+	| (`Tident _, `Tcolon):
 		-> parselabeled(p)
 	| _:
 	;;
 	
-	match peek(p)
-	| (_, `Tsemi):
+	match p.tok.kind
+	| `Tsemi:
 		next(p)
 		-> std.mk(`Sempty)
-	| (_, `Tif):
+	| `Tif:
 		-> parseif(p)
-	| (_, `Tgoto):
+	| `Tgoto:
 		-> parsegoto(p)
-	| (_, `Tfor):
+	| `Tfor:
 		-> parsefor(p)
-	| (_, `Twhile):
+	| `Twhile:
 		-> parsewhile(p)
-	| (_, `Tswitch):
+	| `Tswitch:
 		-> parseswitch(p)
-	| (_, `Tcase):
+	| `Tcase:
 		-> parsecase(p)
-	| (_, `Tdefault):
+	| `Tdefault:
 		-> parsedefault(p)
-	| (_, `Tdo):
+	| `Tdo:
 		-> parsedowhile(p)
-	| (l, `Treturn):
+	| `Treturn:
 		-> parsereturn(p)
-	| (l, `Tbreak):
-		next(p)
+	| `Tbreak:
 		if p.breaks.len == 0
-			err(l, "cannot break outside of a loop")
+			err(p.tok.loc, "cannot break outside of a loop")
 		;;
-		-> std.mk(`Sgoto p.breaks[p.breaks.len - 1])
-	| (l, `Tcontinue):
 		next(p)
+		-> std.mk(`Sgoto p.breaks[p.breaks.len - 1])
+	| `Tcontinue:
 		if p.conts.len == 0
-			err(l, "cannot continue outside of a loop")
+			err(p.tok.loc, "cannot continue outside of a loop")
 		;;
+		next(p)
 		-> std.mk(`Sgoto p.conts[p.conts.len - 1])
-	| (l, `Tobrace):
+	| `Tobrace:
 		-> std.mk(`Sblock parseblock(p))
 	| _:
 		expr = parseexpr(p)
@@ -1037,10 +1024,11 @@ const parsestmt = {p
 const parseswitch = {p
 	var sw
 	
-	match next(p)
-	| (_, `Tswitch):
-	| (l, _):
-		err(l, "expected 'switch'\n")
+	match p.tok.kind
+	| `Tswitch:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected 'switch'\n")
 	;;
 	sw = [
 		.cases=[][:],
@@ -1062,17 +1050,18 @@ const parsecase = {p
 	var loc, sw, lbl
 	
 	lbl = nextlbl(p.curfunc)
-	match next(p)
-	| (l, `Tcase):
+	match p.tok.kind
+	| `Tcase:
 		if p.switchs.len == 0
-			err(l, "case outside of a switch")
+			err(p.tok.loc, "case outside of a switch")
 		;;
 		sw = p.switchs[p.switchs.len-1]
-	| (l, _):
-		err(l, "expected 'case'\n")
+		next(p)
+	| _:
+		err(p.tok.loc, "expected 'case'\n")
 	;;
 	
-	(loc, _) = peek(p)
+	loc = p.tok.loc
 	match parseconstexpr(p)
 	| `Constint v:
 		for (caseval, _) in sw.cases
@@ -1092,15 +1081,16 @@ const parsedefault = {p
 	var loc, sw, lbl
 	
 	lbl = nextlbl(p.curfunc)
-	match next(p)
-	| (l, `Tdefault):
-		loc = l
+	match p.tok.kind
+	| `Tdefault:
+		loc = p.tok.loc
 		if p.switchs.len == 0
-			err(l, "default outside of a switch")
+			err(p.tok.loc, "default outside of a switch")
 		;;
 		sw = p.switchs[p.switchs.len-1]
-	| (l, _):
-		err(l, "expected 'default'\n")
+		next(p)
+	| _:
+		err(p.tok.loc, "expected 'default'\n")
 	;;
 	match sw.defaultlbl
 	| `std.None:
@@ -1115,12 +1105,14 @@ const parsedefault = {p
 const parsegoto = {p
 	var loc, name, lbl
 	
-	(loc, _) = next(p)
-	match next(p)
-	| (_, `Tident n):
+	loc = p.tok.loc
+	next(p)
+	match p.tok.kind
+	| `Tident n:
 		name = n
-	| (l, _):
-		err(l, "expected 'identifier'\n")
+		next(p)
+	| _:
+		err(p.tok.loc, "expected 'identifier'\n")
 	;;
 	
 	match std.htget(p.lbltab, name)
@@ -1138,17 +1130,19 @@ const parsegoto = {p
 const parselabeled = {p
 	var loc, name, lbl
 	
-	match next(p)
-	| (l, `Tident n):
-		loc = l
+	match p.tok.kind
+	| `Tident n:
+		loc = p.tok.loc
 		name = n
-	| (l, _):
-		err(l, "expected 'identifier'\n")
+		next(p)
+	| _:
+		err(p.tok.loc, "expected 'identifier'\n")
 	;;
-	match next(p)
-	| (_, `Tcolon):
-	| (l, _):
-		err(l, "expected ':'\n")
+	match p.tok.kind
+	| `Tcolon:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected ':'\n")
 	;;
 	lbl = nextlbl(p.curfunc)
 	match std.htget(p.lbltab, name)
@@ -1284,7 +1278,7 @@ const arithconv = {l, r
 const parseconstexpr = {p
 	var l
 	
-	(l, _) = peek(p)
+	l = p.tok.loc
 	match foldexpr(parseexpr(p))
 	| `std.Some c:
 		-> c
@@ -1297,13 +1291,10 @@ const parseassign = {p
 	var l, r, op
 	
 	l = parselogorexpr(p)
-	match peek(p)
-	| (_, `Tasn):
-		op = `Oasn
-	| (_, `Taddeq):
-		op = `Oaddasn
-	| (_, `Tsubeq):
-		op = `Osubasn
+	match p.tok.kind
+	| `Tasn: op = `Oasn
+	| `Taddeq: op = `Oaddasn
+	| `Tsubeq: op = `Osubasn
 	| _:
 		-> l
 	;;
@@ -1317,8 +1308,8 @@ const parselogorexpr = {p
 	
 	l = parselogandexpr(p)
 	while true
-		match peek(p)
-		| (_, `Tlor):
+		match p.tok.kind
+		| `Tlor:
 		| _:
 			break
 		;;
@@ -1334,8 +1325,8 @@ const parselogandexpr = {p
 	
 	l = parseorexpr(p)
 	while true
-		match peek(p)
-		| (_, `Tland):
+		match p.tok.kind
+		| `Tland:
 		| _:
 			break
 		;;
@@ -1351,8 +1342,8 @@ const parseorexpr = {p
 	
 	l = parsexorexpr(p)
 	while true
-		match peek(p)
-		| (_, `Tbor):
+		match p.tok.kind
+		| `Tbor:
 		| _:
 			break
 		;;
@@ -1368,8 +1359,8 @@ const parsexorexpr = {p
 	
 	l = parseandexpr(p)
 	while true
-		match peek(p)
-		| (_, `Tbxor):
+		match p.tok.kind
+		| `Tbxor:
 		| _:
 			break
 		;;
@@ -1385,8 +1376,8 @@ const parseandexpr = {p
 	
 	l = parseeqlexpr(p)
 	while true
-		match peek(p)
-		| (_, `Tband):
+		match p.tok.kind
+		| `Tband:
 		| _:
 			break
 		;;
@@ -1402,11 +1393,9 @@ const parseeqlexpr = {p
 	
 	l = parserelexpr(p)
 	while true
-		match peek(p)
-		| (_, `Teq):
-			op = `Oeq
-		| (_, `Tne):
-			op = `One
+		match p.tok.kind
+		| `Teq: op = `Oeq
+		| `Tne: op = `One
 		| _:
 			break
 		;;
@@ -1422,15 +1411,11 @@ const parserelexpr = {p
 	
 	l = parseaddexpr(p)
 	while true
-		match peek(p)
-		| (_, `Tgt):
-			op = `Ogt
-		| (_, `Tlt):
-			op = `Olt
-		| (_, `Tge):
-			op = `Oge
-		| (_, `Tle):
-			op = `Ole
+		match p.tok.kind
+		| `Tgt: op = `Ogt
+		| `Tlt: op = `Olt
+		| `Tge: op = `Oge
+		| `Tle: op = `Ole
 		| _:
 			break
 		;;
@@ -1446,11 +1431,9 @@ const parseaddexpr = {p
 	
 	l = parsemulexpr(p)
 	while true
-		match peek(p)
-		| (_, `Tplus):
-			op = `Oplus
-		| (_, `Tminus):
-			op = `Ominus
+		match p.tok.kind
+		| `Tplus: op = `Oplus
+		| `Tminus: op = `Ominus
 		| _:
 			break
 		;;
@@ -1466,13 +1449,10 @@ const parsemulexpr = {p
 	
 	l = parsecastexpr(p)
 	while true
-		match peek(p)
-		| (_, `Tmul):
-			op = `Omul
-		| (_, `Tdiv):
-			op = `Odiv
-		| (_, `Tmod):
-			op = `Omod
+		match p.tok.kind
+		| `Tmul: op = `Omul
+		| `Tdiv: op = `Odiv
+		| `Tmod: op = `Omod
 		| _:
 			break
 		;;
@@ -1484,12 +1464,11 @@ const parsemulexpr = {p
 }
 
 const parsecastexpr = {p
-	var tok, ty, expr
+	var ty, expr
 	
-	match peek(p)
-	| (_, `Toparen):
-		(_, tok) = lookahead(p)
-		if !startoftype(p, tok)
+	match p.tok.kind
+	| `Toparen:
+		if !startoftype(p, p.lookahead.kind)
 			goto notcast
 		;;
 		expectoparen(p)
@@ -1497,6 +1476,7 @@ const parsecastexpr = {p
 		expectcparen(p)
 		expr = parseunop(p)
 		-> mkcast(ty, expr)
+	| _:
 	;;
 	:notcast
 	-> parseunop(p)
@@ -1512,36 +1492,38 @@ const mkincdec = {l, op, expr
 
 const parseunop = {p
 	var operand
+	var l
 	
-	match peek(p)
-	| (l, `Tinc):
+	l = p.tok.loc
+	match p.tok.kind
+	| `Tinc:
 		next(p)
 		operand = parseunop(p)
 		-> mkincdec(l, `Opreinc, operand)
-	| (l, `Tdec):
+	| `Tdec:
 		next(p)
 		operand = parseunop(p)
 		-> mkincdec(l, `Opredec, operand)
-	| (l, `Tband):
+	| `Tband:
 		next(p)
 		operand = parseunop(p)
 		if !islval(operand)
 			err(l, "can only take the address of an lvalue")
 		;;
 		-> std.mk(`Eunop [.op=`Oaddr, .ty=`Typtr std.mk(exprtype(operand)), .operand=operand])
-	| (l, `Tminus):
+	| `Tminus:
 		next(p)
 		operand = parseunop(p)
 		-> std.mk(`Eunop [.op=`Oneg, .ty=exprtype(operand), .operand=operand])
-	| (l, `Tlnot):
+	| `Tlnot:
 		next(p)
 		operand = parseunop(p)
 		-> std.mk(`Eunop [.op=`Olnot, .ty=exprtype(operand), .operand=operand])
-	| (l, `Tbnot):
+	| `Tbnot:
 		next(p)
 		operand = parseunop(p)
 		-> std.mk(`Eunop [.op=`Obnot, .ty=exprtype(operand), .operand=operand])
-	| (l, `Tmul):
+	| `Tmul:
 		next(p)
 		operand = parseunop(p)
 		match exprtype(operand)
@@ -1553,7 +1535,7 @@ const parseunop = {p
 			err(l, "can only dereference pointer types")
 		;;
 		
-	| (l, `Tsizeof):
+	| `Tsizeof:
 		-> parsesizeof(p)
 	| _:
 		-> parsepostexpr(p)
@@ -1564,17 +1546,18 @@ const parseunop = {p
 const parseseltail = {p, expr, selstruct
 	var seloff, selty
 	
-	match next(p)
-	| (selloc, `Tident name):
+	match p.tok.kind
+	| `Tident name:
 		match structmemb(selstruct, name)
 		| `std.Some [.offset=off, .ty=ty]:
 			seloff = off
 			selty = ty
 		| `std.None:
-			err(selloc, "struct has no member {}\n", name)
+			err(p.tok.loc, "struct has no member {}\n", name)
 		;;
-	| (selloc, _):
-		err(selloc, "expected 'identifier'")
+		next(p)
+	| _:
+		err(p.tok.loc, "expected 'identifier'")
 	;;
 	-> std.mk(`Esel [.ty=selty, .expr=expr, .off=seloff])
 }
@@ -1584,17 +1567,19 @@ const parsepostexpr = {p
 	var selstruct
 	var funclike, args
 	var functy, paramty
+	var l
 	
 	expr = parseprimaryexpr(p)
 	while true
-		match peek(p)
-		| (l, `Tinc):
+		l = p.tok.loc
+		match p.tok.kind
+		| `Tinc:
 			next(p)
 			expr = mkincdec(l, `Opostinc, expr)
-		| (l, `Tdec):
+		| `Tdec:
 			next(p)
 			expr = mkincdec(l, `Opostdec, expr)
-		| (l, `Tosqbrac):
+		| `Tosqbrac:
 			next(p)
 			idx = parseexpr(p)
 			expectcsqbrac(p)
@@ -1613,7 +1598,7 @@ const parsepostexpr = {p
 			| _:
 			;;
 			expr = std.mk(`Eidx [.ty=idxty, .expr=expr, .idx=idx])
-		| (l, `Tdot):
+		| `Tdot:
 			next(p)
 			match exprtype(expr)
 			|  `Tystruct &(`std.Some s):
@@ -1622,7 +1607,7 @@ const parsepostexpr = {p
 				err(l, "'.' can only be used on complete structs or unions\n")
 			;;
 			expr = parseseltail(p, expr, selstruct)
-		| (l, `Tarrow):
+		| `Tarrow:
 			next(p)
 			match exprtype(expr)
 			| `Typtr &(`Tystruct &(`std.Some s)):
@@ -1631,7 +1616,7 @@ const parsepostexpr = {p
 				err(l, "'->' can only be used on struct or union pointers\n")
 			;;
 			expr = parseseltail(p, expr, selstruct)
-		| (l, `Toparen):
+		| `Toparen:
 			next(p)
 			funclike = expr
 			match exprtype(funclike)
@@ -1641,20 +1626,21 @@ const parsepostexpr = {p
 				err(l, "call of non function")
 			;;
 			args = [][:]
-			match peek(p)
-			| (_, `Tcparen):
+			match p.tok.kind
+			| `Tcparen:
 				next(p)
 			| _:
 				while true
 					(_, paramty) = functy.params[args.len]
 					expr = mkcast(paramty, parseexpr(p))
 					std.slpush(&args, expr)
-					match peek(p)
-					| (_, `Tcparen):
+					match p.tok.kind
+					| `Tcparen:
 						next(p)
 						break
-					| (_, `Tcomma):
+					| `Tcomma:
 						next(p)
+					| _:
 					;;
 				;;
 			;;
@@ -1679,24 +1665,23 @@ const parsetypename = {p
 }
 
 const parsesizeof = {p
-	var loc, ty, tok
+	var loc, ty
 	
 	// XXX: This may be incorrect.
 	// needs more edge test cases.
-	(loc, _) = next(p)
-	match peek(p)
-	| (l, `Toparen):
+	loc = p.tok.loc
+	next(p)
+	match p.tok.kind
+	| `Toparen:
 		expectoparen(p)
-		(_, tok) = peek(p)
-		if startoftype(p, tok)
+		if startoftype(p, p.tok.kind)
 			ty = parsetypename(p)
 		else
 			ty = exprtype(parseunop(p))
 		;;
 		expectcparen(p)
 	| _:
-		(_, tok) = peek(p)
-		if startoftype(p, tok)
+		if startoftype(p, p.tok.kind)
 			ty = parsetypename(p)
 		else
 			ty = exprtype(parseunop(p))
@@ -1713,22 +1698,26 @@ const parsesizeof = {p
 const parseprimaryexpr = {p
 	var expr
 	
-	match next(p)
-	| (l, `Tident n):
+	match p.tok.kind
+	| `Tident n:
 		match lookup(p, n)
 		| `std.Some sym:
+			next(p)
 			-> std.mk(`Eident sym)
 		| `std.None:
-			err(l, "undefined symbol {}\n", n)
+			err(p.tok.loc, "undefined symbol {}\n", n)
 		;;
-	| (l, `Tintlit v):
+	| `Tintlit v:
+		next(p)
 		-> std.mk(`Eintlit v)
-	| (l, `Tchrlit c):
+	| `Tchrlit c:
+		next(p)
 		-> std.mk(`Echrlit c)
-	| (l, `Tstrlit s):
+	| `Tstrlit s:
+		next(p)
 		while true
-			match peek(p)
-			| (_, `Tstrlit s2):
+			match p.tok.kind
+			| `Tstrlit s2:
 				next(p)
 				s = std.strcat(s, s2)
 			| _:
@@ -1736,12 +1725,13 @@ const parseprimaryexpr = {p
 			;;
 		;;
 		-> std.mk(`Estrlit s)
-	| (_, `Toparen):
+	| `Toparen:
+		next(p)
 		expr = parseexpr(p)
 		expectcparen(p)
 		-> expr
-	| (l, t):
-		err(l, "expected expression, got {}\n", t)
+	| _:
+		err(p.tok.loc, "expected expression\n")
 	;;	
 }
 

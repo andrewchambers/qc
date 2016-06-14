@@ -129,7 +129,7 @@ const tokinitf = {fd, name
 
 const mklexer = {name, data
 	-> std.mk([
-		.loc = [.file=name, .line=1, .col=1],
+		.loc=[.file=name, .line=1, .col=1],
 		.rest=data,
 		.data=data,
 		.prevtokline=0,
@@ -353,12 +353,6 @@ const numlit = {ts
 	-> t
 }
 
-
-/*
-only deals with the body of the number. if we reach
-this code, then it's guaranteed that we already have
-a numerical value.
-*/
 const number = {ts, base
 	var buf, nbuf
 	var isfloat, issigned
