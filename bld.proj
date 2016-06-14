@@ -1,6 +1,7 @@
 bin qc = 
 	qc.myr
 	err.myr
+	hideset.myr
 	tok.myr
 	cpp.myr
 	ctypes.myr

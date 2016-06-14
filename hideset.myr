@@ -1,0 +1,64 @@
+use std
+
+pkg qc = 
+	type hideset = union
+		`HSempty
+		`HSsome (byte[:], hideset#)
+	;;
+	
+	const hsunion : (a : hideset, b : hideset -> hideset)
+	const hsintersect : (a : hideset, b : hideset -> hideset)
+	const hsadd : (hs : hideset, val : byte[:] -> hideset)
+	const hshas : (hs : hideset, val : byte[:] -> bool)
+;;
+
+const hsadd = {hs, val
+	if hshas(hs, val)
+		-> hs
+	;;
+	-> `HSsome (val, std.mk(hs))
+}
+
+const hshas = {hs, val
+	match hs
+	| `HSempty:
+		-> false
+	| `HSsome (v, rest):
+		if std.sleq(val, v)
+			-> true
+		;;
+		-> hshas(rest#, val)
+	;;
+}
+
+const hsintersect = {a, b
+	var result
+
+	result = `HSempty	
+	while true
+		match b
+		| `HSempty:
+			break
+		| `HSsome (v, rest):
+			if hshas(a, v)
+				result = hsadd(result, v)
+			;;
+			b = rest#
+		;;
+	;;
+	-> result
+}
+
+const hsunion = {a, b
+	while true
+		match b
+		| `HSempty:
+			break
+		| `HSsome (v, rest):
+			a = hsadd(a, v)
+			b = rest#
+		;;
+	;;
+	-> a
+}
+
