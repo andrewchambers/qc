@@ -5,6 +5,7 @@ use "tok"
 pkg qc =
 	type pp = struct
 		input : tokstream#[:]
+		includedirs : byte[:][:]
 	;;
 	
 	const mkcpp : (ts : tokstream# -> pp#) 
@@ -14,7 +15,7 @@ pkg qc =
 const mkcpp = {ts
 	var pp
 	
-	pp = std.mk([.input = [][:]])
+	pp = std.mk([.input=[][:], .includedirs=[][:]])
 	pushts(pp, ts)
 	-> pp
 }
@@ -53,13 +54,36 @@ const directive = {pp
 	;;
 }
 
+const findsysinc = {pp, path
+	for ipath in pp.includedirs
+		var fullpath = std.pathjoin([ipath, path][:])
+		if std.fexists(fullpath)
+			-> `std.Some fullpath
+		;;
+		std.slfree(fullpath)
+	;;
+	-> `std.None
+}
+
+const findinc = {pp, path
+	if std.fexists(path)
+		-> `std.Some std.sldup(path)
+	;;
+	-> findsysinc(pp, path)
+}
+
 const dirinclude = {pp
-	var tok, path
+	var tok, path, ts
 	
 	tok = cppnext(pp)
 	match tok.kind
 	| `Tstrlit s:
-		path = s
+		match findinc(pp, s)
+		| `std.Some found:
+			path = found
+		| `std.None:
+			err(tok.loc, "{} not in include path\n", s)
+		;;
 	| _:
 		err(tok.loc, "bad include, expected a string\n")
 	;;
@@ -69,7 +93,8 @@ const dirinclude = {pp
 	| _:
 		err(tok.loc, "junk at end of include directive {}", tok.text)
 	;;
-	pushts(pp, tokinit(path))
+	ts = tokinit(path)
+	pushts(pp, ts)
 }
 
 
