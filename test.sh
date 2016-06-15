@@ -6,7 +6,7 @@ for t in ./test/execute/*.c
 do
 	echo "test $t <<{!"
 	
-	if ! timeout 2s ./qc $t > $t.ssa
+	if ! timeout 2s ./qc -I./test/execute/include $t > $t.ssa
 	then
 		echo "!}>> fail qc failed"
 		continue

@@ -123,6 +123,13 @@ const dirinclude = {pp
 	
 	tok = cppnext(pp)
 	match tok.kind
+	| `Tsysincl s:
+		match findsysinc(pp, s)
+		| `std.Some found:
+			path = found
+		| `std.None:
+			err(tok.loc, "{} not in include path\n", s)
+		;;
 	| `Tstrlit s:
 		match findinc(pp, s)
 		| `std.Some found:

@@ -8,6 +8,11 @@ pkg qc =
 		data	: byte[:]
 		prevtokline	: int
 		indirective : bool
+		includefsm : union
+			`Inclstart
+			`Inclgotdir
+			`Inclgotincl
+		;;
 		loc	: srcloc
 	;;
 
@@ -71,6 +76,7 @@ pkg qc =
 		
 		`Thash         /* # */
 		`Tdirective    /* # */
+		`Tsysincl byte[:] /* <foo.h> */
 		`Tenddirective /* \n */
 	
 		`Tswitch  /* switch */
@@ -135,7 +141,8 @@ const mklexer = {name, data
 		.rest=data,
 		.data=data,
 		.prevtokline=0,
-		.indirective=false
+		.indirective=false,
+		.includefsm=`Inclstart
 	])
 }
 
@@ -151,8 +158,31 @@ const toknext = {ts
 		;;
 	| _:
 	;;
+	
+	match ts.includefsm
+	| `Inclstart:
+		match tok.kind
+		| `Tdirective: ts.includefsm = `Inclgotdir
+		| _: ts.includefsm = `Inclstart
+		;;
+	| `Inclgotdir:
+		match tok.kind
+		| `Tident "include": ts.includefsm = `Inclgotincl
+		| _:                 ts.includefsm = `Inclstart
+		;;
+	| `Inclgotincl:
+		ts.includefsm = `Inclstart
+	;;
+	
 	ts.prevtokline = tok.loc.line
 	-> tok
+}
+
+const expectsysincl = {ts
+	match ts.includefsm
+	| `Inclgotincl: -> true
+	| _: -> false
+	;;
 }
 
 const tokread = {ts
@@ -179,6 +209,8 @@ const tokread = {ts
 		kind = `Tenddirective
 	elif c == '\''
 		kind = chrlit(ts)
+	elif c == '<' && expectsysincl(ts)
+		kind = sysincl(ts)
 	elif c == '"'
 		kind = strlit(ts)
 	elif std.isdigit(c)
@@ -275,6 +307,26 @@ const strlit = {ts
 		;;
 	;;
 	-> `Tstrlit std.sbfin(sb)
+}
+
+const sysincl = {ts
+	var sb
+
+	takec(ts)
+	sb = std.mksb()
+	while true
+		match takec(ts)
+		| Eof:
+			err(ts.loc, "unexpected EOF within include\n")
+		| '\n':
+			err(ts.loc, "unexpected \\n within include\n")
+		| '>':
+			break
+		| c:
+			std.sbputc(sb, c)
+		;;
+	;;
+	-> `Tsysincl std.sbfin(sb)
 }
 
 const unescape = {ts
