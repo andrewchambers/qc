@@ -5,7 +5,8 @@ use "tok"
 pkg qc =
 	type pp = struct
 		input : tokstream#[:]
-		includedirs : byte[:][:]
+		incpath : byte[:]
+		sysincpaths : byte[:][:]
 		expanded : tok[:]
 		
 		macros : std.htab(byte[:], macro)#
@@ -25,16 +26,17 @@ pkg qc =
 		`Mfunc funcmacro#
 	;;
 	
-	const mkcpp : (ts : tokstream# -> pp#) 
+	const mkcpp : (ts : tokstream#, incpath : byte[:] ,sysincpaths : byte[:][:] -> pp#) 
 	const cppnext : (pp : pp# -> tok)
 ;;
 
-const mkcpp = {ts
+const mkcpp = {ts, incpath, sysincpaths
 	var pp
 	
 	pp = std.mk([
 		.input=[][:],
-		.includedirs=[][:],
+		.incpath=incpath,
+		.sysincpaths=sysincpaths,
 		.expanded=[][:],
 		.macros=std.mkht(std.strhash, std.streq)
 	])
@@ -94,9 +96,9 @@ const directive = {pp
 	;;
 }
 
-const findsysinc = {pp, path
-	for ipath in pp.includedirs
-		var fullpath = std.pathjoin([ipath, path][:])
+const findsysinc = {pp, header
+	for ipath in pp.sysincpaths
+		var fullpath = std.pathjoin([ipath, header][:])
 		if std.fexists(fullpath)
 			-> `std.Some fullpath
 		;;
@@ -105,11 +107,15 @@ const findsysinc = {pp, path
 	-> `std.None
 }
 
-const findinc = {pp, path
-	if std.fexists(path)
-		-> `std.Some std.sldup(path)
+const findinc = {pp, header
+	var incpath 
+	
+	incpath = std.pathjoin([pp.incpath, header][:])
+	if std.fexists(incpath)
+		-> `std.Some incpath
 	;;
-	-> findsysinc(pp, path)
+	std.slfree(incpath)
+	-> findsysinc(pp, header)
 }
 
 const dirinclude = {pp
@@ -131,7 +137,7 @@ const dirinclude = {pp
 	match tok.kind
 	| `Tenddirective:
 	| _:
-		err(tok.loc, "junk at end of include directive {}\n", tok.text)
+		err(tok.loc, "junk '{}' at end of include directive\n", tok.text)
 	;;
 	ts = tokinit(path)
 	pushts(pp, ts)
