@@ -17,7 +17,7 @@ pkg qc =
 	;;
 	
 	type funcmacro = struct
-		args : byte[:]
+		params : byte[:][:]
 		toks : tok[:]
 	;;
 	
@@ -44,7 +44,7 @@ const mkcpp = {ts, incpath, sysincpaths
 	-> pp
 }
 
-const cppnext = {pp
+const cppnextnoexp = {pp
 	var tok
 	
 	if pp.expanded.len != 0
@@ -52,6 +52,23 @@ const cppnext = {pp
 	else
 		tok = toknext(pp.input[pp.input.len-1])
 	;;
+	
+	-> tok
+}
+
+const peeknoexp = {pp
+	var tok
+	
+	tok = cppnextnoexp(pp)
+	std.slpush(&pp.expanded, tok)
+	
+	-> tok
+}
+
+const cppnext = {pp
+	var tok
+	
+	tok = cppnextnoexp(pp)
 	
 	match std.htget(pp.macros, tok.text)
 	| `std.Some `Mobj m:
@@ -121,7 +138,7 @@ const findinc = {pp, header
 const dirinclude = {pp
 	var tok, path, ts
 	
-	tok = cppnext(pp)
+	tok = cppnextnoexp(pp)
 	match tok.kind
 	| `Tsysincl s:
 		match findsysinc(pp, s)
@@ -140,7 +157,7 @@ const dirinclude = {pp
 	| _:
 		err(tok.loc, "bad include, expected a string\n")
 	;;
-	tok = cppnext(pp)
+	tok = cppnextnoexp(pp)
 	match tok.kind
 	| `Tenddirective:
 	| _:
@@ -150,10 +167,20 @@ const dirinclude = {pp
 	pushts(pp, ts)
 }
 
+const validmacroparam = {s
+	// XXX todo
+	-> true
+}
+
 const dirdefine = {pp
 	var toks, tok, name
+	var isfuncmacro, mparams
+
+	isfuncmacro = false
+	mparams = [][:]	
+	toks = [][:]
 	
-	tok = cppnext(pp)
+	tok = cppnextnoexp(pp)
 	match tok.kind
 	| `Tenddirective:
 		err(tok.loc, "define expects something to define\n")
@@ -164,9 +191,35 @@ const dirdefine = {pp
 		;;
 	;;
 	
-	toks = [][:]
+	tok = peeknoexp(pp)
+	match tok.kind
+	| `Toparen:
+		cppnextnoexp(pp)
+		isfuncmacro = true
+		tok = cppnextnoexp(pp)
+		while true
+			if !validmacroparam(tok.text)
+				err(tok.loc, "{} is not a valid macro param\n", tok.text)
+			;;
+			std.slpush(&mparams, tok.text)
+			tok = cppnextnoexp(pp)
+			match tok.kind
+			| `Tcomma:
+			| _:
+				break
+			;;
+		;;
+		tok = cppnextnoexp(pp)
+		match tok.kind
+		| `Tcparen:
+		| _:
+			err(tok.loc, "expected ')' to end macro param list\n")
+		;;
+	| _:
+	;;
+	
 	while true
-		tok = cppnext(pp)
+		tok = cppnextnoexp(pp)
 		match tok.kind
 		| `Tenddirective:
 			break
@@ -174,6 +227,12 @@ const dirdefine = {pp
 			std.slpush(&toks, tok)
 		;;
 	;;
-	std.htput(pp.macros, name, `Mobj std.mk([.toks=toks]))
+	
+	if isfuncmacro
+		std.htput(pp.macros, name, `Mfunc std.mk([.params=mparams, .toks=toks]))
+	else
+		std.htput(pp.macros, name, `Mobj std.mk([.toks=toks]))
+	;;
+	
 }
 
