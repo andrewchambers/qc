@@ -115,6 +115,8 @@ const directive = {pp
 		dirifdef(pp)
 	| "endif":
 		direndif(pp)
+	| "else":
+		direlse(pp)
 	| dir:
 		err(tok.loc, "bad directive {}\n", dir)
 	;;
@@ -125,9 +127,9 @@ const dirifdef = {pp
 	
 	enddepth = pp.ifdepth
 	pp.ifdepth += 1
-	tok =  cppnextnoexp(pp)
+	tok = cppnextnoexp(pp)
 	name = tok.text
-	tok =  cppnextnoexp(pp)
+	tok = cppnextnoexp(pp)
 	match tok.kind
 	| `Tenddirective:
 	| _:
@@ -137,6 +139,13 @@ const dirifdef = {pp
 	if std.hthas(pp.macros, name)
 		-> void
 	;;
+	
+	skiptoifdepth(pp, enddepth)
+
+}
+
+const skiptoifdepth = {pp, enddepth
+	var tok
 	
 	while true
 		tok = cppnextnoexp(pp)
@@ -179,6 +188,17 @@ const direndif = {pp
 	if pp.ifdepth < 0
 		err(tok.loc, "unexpected endif directive")
 	;;
+}
+
+const direlse = {pp
+	var tok
+	
+	tok = cppnextnoexp(pp)
+	match tok.kind
+	| `Tenddirective:
+	| _: err(tok.loc, "junk at end of else directive\n")
+	;;
+	skiptoifdepth(pp, pp.ifdepth)
 }
 
 const findsysinc = {pp, header
