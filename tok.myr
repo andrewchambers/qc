@@ -24,8 +24,8 @@ pkg qc =
 		kind : tokkind 
 		text : byte[:]
 		loc : srcloc
-		// ws : bool
-		// hs : hideset
+		ws : bool
+		hs : hideset
 	;;
 
 	type tokkind = union

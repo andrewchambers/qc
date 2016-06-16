@@ -75,8 +75,8 @@ const cppnext = {pp
 	
 	match std.htget(pp.macros, tok.text)
 	| `std.Some `Mobj m:
-		for t in m.toks
-			std.slpush(&pp.expanded, t)
+		for var i = 0; i < m.toks.len; i++
+			std.slpush(&pp.expanded, m.toks[i])
 		;;
 		-> cppnext(pp)
 	| `std.Some `Mfunc m:
