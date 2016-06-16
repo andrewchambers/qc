@@ -141,7 +141,6 @@ const dirifdef = {pp
 	;;
 	
 	skiptoifdepth(pp, enddepth)
-
 }
 
 const skiptoifdepth = {pp, enddepth
@@ -197,6 +196,9 @@ const direlse = {pp
 	match tok.kind
 	| `Tenddirective:
 	| _: err(tok.loc, "junk at end of else directive\n")
+	;;
+	if pp.ifdepth == 0
+		 err(tok.loc, "#else outside of if\n")
 	;;
 	skiptoifdepth(pp, pp.ifdepth)
 }
