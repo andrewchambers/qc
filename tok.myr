@@ -4,11 +4,11 @@ use "err"
 
 pkg qc =
 	type tokstream = struct
-		rest	: byte[:]
-		data	: byte[:]
+		data        : byte[:]
+		idx         : int
 		prevtokline	: int
 		indirective : bool
-		includefsm : union
+		includefsm  : union
 			`Inclstart
 			`Inclgotdir
 			`Inclgotincl
@@ -138,8 +138,8 @@ const tokinitf = {fd, name
 const mklexer = {name, data
 	-> std.mk([
 		.loc=[.file=name, .line=1, .col=1],
-		.rest=data,
 		.data=data,
+		.idx=0,
 		.prevtokline=0,
 		.indirective=false,
 		.includefsm=`Inclstart
@@ -187,13 +187,17 @@ const expectsysincl = {ts
 
 const tokread = {ts
 	var c, loc, kind
-	var start, end
-
+	var start
+	//var ws
+	
+	//ws = false
+	
+	:again
 	skipspace(ts)
-	start = ts.data.len - ts.rest.len
+	start = ts.idx
 	loc = ts.loc
 	c = peekc(ts)
-	if ts.rest.len == 0
+	if ts.idx == ts.data.len
 		if ts.indirective
 			ts.indirective = false
 			kind = `Tdirective
@@ -201,9 +205,10 @@ const tokread = {ts
 			kind = `Teof
 		;;
 	elif c == '\n'
+		//ws = true
 		takec(ts)
 		if !ts.indirective 
-			-> tokread(ts)
+			goto again
 		;;
 		ts.indirective = false
 		kind = `Tenddirective
@@ -220,14 +225,14 @@ const tokread = {ts
 	else
 		kind = oper(ts)
 	;;
-	end = ts.data.len - ts.rest.len
-	-> [.loc = loc, .text = ts.data[start:end], .kind = kind]
+	-> [.loc = loc, .text = ts.data[start:ts.idx], .kind = kind]
 }
 
 const skipspace = {ts
-	var ignorenl
+	var ignorenl, start
 
 	ignorenl = false
+	start = ts.idx
 	while true
 		match peekc(ts)
 		| '\n':
@@ -252,6 +257,12 @@ const skipspace = {ts
 				break
 			;;
 		;;
+	;;
+	
+	if ts.idx == start
+		-> false
+	else
+		-> true
 	;;
 }
 
@@ -310,10 +321,10 @@ const strlit = {ts
 }
 
 const sysincl = {ts
-	var sb
+	var start
 
 	takec(ts)
-	sb = std.mksb()
+	start = ts.idx
 	while true
 		match takec(ts)
 		| Eof:
@@ -323,10 +334,9 @@ const sysincl = {ts
 		| '>':
 			break
 		| c:
-			std.sbputc(sb, c)
 		;;
 	;;
-	-> `Tsysincl std.sbfin(sb)
+	-> `Tsysincl ts.data[start:ts.idx-1]
 }
 
 const unescape = {ts
@@ -412,7 +422,7 @@ const number = {ts, base
 	var isfloat, issigned
 	var v
 
-	buf = ts.rest
+	buf = ts.data[ts.idx:]
 	nbuf = 0
 	isfloat = false
 	for var c = peekc(ts); std.isxdigit(c) || c == '.' || c == '_'; c = peekc(ts)
@@ -606,20 +616,17 @@ const oper = {ts
 }
 
 const identstr = {ts
-	var i, str
+	var str, i
 
-	/* ASCII */
-	if ts.rest.len == 0 || std.isdigit((ts.rest[0] : char))
-		-> ""
-	;;
+	str = ts.data[ts.idx:]
 
-	for i = 0; i < ts.rest.len; i++
-		if !isident((ts.rest[i] : char))
+	for i = 0; i < str.len; i++
+		if !isident((str[i] : char))
 			break
 		;;
 	;;
-	str = ts.rest[:i]
-	ts.rest = ts.rest[i:]
+	str = str[:i]
+	ts.idx += str.len
 	-> str
 }
 
@@ -632,13 +639,13 @@ const isident = {c
 }
 
 const peekc = {ts
-	-> std.decode(ts.rest)
+	-> std.decode(ts.data[ts.idx:])
 }
 
 const npeekc = {ts, n
 	var c, s
 
-	s = ts.rest
+	s = ts.data[ts.idx:]
 	for var i = 0; i < n; i++
 		(c, s) = std.strstep(s)
 	;;
@@ -646,9 +653,9 @@ const npeekc = {ts, n
 }
 
 const takec = {ts
-	var c, s
+	var c
 
-	(c, s) = std.strstep(ts.rest)
+	(c, _) = std.strstep(ts.data[ts.idx:])
 	match c
 	| '\n':
 		ts.loc.line += 1
@@ -658,7 +665,7 @@ const takec = {ts
 	| _:
 		ts.loc.col += 1
 	;;
-	ts.rest = s
+	ts.idx += (std.charlen(c) : int)
 	-> c
 }
 
@@ -667,7 +674,7 @@ const skipto = {ts, chr
 
 	while true
 		c = peekc(ts)
-		if ts.rest.len == 0 || c == chr
+		if ts.idx == ts.data.len || c == chr
 			break
 		;;
 		takec(ts)
@@ -675,11 +682,11 @@ const skipto = {ts, chr
 }
 
 const matchc = {ts, chr
-	var c, s
+	var c
 
-	(c, s) = std.strstep(ts.rest)
+	(c, _) = std.strstep(ts.data[ts.idx:])
 	if c == chr
-		ts.rest = s
+		ts.idx += (std.charlen(c) : int)
 		-> true
 	else
 		-> false
