@@ -9,6 +9,8 @@ pkg qc =
 		sysincpaths : byte[:][:]
 		expanded : tok[:]
 		
+		ifdepth : int
+		
 		macros : std.htab(byte[:], macro)#
 	;;
 	
@@ -38,6 +40,7 @@ const mkcpp = {ts, incpath, sysincpaths
 		.incpath=incpath,
 		.sysincpaths=sysincpaths,
 		.expanded=[][:],
+		.ifdepth=0,
 		.macros=std.mkht(std.strhash, std.streq)
 	])
 	pushts(pp, ts)
@@ -108,8 +111,73 @@ const directive = {pp
 		dirinclude(pp)
 	| "define":
 		dirdefine(pp)
+	| "ifdef":
+		dirifdef(pp)
+	| "endif":
+		direndif(pp)
 	| dir:
 		err(tok.loc, "bad directive {}\n", dir)
+	;;
+}
+
+const dirifdef = {pp
+	var name, tok, enddepth
+	
+	enddepth = pp.ifdepth
+	pp.ifdepth += 1
+	tok =  cppnextnoexp(pp)
+	name = tok.text
+	tok =  cppnextnoexp(pp)
+	match tok.kind
+	| `Tenddirective:
+	| _:
+		err(tok.loc, "expected end of directive\n")
+	;;
+	
+	if std.hthas(pp.macros, name)
+		-> void
+	;;
+	
+	while true
+		tok = cppnextnoexp(pp)
+		match tok.kind
+		| `Tdirective:
+		| `Teof:
+			err(tok.loc, "got eof, expected #endif\n")
+		| _:
+			continue
+		;;
+		tok = cppnextnoexp(pp)
+		match tok.text
+		| "ifdef":
+			pp.ifdepth += 1
+		| "endif":
+			tok = cppnextnoexp(pp)
+			match tok.kind
+			| `Tenddirective:
+			| _:
+				err(tok.loc, "expected end of directive\n")
+			;;
+			pp.ifdepth -= 1
+			if pp.ifdepth == enddepth
+				break
+			;;
+		| _:
+		;;
+	;;
+}
+
+const direndif = {pp
+	var tok
+	
+	tok = cppnextnoexp(pp)
+	match tok.kind
+	| `Tenddirective:
+	| _: err(tok.loc, "junk at end of endif directive\n")
+	;;
+	pp.ifdepth -= 1
+	if pp.ifdepth < 0
+		err(tok.loc, "unexpected endif directive")
 	;;
 }
 
