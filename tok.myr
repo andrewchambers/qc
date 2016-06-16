@@ -24,6 +24,7 @@ pkg qc =
 		kind : tokkind 
 		text : byte[:]
 		loc : srcloc
+		// ws : bool
 		// hs : hideset
 	;;
 
@@ -188,12 +189,12 @@ const expectsysincl = {ts
 const tokread = {ts
 	var c, loc, kind
 	var start
-	//var ws
+	var ws
 	
-	//ws = false
+	ws = false
 	
 	:again
-	skipspace(ts)
+	ws = skipspace(ts) || ws
 	start = ts.idx
 	loc = ts.loc
 	c = peekc(ts)
@@ -205,7 +206,7 @@ const tokread = {ts
 			kind = `Teof
 		;;
 	elif c == '\n'
-		//ws = true
+		ws = true
 		takec(ts)
 		if !ts.indirective 
 			goto again
