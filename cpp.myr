@@ -1,6 +1,7 @@
 use std
 use "err"
 use "tok"
+use "hideset"
 
 pkg qc =
 	type pp = struct
@@ -69,22 +70,64 @@ const peeknoexp = {pp
 }
 
 const cppnext = {pp
-	var tok
+	var mtok, tok, expanded
 	
-	tok = cppnextnoexp(pp)
+	mtok = cppnextnoexp(pp)
 	
-	match std.htget(pp.macros, tok.text)
+	match std.htget(pp.macros, mtok.text)
 	| `std.Some `Mobj m:
-		for var i = m.toks.len - 1; i >= 0 ; i--
-			std.slpush(&pp.expanded, m.toks[i])
+		expanded = subst(m.toks, [][:], [][:], mtok.hs)
+		for var i = expanded.len - 1; i >= 0 ; i--
+			std.slpush(&pp.expanded, expanded[i])
 		;;
 		-> cppnext(pp)
 	| `std.Some `Mfunc m:
-		err(tok.loc, "unimplemented funclike macros\n")
+		tok = cppnextnoexp(pp)
+		match tok.kind
+		| `Toparen:
+			var args = [][:]
+			tok = cppnextnoexp(pp)
+			match tok.kind
+			| `Tcparen:
+				goto gotargs
+			| _:
+				std.slpush(&args, [][:])
+			;;
+			var lvl = 1
+			while true
+				match tok.kind
+				| `Tcomma:
+					if lvl == 1
+						std.slpush(&args, [][:])
+					;;
+				| `Toparen:
+					lvl += 1
+				| `Tcparen:
+					lvl -= 1
+				| _:
+				;;
+				if lvl == 0
+					break
+				;;
+				std.slpush(&args[args.len-1], tok)
+				tok = cppnextnoexp(pp)
+			;;
+			:gotargs
+			if m.params.len != args.len
+				err(mtok.loc, "incorrect number of macro arguments\n")
+			;;
+			expanded = subst(m.toks, m.params, args, hsintersect(mtok.hs, tok.hs))
+			for var i = expanded.len - 1; i >= 0 ; i--
+				std.slpush(&pp.expanded, expanded[i])
+			;;
+			-> cppnext(pp)
+		| _:
+			std.slpush(&expanded, tok)
+		;;
 	| `std.None:
 	;;
 	
-	match tok.kind
+	match mtok.kind
 	| `Tdirective:
 		directive(pp)
 		-> cppnext(pp)
@@ -95,7 +138,30 @@ const cppnext = {pp
 		;;
 	| _:
 	;;
-	-> tok
+	-> mtok
+}
+
+const subst = {toks, names : byte[:][:], args : tok[:][:], hs
+	var r
+	
+	r = [][:]
+	
+	for var i = 0; i < toks.len; i++
+		match std.lsearch(names, toks[i].text, std.strcmp)
+		| `std.Some idx:
+			for var j = 0; j < args[idx].len; i++
+				std.slpush(&r, args[idx][j])
+			;;
+		| `std.None:
+			std.slpush(&r, toks[i])
+		;;
+	;;
+	
+	for var i = 0; i < r.len; i++
+		r[i].hs = hsunion(r[i].hs, hs)
+	;; 
+	
+	-> r
 }
 
 const pushts = {pp, ts
