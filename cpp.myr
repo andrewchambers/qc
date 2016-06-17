@@ -99,6 +99,8 @@ const cppnext = {pp
 				| `Tcomma:
 					if lvl == 1
 						std.slpush(&args, [][:])
+						tok = cppnextnoexp(pp)
+						continue
 					;;
 				| `Toparen:
 					lvl += 1
@@ -149,7 +151,7 @@ const subst = {toks, names : byte[:][:], args : tok[:][:], hs
 	for var i = 0; i < toks.len; i++
 		match std.lsearch(names, toks[i].text, std.strcmp)
 		| `std.Some idx:
-			for var j = 0; j < args[idx].len; i++
+			for var j = 0; j < args[idx].len; j++
 				std.slpush(&r, args[idx][j])
 			;;
 		| `std.None:
