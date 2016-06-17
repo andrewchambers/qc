@@ -353,6 +353,11 @@ const dirdefine = {pp
 		cppnextnoexp(pp)
 		isfuncmacro = true
 		tok = cppnextnoexp(pp)
+		match tok.kind
+		| `Tcparen:
+			goto gotparams
+		| _:
+		;;
 		while true
 			if !validmacroparam(tok.text)
 				err(tok.loc, "{} is not a valid macro param\n", tok.text)
@@ -364,8 +369,9 @@ const dirdefine = {pp
 			| _:
 				break
 			;;
+			tok = cppnextnoexp(pp)
 		;;
-		tok = cppnextnoexp(pp)
+		:gotparams
 		match tok.kind
 		| `Tcparen:
 		| _:

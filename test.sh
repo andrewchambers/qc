@@ -2,7 +2,7 @@ set -e
 
 echo "MTEST -1"
 
-for t in ./test/execute/*.c
+for t in test/execute/*.c
 do
 	echo "test $t <<{!"
 	
