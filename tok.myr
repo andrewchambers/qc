@@ -226,7 +226,12 @@ const tokread = {ts
 	else
 		kind = oper(ts)
 	;;
-	-> [.loc = loc, .text = ts.data[start:ts.idx], .kind = kind]
+	-> [
+		.loc=loc,
+		.text=ts.data[start:ts.idx],
+		.kind = kind,
+		.ws=ws,
+	]
 }
 
 const skipspace = {ts

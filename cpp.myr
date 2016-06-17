@@ -75,7 +75,7 @@ const cppnext = {pp
 	
 	match std.htget(pp.macros, tok.text)
 	| `std.Some `Mobj m:
-		for var i = 0; i < m.toks.len; i++
+		for var i = m.toks.len - 1; i >= 0 ; i--
 			std.slpush(&pp.expanded, m.toks[i])
 		;;
 		-> cppnext(pp)
@@ -282,8 +282,8 @@ const dirdefine = {pp
 	;;
 	
 	tok = peeknoexp(pp)
-	match tok.kind
-	| `Toparen:
+	match (tok.kind, tok.ws)
+	| (`Toparen, false):
 		cppnextnoexp(pp)
 		isfuncmacro = true
 		tok = cppnextnoexp(pp)
