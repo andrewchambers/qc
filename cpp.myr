@@ -205,23 +205,37 @@ const directive = {pp
 	;;
 }
 
+const eval = {pp, expr
+	match expr[0].kind
+	| `Tintlit 1:
+		-> 1
+	| _:
+		-> 0
+	;;
+}
+
 const dirif = {pp
 	var expr, tok
-	
-	expr = cppnextnoexp(pp)
-	tok = cppnextnoexp(pp)
-	match tok.kind
-	| `Tenddirective:
-	| _:
-		err(tok.loc, "expected end of directive\n")
+		
+	expr = [][:]
+	while true
+		tok = cppnext(pp)
+		match tok.kind
+		| `Tenddirective:
+			break
+		| _:
+			std.slpush(&expr, tok)
+		;;
 	;;
-	
+	if expr.len == 0
+		err(tok.loc, "expected expression\n")
+	;;
+
 	std.slpush(&pp.condstack, [.wastrue=false, .afterelse=false])
 	
-	match expr.kind
-	| `Tintlit 1:
+	if eval(pp, expr) != 0
 		pp.condstack[pp.condstack.len-1].wastrue = true
-	| _:
+	else
 		skipcond(pp)
 	;;
 }
