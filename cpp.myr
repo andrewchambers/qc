@@ -108,6 +108,8 @@ const cppnext = {pp
 				| `Tcomma:
 					if lvl == 1
 						std.slpush(&args, [][:])
+						tok = cppnextnoexp(pp)
+						continue
 					;;
 				| `Toparen:
 					lvl += 1
@@ -153,7 +155,7 @@ const subst = {toks, names : byte[:][:], args : tok[:][:], hs
 	for var i = 0; i < toks.len; i++
 		match std.lsearch(names, toks[i].text, std.strcmp)
 		| `std.Some idx:
-			for var j = 0; j < args[idx].len; i++
+			for var j = 0; j < args[idx].len; j++
 				std.slpush(&r, args[idx][j])
 			;;
 		| `std.None:
@@ -373,6 +375,11 @@ const dirdefine = {pp
 		cppnextnoexp(pp)
 		isfuncmacro = true
 		tok = cppnextnoexp(pp)
+		match tok.kind
+		| `Tcparen:
+			goto gotparams
+		| _:
+		;;
 		while true
 			if !validmacroparam(tok.text)
 				err(tok.loc, "{} is not a valid macro param\n", tok.text)
@@ -384,8 +391,9 @@ const dirdefine = {pp
 			| _:
 				break
 			;;
+			tok = cppnextnoexp(pp)
 		;;
-		tok = cppnextnoexp(pp)
+		:gotparams
 		match tok.kind
 		| `Tcparen:
 		| _:
