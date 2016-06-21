@@ -184,6 +184,8 @@ const directive = {pp
 	match tok.text
 	| "include":
 		dirinclude(pp)
+	| "undef":
+		dirundef(pp)
 	| "define":
 		dirdefine(pp)
 	| "ifdef":
@@ -475,5 +477,26 @@ const dirdefine = {pp
 		std.htput(pp.macros, name, `Mobj std.mk([.toks=toks]))
 	;;
 	
+}
+
+const dirundef = {pp
+	var tok, name
+
+	tok = cppnextnoexp(pp)
+	match tok.kind
+	| `Tenddirective:
+		err(tok.loc, "#undef expects something to undefine\n")
+	| _:
+		name = tok.text
+	;;
+	
+	tok = cppnextnoexp(pp)
+	match tok.kind
+	| `Tenddirective:
+	| _:
+		err(tok.loc, "junk after #undef\n")
+	;;
+	
+	std.htdel(pp.macros, name)
 }
 
