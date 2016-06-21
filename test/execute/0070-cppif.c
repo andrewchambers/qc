@@ -6,7 +6,10 @@ int x = 0;
 #if 0
 int x = 1;
 #if 1
- XXXXX
+ X
+#endif
+#ifndef AAA
+ X
 #endif
 #endif
 

@@ -187,7 +187,9 @@ const directive = {pp
 	| "define":
 		dirdefine(pp)
 	| "ifdef":
-		dirifdef(pp)
+		dirifdef(pp, false)
+	| "ifndef":
+		dirifdef(pp, true)
 	| "if":
 		dirif(pp)
 	| "elif":
@@ -222,8 +224,8 @@ const dirif = {pp
 	;;
 }
 
-const dirifdef = {pp
-	var name, tok
+const dirifdef = {pp, invert
+	var name, tok, cond
 	
 	tok = cppnextnoexp(pp)
 	name = tok.text
@@ -235,7 +237,11 @@ const dirifdef = {pp
 	;;
 	
 	std.slpush(&pp.condstack, [.wastrue=false, .afterelse=false])
-	if std.hthas(pp.macros, name)
+	cond = std.hthas(pp.macros, name)
+	if invert
+		cond = !cond
+	;;
+	if cond
 		pp.condstack[pp.condstack.len-1].wastrue = true
 	else
 		skipcond(pp)
@@ -319,6 +325,8 @@ const skipcond = {pp
 		| "if":
 			depth += 1
 		| "ifdef":
+			depth += 1
+		| "ifndef":
 			depth += 1
 		| "else":
 			if depth == 1
