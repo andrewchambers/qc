@@ -183,12 +183,34 @@ const directive = {pp
 		dirdefine(pp)
 	| "ifdef":
 		dirifdef(pp)
+	| "if":
+		dirif(pp)
 	| "endif":
 		direndif(pp)
 	| "else":
 		direlse(pp)
 	| dir:
 		err(tok.loc, "bad directive {}\n", dir)
+	;;
+}
+
+const dirif = {pp
+	var expr, tok, enddepth
+	
+	enddepth = pp.ifdepth
+	pp.ifdepth += 1
+	expr = cppnextnoexp(pp)
+	tok = cppnextnoexp(pp)
+	match tok.kind
+	| `Tenddirective:
+	| _:
+		err(tok.loc, "expected end of directive\n")
+	;;
+	
+	match expr.kind
+	| `Tintlit 1:
+	| _:
+		skiptoifdepth(pp, enddepth)
 	;;
 }
 
@@ -206,11 +228,9 @@ const dirifdef = {pp
 		err(tok.loc, "expected end of directive\n")
 	;;
 	
-	if std.hthas(pp.macros, name)
-		-> void
+	if !std.hthas(pp.macros, name)
+		skiptoifdepth(pp, enddepth)
 	;;
-	
-	skiptoifdepth(pp, enddepth)
 }
 
 const skiptoifdepth = {pp, enddepth
@@ -228,6 +248,8 @@ const skiptoifdepth = {pp, enddepth
 		tok = cppnextnoexp(pp)
 		match tok.text
 		| "ifdef":
+			pp.ifdepth += 1
+		| "if":
 			pp.ifdepth += 1
 		| "endif":
 			direndif(pp)
