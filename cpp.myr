@@ -57,6 +57,15 @@ const cppnextnoexp = {pp
 		tok = toknext(pp.input[pp.input.len-1])
 	;;
 	
+	match tok.kind
+	| `Teof:
+		if pp.input.len > 1
+			std.slpop(&pp.input)
+			-> cppnextnoexp(pp)
+		;;
+	| _:
+	;;
+	
 	-> tok
 }
 
@@ -131,11 +140,6 @@ const cppnext = {pp
 	| `Tdirective:
 		directive(pp)
 		-> cppnext(pp)
-	| `Teof:
-		if pp.input.len > 1
-			std.slpop(&pp.input)
-			-> cppnext(pp)
-		;;
 	| _:
 	;;
 	-> mtok
@@ -226,13 +230,7 @@ const skiptoifdepth = {pp, enddepth
 		| "ifdef":
 			pp.ifdepth += 1
 		| "endif":
-			tok = cppnextnoexp(pp)
-			match tok.kind
-			| `Tenddirective:
-			| _:
-				err(tok.loc, "expected end of directive\n")
-			;;
-			pp.ifdepth -= 1
+			direndif(pp)
 			if pp.ifdepth == enddepth
 				break
 			;;
