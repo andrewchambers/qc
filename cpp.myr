@@ -205,13 +205,43 @@ const directive = {pp
 	;;
 }
 
-const eval = {pp, expr
-	match expr[0].kind
-	| `Tintlit 1:
-		-> 1
-	| _:
-		-> 0
+type exprparser = struct
+	expr : tok[:]
+	idx : int
+	tok : tok
+;;
+
+const exprnext = {p
+	if p.idx == p.expr.len
+		-> void
 	;;
+	p.tok = p.expr[p.idx]
+	p.idx++
+}
+
+const parseexpr = {p
+	-> parseatom(p)
+}
+
+const parseatom = {p
+	match p.tok.kind
+	| `Tintlit n:
+		exprnext(p)
+		-> n
+	| _:
+		err(p.tok.loc, "expected cpp expression\n")
+	;;
+}
+
+const eval = {pp, expr
+	var p : exprparser#
+	
+	p = &[
+		.expr=expr,
+		.idx=0,
+	]
+	exprnext(p)
+	-> parseexpr(p)
 }
 
 const dirif = {pp
@@ -220,11 +250,11 @@ const dirif = {pp
 	expr = [][:]
 	while true
 		tok = cppnext(pp)
+		std.slpush(&expr, tok)
 		match tok.kind
 		| `Tenddirective:
 			break
 		| _:
-			std.slpush(&expr, tok)
 		;;
 	;;
 	if expr.len == 0
