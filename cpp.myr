@@ -9,10 +9,13 @@ pkg qc =
 		incpath : byte[:]
 		sysincpaths : byte[:][:]
 		expanded : tok[:]
-		
-		ifdepth : int
-		
+		condstack : condstate[:]
 		macros : std.htab(byte[:], macro)#
+	;;
+	
+	type condstate = struct
+		wastrue : bool
+		afterelse : bool
 	;;
 	
 	type objmacro = struct
@@ -41,7 +44,7 @@ const mkcpp = {ts, incpath, sysincpaths
 		.incpath=incpath,
 		.sysincpaths=sysincpaths,
 		.expanded=[][:],
-		.ifdepth=0,
+		.condstack=[][:],
 		.macros=std.mkht(std.strhash, std.streq)
 	])
 	pushts(pp, ts)
@@ -187,6 +190,8 @@ const directive = {pp
 		dirifdef(pp)
 	| "if":
 		dirif(pp)
+	| "elif":
+		direlif(pp)
 	| "endif":
 		direndif(pp)
 	| "else":
@@ -197,10 +202,8 @@ const directive = {pp
 }
 
 const dirif = {pp
-	var expr, tok, enddepth
+	var expr, tok
 	
-	enddepth = pp.ifdepth
-	pp.ifdepth += 1
 	expr = cppnextnoexp(pp)
 	tok = cppnextnoexp(pp)
 	match tok.kind
@@ -209,18 +212,19 @@ const dirif = {pp
 		err(tok.loc, "expected end of directive\n")
 	;;
 	
+	std.slpush(&pp.condstack, [.wastrue=false, .afterelse=false])
+	
 	match expr.kind
 	| `Tintlit 1:
+		pp.condstack[pp.condstack.len-1].wastrue = true
 	| _:
-		skiptoifdepth(pp, enddepth)
+		skipcond(pp)
 	;;
 }
 
 const dirifdef = {pp
-	var name, tok, enddepth
+	var name, tok
 	
-	enddepth = pp.ifdepth
-	pp.ifdepth += 1
 	tok = cppnextnoexp(pp)
 	name = tok.text
 	tok = cppnextnoexp(pp)
@@ -230,50 +234,39 @@ const dirifdef = {pp
 		err(tok.loc, "expected end of directive\n")
 	;;
 	
-	if !std.hthas(pp.macros, name)
-		skiptoifdepth(pp, enddepth)
+	std.slpush(&pp.condstack, [.wastrue=false, .afterelse=false])
+	if std.hthas(pp.macros, name)
+		pp.condstack[pp.condstack.len-1].wastrue = true
+	else
+		skipcond(pp)
 	;;
 }
 
-const skiptoifdepth = {pp, enddepth
-	var tok
+const direlif = {pp
+	var expr, tok
 	
-	while true
-		tok = cppnextnoexp(pp)
-		match tok.kind
-		| `Tdirective:
-		| `Teof:
-			err(tok.loc, "got eof, expected #endif\n")
-		| _:
-			continue
-		;;
-		tok = cppnextnoexp(pp)
-		match tok.text
-		| "ifdef":
-			pp.ifdepth += 1
-		| "if":
-			pp.ifdepth += 1
-		| "endif":
-			direndif(pp)
-			if pp.ifdepth == enddepth
-				break
-			;;
-		| _:
-		;;
-	;;
-}
-
-const direndif = {pp
-	var tok
-	
+	expr = cppnextnoexp(pp)
 	tok = cppnextnoexp(pp)
 	match tok.kind
 	| `Tenddirective:
-	| _: err(tok.loc, "junk at end of endif directive\n")
+	| _:
+		err(tok.loc, "expected end of directive\n")
 	;;
-	pp.ifdepth -= 1
-	if pp.ifdepth < 0
-		err(tok.loc, "unexpected endif directive")
+	
+	if pp.condstack.len == 0 || pp.condstack[pp.condstack.len-1].afterelse
+		err(tok.loc, "unexpected #elif\n")
+	;;
+	
+	if pp.condstack[pp.condstack.len-1].wastrue
+		skipcond(pp)
+		-> void
+	;;	
+	
+	match expr.kind
+	| `Tintlit 1:
+		pp.condstack[pp.condstack.len-1].wastrue = true
+	| _:
+		skipcond(pp)
 	;;
 }
 
@@ -285,10 +278,66 @@ const direlse = {pp
 	| `Tenddirective:
 	| _: err(tok.loc, "junk at end of else directive\n")
 	;;
-	if pp.ifdepth == 0
-		 err(tok.loc, "#else outside of if\n")
+	if pp.condstack.len == 0 || pp.condstack[pp.condstack.len-1].afterelse
+		 err(tok.loc, "unexpected #else\n")
 	;;
-	skiptoifdepth(pp, pp.ifdepth)
+	pp.condstack[pp.condstack.len-1].afterelse = true
+	if pp.condstack[pp.condstack.len-1].wastrue
+		skipcond(pp)
+	;;
+}
+
+const direndif = {pp
+	var tok
+	
+	tok = cppnextnoexp(pp)
+	match tok.kind
+	| `Tenddirective:
+	| _: err(tok.loc, "junk at end of endif directive\n")
+	;;
+	if pp.condstack.len == 0
+		err(tok.loc, "unexpected #endif\n")
+	;;
+	std.slpop(&pp.condstack)
+}
+
+const skipcond = {pp
+	var tok1, tok2
+	
+	var depth = 1
+	while true 
+		tok1 = cppnextnoexp(pp)
+		match tok1.kind
+		| `Tdirective:
+		| `Teof:
+			err(tok1.loc, "got eof, expected #endif\n")
+		| _:
+			continue
+		;;
+		tok2 = cppnextnoexp(pp)
+		match tok2.text
+		| "if":
+			depth += 1
+		| "ifdef":
+			depth += 1
+		| "else":
+			if depth == 1
+				break
+			;;
+		| "elif":
+			if depth == 1
+				break
+			;;
+		| "endif":
+			depth -= 1
+			if depth == 0
+				break
+			;;
+		| _:
+		;;
+	;;
+	std.slpush(&pp.expanded, tok2)
+	std.slpush(&pp.expanded, tok1)
 }
 
 const findsysinc = {pp, header
