@@ -205,65 +205,31 @@ const directive = {pp
 	;;
 }
 
-type exprparser = struct
-	expr : tok[:]
-	idx : int
-	tok : tok
-;;
 
-const exprnext = {p
-	if p.idx == p.expr.len
-		-> void
-	;;
-	p.tok = p.expr[p.idx]
-	p.idx++
-}
-
-const parseexpr = {p
-	-> parseatom(p)
-}
-
-const parseatom = {p
-	match p.tok.kind
+const parseexpr = {pp
+	var tok, v
+		
+	tok = cppnext(pp)
+	match tok.kind
 	| `Tintlit n:
-		exprnext(p)
-		-> n
+		v = n
 	| _:
-		err(p.tok.loc, "expected cpp expression\n")
+		err(tok.loc, "expected cpp expression\n")
 	;;
-}
-
-const eval = {pp, expr
-	var p : exprparser#
-	
-	p = &[
-		.expr=expr,
-		.idx=0,
-	]
-	exprnext(p)
-	-> parseexpr(p)
+	tok = cppnext(pp)
+	match tok.kind
+	| `Tenddirective:
+	| _:
+		err(tok.loc, "expected expression end\n")
+	;;
+	-> v
 }
 
 const dirif = {pp
-	var expr, tok
 		
-	expr = [][:]
-	while true
-		tok = cppnext(pp)
-		std.slpush(&expr, tok)
-		match tok.kind
-		| `Tenddirective:
-			break
-		| _:
-		;;
-	;;
-	if expr.len == 0
-		err(tok.loc, "expected expression\n")
-	;;
-
 	std.slpush(&pp.condstack, [.wastrue=false, .afterelse=false])
 	
-	if eval(pp, expr) != 0
+	if parseexpr(pp) != 0
 		pp.condstack[pp.condstack.len-1].wastrue = true
 	else
 		skipcond(pp)
