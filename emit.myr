@@ -632,14 +632,19 @@ const pointsto = {ptr
 }
 
 const emitptradd = {add
-	var p, amnt, offset, result
-	var tysz
+	var p, amnt, tysz
 	
 	tysz = std.get(typesize(pointsto(exprtype(add.ptr))))
 	amnt = emitexpr(add.amnt)
+	p = emitexpr(add.ptr)
+	-> emitptradd2(p, amnt, tysz)
+}
+
+const emitptradd2 = {p, amnt, tysz
+	var offset, result
+	
 	offset = newreg()
 	oi("{} =l mul {}, {}\n", offset, amnt, tysz)
-	p = emitexpr(add.ptr)
 	result = newreg()
 	oi("{} =l add {}, {}\n", result, p, offset)
 	-> result
@@ -675,9 +680,17 @@ const emitassign = {a
 	v3 = emitload(a.ty, v1)
 	match a.op
 	| `Oaddasn:
-		v3 = emitbinop2(`Oplus, a.ty, a.l, a.r)
+		if isptr(a.ty)
+			v3 = emitptradd2(v3, v2, std.get(typesize(pointsto(a.ty))))
+		else
+			v3 = emitbinop2(`Oplus, a.ty, a.l, a.r)
+		;;
 	| `Osubasn:
-		v3 = emitbinop2(`Ominus, a.ty, a.l, a.r)
+		if isptr(a.ty)
+			std.fatal("unimplemented")
+		else
+			v3 = emitbinop2(`Ominus, a.ty, a.l, a.r)
+		;;
 	| _:
 		std.fatal("internal error\n")
 	;;
