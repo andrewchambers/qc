@@ -96,7 +96,7 @@ pkg qc =
 		`Ebinop binop
 		`Elogop logop
 		`Erelop relop
-		`Eptradd ptradd
+		`Eptrarith ptrarith
 		`Eptrdiff ptrdiff
 		`Eunop unop
 		`Eassign assign
@@ -206,7 +206,13 @@ pkg qc =
 		r : expr#
 	;;
 	
-	type ptradd = struct
+	type ptrop = union
+		`Opadd
+		`Opsub
+	;;
+	
+	type ptrarith = struct
+		op : ptrop
 		ptr : expr#
 		amnt : expr#
 	;;
@@ -266,7 +272,7 @@ const exprtype = {e
 	| &(`Ebinop bop): -> bop.ty
 	| &(`Eunop uop): -> uop.ty
 	| &(`Eptrdiff _): -> `Tylong
-	| &(`Eptradd add): -> exprtype(add.ptr)
+	| &(`Eptrarith arith): -> exprtype(arith.ptr)
 	| &(`Eassign asn): -> asn.ty
 	| &(`Eintlit _): -> `Tyint
 	| &(`Elogop _): -> `Tyint
@@ -289,7 +295,7 @@ const exprloc = {e
 	| &(`Ebinop _):
 	| &(`Eunop _):
 	| &(`Eptrdiff _):
-	| &(`Eptradd _):
+	| &(`Eptrarith _):
 	| &(`Eassign _):
 	| &(`Eintlit _):
 	| &(`Elogop _):

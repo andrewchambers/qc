@@ -572,8 +572,8 @@ const emitexpr = {expr
 		-> emitcast(cast)
 	| &(`Ebinop b):
 		-> emitbinop(b)
-	| &(`Eptradd b):
-		-> emitptradd(b)
+	| &(`Eptrarith b):
+		-> emitptrarith(b)
 	| &(`Eptrdiff b):
 		-> emitptrdiff(b)
 	| &(`Elogop b):
@@ -631,25 +631,29 @@ const pointsto = {ptr
 	;;
 }
 
-const emitptradd = {add
+const emitptrarith = {arith
 	var p, amnt, tysz
 	
-	tysz = std.get(typesize(pointsto(exprtype(add.ptr))))
-	amnt = emitexpr(add.amnt)
-	p = emitexpr(add.ptr)
-	-> emitptradd2(p, amnt, tysz)
+	tysz = std.get(typesize(pointsto(exprtype(arith.ptr))))
+	amnt = emitexpr(arith.amnt)
+	p = emitexpr(arith.ptr)
+	-> emitptrarith2(arith.op, p, amnt, tysz)
 }
 
-const emitptradd2 = {p, amnt, tysz
-	var offset, result
+const emitptrarith2 = {op, p, amnt, tysz
+	var ins, offset, result
+	
+	match op
+	| `Opadd: ins = "add"
+	| `Opsub: ins = "sub"
+	;;
 	
 	offset = newreg()
 	oi("{} =l mul {}, {}\n", offset, amnt, tysz)
 	result = newreg()
-	oi("{} =l add {}, {}\n", result, p, offset)
+	oi("{} =l {} {}, {}\n", result, ins, p, offset)
 	-> result
 }
-
 
 const emitptrdiff = {diff
 	var l, r, amnt, result
@@ -681,13 +685,13 @@ const emitassign = {a
 	match a.op
 	| `Oaddasn:
 		if isptr(a.ty)
-			v3 = emitptradd2(v3, v2, std.get(typesize(pointsto(a.ty))))
+			v3 = emitptrarith2(`Opadd, v3, v2, std.get(typesize(pointsto(a.ty))))
 		else
 			v3 = emitbinop2(`Oplus, a.ty, a.l, a.r)
 		;;
 	| `Osubasn:
 		if isptr(a.ty)
-			std.fatal("unimplemented")
+			v3 = emitptrarith2(`Opsub, v3, v2, std.get(typesize(pointsto(a.ty))))
 		else
 			v3 = emitbinop2(`Ominus, a.ty, a.l, a.r)
 		;;

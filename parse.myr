@@ -1185,9 +1185,9 @@ const mkbinop = {op, l, r
 	| (`Ominus , `Typtr _, `Typtr _):
 		-> std.mk(`Eptrdiff [.l=l, .r=r])
 	| (`Oplus ,`Typtr _, _):
-		-> std.mk(`Eptradd [.ptr=l, .amnt=r])
+		-> std.mk(`Eptrarith [.op=`Opadd, .ptr=l, .amnt=r])
 	| (`Oplus , _, `Typtr _):
-		-> std.mk(`Eptradd [.ptr=r, .amnt=l])
+		-> std.mk(`Eptrarith [.op=`Opadd, .ptr=r, .amnt=l])
 	| _:
 	;;	
 	l = usualconv(l)
