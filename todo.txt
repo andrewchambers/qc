@@ -1,8 +1,5 @@
 * preprocessor.
 
-* +=/-= for pointers is broken currently. Might need to be a special
-  case instead of it's own node type (unlike pointer arith).
-
 * actually perform checks and casts for function calls.
 
 * actually perform checks for assignment.
