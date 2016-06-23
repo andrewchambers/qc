@@ -229,7 +229,7 @@ const tokread = {ts
 	-> [
 		.loc=loc,
 		.text=ts.data[start:ts.idx],
-		.kind = kind,
+		.kind=kind,
 		.ws=ws,
 	]
 }
