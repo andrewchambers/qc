@@ -205,11 +205,11 @@ const directive = {pp
 	;;
 }
 
-const evalexpr = {expr : tok[:]#
+const evalexpr = {expr
 	-> evallogandexpr(expr)
 }
 
-const evallogandexpr = {expr : tok[:]#
+const evallogandexpr = {expr
 	var l, r, f
 	
 	l = evallogorexpr(expr)
@@ -226,7 +226,7 @@ const evallogandexpr = {expr : tok[:]#
 	-> l
 }
 
-const evallogorexpr = {expr : tok[:]#
+const evallogorexpr = {expr
 	var l, r, f
 	
 	l = evalxorexpr(expr)
@@ -243,7 +243,7 @@ const evallogorexpr = {expr : tok[:]#
 	-> l
 }
 
-const evalxorexpr = {expr : tok[:]#
+const evalxorexpr = {expr
 	var l, r, f
 	
 	l = evalorexpr(expr)
@@ -260,7 +260,7 @@ const evalxorexpr = {expr : tok[:]#
 	-> l
 }
 
-const evalorexpr = {expr : tok[:]#
+const evalorexpr = {expr
 	var l, r, f
 	
 	l = evalandexpr(expr)
@@ -277,7 +277,7 @@ const evalorexpr = {expr : tok[:]#
 	-> l
 }
 
-const evalandexpr = {expr : tok[:]#
+const evalandexpr = {expr
 	var l, r, f
 	
 	l = evaleqlexpr(expr)
@@ -294,7 +294,7 @@ const evalandexpr = {expr : tok[:]#
 	-> l
 }
 
-const evaleqlexpr = {expr : tok[:]#
+const evaleqlexpr = {expr
 	var l, r, f
 	
 	l = evalrelexpr(expr)
@@ -312,7 +312,7 @@ const evaleqlexpr = {expr : tok[:]#
 	-> l
 }
 
-const evalrelexpr = {expr : tok[:]#
+const evalrelexpr = {expr
 	var l, r, f
 	
 	l = evalshiftexpr(expr)
@@ -332,7 +332,7 @@ const evalrelexpr = {expr : tok[:]#
 	-> l
 }
 
-const evalshiftexpr = {expr : tok[:]#
+const evalshiftexpr = {expr
 	var l, r, f
 	
 	l = evaladdexpr(expr)
@@ -350,7 +350,7 @@ const evalshiftexpr = {expr : tok[:]#
 	-> l
 }
 
-const evaladdexpr = {expr : tok[:]#
+const evaladdexpr = {expr
 	var l, r, f
 	
 	l = evalmulexpr(expr)
@@ -368,7 +368,7 @@ const evaladdexpr = {expr : tok[:]#
 	-> l
 }
 
-const evalmulexpr = {expr : tok[:]#
+const evalmulexpr = {expr
 	var l, r, f
 	
 	l = evalunop(expr)
@@ -387,7 +387,7 @@ const evalmulexpr = {expr : tok[:]#
 	-> l
 }
 
-const evalunop = {expr : tok[:]#
+const evalunop = {expr
 	var f
 	
 	match expr#[0].kind
@@ -402,7 +402,7 @@ const evalunop = {expr : tok[:]#
 	-> f(evalunop(expr))
 }
 
-const evalprimaryexpr = {expr : tok[:]#
+const evalprimaryexpr = {expr
 	var v
 	
 	match expr#[0].kind
