@@ -209,13 +209,76 @@ const directive = {pp
 const evalexpr = {expr : tok[:]
 	var v
 	
+	v = evaladdexpr(&expr)
+	
 	match expr[0].kind
-	| `Tintlit n:
-		v = n
+	| `Tenddirective:
+		-> v
 	| _:
-		err(expr[0].loc, "expected cpp expression\n")
+		err(expr[0].loc, "junk after expression\n")
 	;;
-	-> v
+}
+
+const evaladdexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evalunop(expr)
+	while true
+		match expr#[0].kind
+		| `Tplus:  f = {l, r; -> l + r }
+		| `Tminus: f = {l, r; -> l - r }
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evalmulexpr(expr)
+		l = f(l, r)
+	;;
+	-> l
+}
+
+const evalmulexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evalunop(expr)
+	while true
+		match expr#[0].kind
+		| `Tmul: f = {l, r; -> l * r }
+		| `Tdiv: f = {l, r; -> l / r }
+		| `Tmod: f = {l, r; -> l % r }
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evalunop(expr)
+		l = f(l, r)
+	;;
+	-> l
+}
+
+const evalunop = {expr : tok[:]#
+	var f
+	
+	match expr#[0].kind
+	| `Tminus:
+		f = {v; -> -v}
+	| `Tlnot:
+		f = {v; if v == 0; -> 1 else -> 0 ;;}
+	| _:
+		-> evalprimaryexpr(expr)
+	;;
+	expr# = expr#[1:]
+	-> f(evalunop(expr))
+}
+
+const evalprimaryexpr = {expr : tok[:]#
+	match expr#[0].kind
+	| `Tintlit n:
+		expr# = expr#[1:]
+		-> n
+	| _:
+		err(expr#[0].loc, "expected expression\n")
+	;;
 }
 
 const readcppifexpr = {pp
@@ -227,6 +290,7 @@ const readcppifexpr = {pp
 		tok = cppnext(pp)
 		match tok.kind
 		| `Tenddirective:
+			std.slpush(&expr, tok)
 			break
 		| _:
 		;;
@@ -261,10 +325,6 @@ const readcppifexpr = {pp
 				std.slpush(&expr, tok)
 			;;
 		;;
-	;;
-	
-	if expr.len == 0
-		err(tok.loc, "expected an expression\n")
 	;;
 	
 	-> expr
