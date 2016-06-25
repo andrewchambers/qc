@@ -112,6 +112,7 @@ pkg qc =
 		`Tellipsis/* ... */
 		`Tsemi   /* ; */
 		`Tcolon   /* : */
+		`Tqmark   /* ? */
 		`Tdot     /* . */
 		`Tcomma   /* , */
 		`Tarrow   /* -> */
@@ -606,6 +607,8 @@ const oper = {ts
 			t = `Tgt;
 		;;
 
+	| '?':
+		t = `Tqmark
 	| '!':
 		if matchc(ts, '=')
 			t = `Tne

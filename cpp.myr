@@ -206,7 +206,52 @@ const directive = {pp
 }
 
 const evalexpr = {expr
-	-> evallogandexpr(expr)
+	-> evalcommaexpr(expr)
+}
+
+const evalcommaexpr = {expr
+	var v = 0
+	
+	while true
+		v = evalcondexpr(expr)
+		match expr#[0].kind
+		| `Tcomma:
+			expr# = expr#[1:]
+		| _:
+			break
+		;;
+	;;
+	-> v
+}
+
+const evalcondexpr = {expr
+	var cond, a, b
+	
+	cond = 0
+	a = 0
+	b = 0
+	
+	cond = evallogandexpr(expr)
+	match expr#[0].kind
+	| `Tqmark:
+		expr# = expr#[1:]
+	| _:
+		-> cond
+	;;
+	
+	a = evalcondexpr(expr)
+	match expr#[0].kind
+	| `Tcolon:
+		expr# = expr#[1:]
+	| _:
+		err(expr#[0].loc, "expected ':'\n")
+	;;
+	b = evalcondexpr(expr)
+	if cond != 0
+		-> a
+	else
+		-> b
+	;;
 }
 
 const evallogandexpr = {expr
