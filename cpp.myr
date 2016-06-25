@@ -205,24 +205,155 @@ const directive = {pp
 	;;
 }
 
+const evalexpr = {expr : tok[:]#
+	-> evallogandexpr(expr)
+}
 
-const evalexpr = {expr : tok[:]
-	var v
+const evallogandexpr = {expr : tok[:]#
+	var l, r, f
 	
-	v = evaladdexpr(&expr)
-	
-	match expr[0].kind
-	| `Tenddirective:
-		-> v
-	| _:
-		err(expr[0].loc, "junk after expression\n")
+	l = evallogorexpr(expr)
+	while true
+		match expr#[0].kind
+		| `Tland: f = {l, r; if (l != 0) && (r != 0); -> 1 else -> 0 ;;}
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evallogorexpr(expr)
+		l = f(l, r)
 	;;
+	-> l
+}
+
+const evallogorexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evalxorexpr(expr)
+	while true
+		match expr#[0].kind
+		| `Tlor: f = {l, r; if (l != 0) || (r != 0); -> 1 else -> 0 ;;}
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evalxorexpr(expr)
+		l = f(l, r)
+	;;
+	-> l
+}
+
+const evalxorexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evalorexpr(expr)
+	while true
+		match expr#[0].kind
+		| `Tbxor: f = {l, r; -> l ^ r}
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evalorexpr(expr)
+		l = f(l, r)
+	;;
+	-> l
+}
+
+const evalorexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evalandexpr(expr)
+	while true
+		match expr#[0].kind
+		| `Tbor: f = {l, r; -> l | r}
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evalandexpr(expr)
+		l = f(l, r)
+	;;
+	-> l
+}
+
+const evalandexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evaleqlexpr(expr)
+	while true
+		match expr#[0].kind
+		| `Tband: f = {l, r; -> l & r}
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evaleqlexpr(expr)
+		l = f(l, r)
+	;;
+	-> l
+}
+
+const evaleqlexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evalrelexpr(expr)
+	while true
+		match expr#[0].kind
+		| `Teq: f = {l, r; if l == r; -> 1 else -> 0 ;;}
+		| `Tne: f = {l, r; if l != r; -> 1 else -> 0 ;;}
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evalrelexpr(expr)
+		l = f(l, r)
+	;;
+	-> l
+}
+
+const evalrelexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evalshiftexpr(expr)
+	while true
+		match expr#[0].kind
+		| `Tgt: f = {l, r; if l > r; -> 1 else -> 0 ;;}
+		| `Tlt: f = {l, r; if l < r; -> 1 else -> 0 ;;}
+		| `Tge: f = {l, r; if l >= r; -> 1 else -> 0 ;;}
+		| `Tle: f = {l, r; if l <= r; -> 1 else -> 0 ;;}
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evalshiftexpr(expr)
+		l = f(l, r)
+	;;
+	-> l
+}
+
+const evalshiftexpr = {expr : tok[:]#
+	var l, r, f
+	
+	l = evaladdexpr(expr)
+	while true
+		match expr#[0].kind
+		| `Tbsl: f = {l, r; -> l << r}
+		| `Tbsr: f = {l, r; -> l >> r}
+		| _:
+			break
+		;;
+		expr# = expr#[1:]
+		r = evaladdexpr(expr)
+		l = f(l, r)
+	;;
+	-> l
 }
 
 const evaladdexpr = {expr : tok[:]#
 	var l, r, f
 	
-	l = evalunop(expr)
+	l = evalmulexpr(expr)
 	while true
 		match expr#[0].kind
 		| `Tplus:  f = {l, r; -> l + r }
@@ -272,10 +403,22 @@ const evalunop = {expr : tok[:]#
 }
 
 const evalprimaryexpr = {expr : tok[:]#
+	var v
+	
 	match expr#[0].kind
 	| `Tintlit n:
 		expr# = expr#[1:]
 		-> n
+	| `Toparen:
+		expr# = expr#[1:]
+		v = evalexpr(expr)
+		match expr#[0].kind
+		| `Tcparen:
+			expr# = expr#[1:]
+		| _:
+			err(expr#[0].loc, "expected ')'\n")
+		;;
+		-> v
 	| _:
 		err(expr#[0].loc, "expected expression\n")
 	;;
@@ -331,13 +474,19 @@ const readcppifexpr = {pp
 }
 
 const dirif = {pp
-	var expr
+	var expr, cond
 	
 	std.slpush(&pp.condstack, [.wastrue=false, .afterelse=false])
 	
 	expr = readcppifexpr(pp)
+	cond = evalexpr(&expr)
+	match expr[0].kind
+	| `Tenddirective:
+	| _:
+		err(expr[0].loc, "junk after expression\n")
+	;;
 	
-	if evalexpr(expr) != 0
+	if cond != 0
 		pp.condstack[pp.condstack.len-1].wastrue = true
 	else
 		skipcond(pp)
@@ -374,6 +523,8 @@ const dirifdef = {pp, invert
 }
 
 const direlif = {pp
+	var expr, cond
+	
 	if pp.condstack.len == 0 || pp.condstack[pp.condstack.len-1].afterelse
 		// XXX: get the position of the elif
 		err(cppnext(pp).loc, "unexpected #elif\n")
@@ -384,7 +535,15 @@ const direlif = {pp
 		-> void
 	;;	
 	
-	if evalexpr(readcppifexpr(pp)) != 0
+	expr = readcppifexpr(pp)
+	cond = evalexpr(&expr)
+	match expr[0].kind
+	| `Tenddirective:
+	| _:
+		err(expr[0].loc, "junk after expression\n")
+	;;
+	
+	if cond != 0
 		pp.condstack[pp.condstack.len-1].wastrue = true
 	else
 		skipcond(pp)
