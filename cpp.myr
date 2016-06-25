@@ -200,6 +200,8 @@ const directive = {pp
 		direndif(pp)
 	| "else":
 		direlse(pp)
+	| "error":
+		direrror(pp)
 	| dir:
 		err(tok.loc, "bad directive {}\n", dir)
 	;;
@@ -831,5 +833,12 @@ const dirundef = {pp
 	;;
 	
 	std.htdel(pp.macros, name)
+}
+
+const direrror = {pp
+	var tok
+
+	tok = cppnext(pp)
+	err(tok.loc, "TODO, gather strings")
 }
 
