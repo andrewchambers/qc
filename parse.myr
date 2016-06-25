@@ -1289,7 +1289,7 @@ const parseconstexpr = {p
 const parseassign = {p
 	var l, r, op
 	
-	l = parselogorexpr(p)
+	l = parsecond(p)
 	match p.tok.kind
 	| `Tasn: op = `Oasn
 	| `Taddeq: op = `Oaddasn
@@ -1300,6 +1300,35 @@ const parseassign = {p
 	next(p)
 	r = parseassign(p)
 	-> std.mk(`Eassign [.ty=exprtype(l), .op=op, .l=l, .r=mkcast(exprtype(l), r)])
+}
+
+const parsecond = {p
+	var cond, iftrue, iffalse
+	
+	cond = parselogorexpr(p)
+	match p.tok.kind
+	| `Tqmark:
+		next(p)
+		iftrue = parsecond(p)
+		match p.tok.kind
+		| `Tcolon:
+			next(p)
+		| _:
+			err(p.tok.loc, "expected ':'\n")
+		;;
+		iffalse = parsecond(p)
+		-> std.mk(`Econd [
+			.ty=exprtype(iftrue),
+			.cond=cond,
+			.iftrue=iftrue,
+			.iffalse=iffalse,
+			.truelbl=nextlbl(p.curfunc),
+			.falselbl=nextlbl(p.curfunc),
+			.donelbl=nextlbl(p.curfunc),
+		])
+	| _:
+		-> cond
+	;;
 }
 
 const parselogorexpr = {p

@@ -110,6 +110,17 @@ pkg qc =
 		`Ecast cast
 		`Eincdec incdec
 		`Esizeof int
+		`Econd cond
+	;;
+	
+	type cond = struct
+		ty : ctype
+		cond : expr#
+		iftrue : expr#
+		iffalse : expr#
+		truelbl : int
+		falselbl : int
+		donelbl : int
 	;;
 	
 	type cast = struct
@@ -266,6 +277,7 @@ const nextlbl = {f
 
 const exprtype = {e
 	match e
+	| &(`Econd cond): -> cond.ty
 	| &(`Ecast cast): -> cast.ty
 	| &(`Esel sel): -> sel.ty
 	| &(`Eident sym): -> sym.ty
@@ -289,6 +301,7 @@ const exprtype = {e
 
 const exprloc = {e
 	match e
+	| &(`Econd _):
 	| &(`Ecast _):
 	| &(`Esel _):
 	| &(`Eident _):

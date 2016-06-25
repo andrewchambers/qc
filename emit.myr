@@ -562,10 +562,30 @@ const emitincdec = {incdec
 	;;
 }
 
+const emitcond = {condexpr
+	var cond, result, class, iftrue, iffalse
+	
+	result = newreg()
+	class = type2class(condexpr.ty)
+	cond = emitexpr(condexpr.cond)
+	ot("jnz {}, @L{}, @L{}\n", cond, condexpr.truelbl, condexpr.falselbl)
+	ol("@L{}\n", condexpr.truelbl)
+	iftrue = emitexpr(condexpr.iftrue)
+	oi("{} ={} copy {}\n", result, class, iftrue)
+	ot("jmp @L{}\n", condexpr.donelbl)
+	ol("@L{}\n", condexpr.falselbl)
+	iffalse = emitexpr(condexpr.iffalse)
+	oi("{} ={} copy {}\n", result, class, iffalse)
+	ol("@L{}\n", condexpr.donelbl)
+	-> result
+}
+
 const emitexpr = {expr
 	var v1
 
 	match expr
+	| &(`Econd cond):
+		-> emitcond(cond)
 	| &(`Ecall call):
 		-> emitcall(call)
 	| &(`Ecast cast):
