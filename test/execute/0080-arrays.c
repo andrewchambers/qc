@@ -16,24 +16,24 @@ foo(int x[100])
 	
 	if(p[0] != 1000)
 	{
-		return 1;
+		return 2;
 	}
 	
 	p = y;
 	
 	if(p[0] != 2000)
 	{
-		return 1;
+		return 3;
 	}
 	
 	if(sizeof(x) != sizeof(void*))
 	{
-		return 2;
+		return 4;
 	}
 	
 	if(sizeof(y) <= sizeof(x))
 	{
-		return 3;
+		return 5;
 	}
 	
 	return 0;
