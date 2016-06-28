@@ -32,11 +32,12 @@ pkg qc =
 		`Mfunc funcmacro#
 	;;
 	
-	const mkcpp : (ts : tokstream#, incpath : byte[:] ,sysincpaths : byte[:][:] -> pp#) 
+	const mkcpp : (incpath : byte[:] ,sysincpaths : byte[:][:] -> pp#) 
 	const cppnext : (pp : pp# -> tok)
+	const cpppushts : (pp : pp#, ts : tokstream# -> void)
 ;;
 
-const mkcpp = {ts, incpath, sysincpaths
+const mkcpp = {incpath, sysincpaths
 	var pp
 	
 	pp = std.mk([
@@ -47,7 +48,6 @@ const mkcpp = {ts, incpath, sysincpaths
 		.condstack=[][:],
 		.macros=std.mkht(std.strhash, std.streq)
 	])
-	pushts(pp, ts)
 	-> pp
 }
 
@@ -173,7 +173,7 @@ const subst = {toks, names : byte[:][:], args : tok[:][:], hs
 	-> r
 }
 
-const pushts = {pp, ts
+const cpppushts = {pp, ts
 	std.slpush(&pp.input, ts)
 }
 
@@ -720,7 +720,7 @@ const dirinclude = {pp
 		err(tok.loc, "junk '{}' at end of include directive\n", tok.text)
 	;;
 	ts = tokinit(path)
-	pushts(pp, ts)
+	cpppushts(pp, ts)
 }
 
 const validmacroparam = {s

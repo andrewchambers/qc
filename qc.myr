@@ -5,13 +5,30 @@ use "cpp"
 use "parse"
 use "emit"
 
+const defineprelude = {defs
+	var sb
+	
+	sb = std.mksb()
+	for def in defs
+		match std.strfind(def, "=")
+		| `std.Some idx:
+			std.sbfmt(sb, "#define {} {}\n", def[0:idx], def[idx+1:])
+		| `std.None:
+			std.sbfmt(sb, "#define {}\n", def)
+		;;
+	;;
+	-> qc.tokinits(std.sbfin(sb), "<commandline>")
+}
+
 const main = {args
 	var ts, cmd
 	var incpath
 	var sysincpaths
+	var defs, pp
 
 	incpath = "./"
 	sysincpaths = [][:]
+	defs = [][:]
 		
 	cmd = std.optparse(args, &[
 		.argdesc="file.c",
@@ -19,12 +36,14 @@ const main = {args
 		.maxargs=1,
 		.opts=[
 			[.opt='I', .arg="inc", .desc="add 'inc' to your include path"],
+			[.opt='D', .arg="def", .desc="define a macro in the preprocessor e.g. -Dfoo=bar"],
 		][:]
 	])
 	
 	for opt in cmd.opts
 		match opt
 		| ('I', inc): std.slpush(&sysincpaths, inc)
+		| ('D', def): std.slpush(&defs, def)
 		| _:          std.fatal("unreachable {}\n", opt)
 		;;
 	;;
@@ -36,5 +55,8 @@ const main = {args
 		incpath = std.dirname(cmd.args[0])
 		ts = qc.tokinit(cmd.args[0])
 	;;
-	qc.emit(qc.parse(qc.mkcpp(ts, incpath, sysincpaths)))
+	pp = qc.mkcpp(incpath, sysincpaths)
+	qc.cpppushts(pp, ts)
+	qc.cpppushts(pp, defineprelude(defs))
+	qc.emit(qc.parse(pp))
 }

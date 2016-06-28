@@ -18,6 +18,7 @@ pkg qc =
 
 	const tokinit	: (path : byte[:]	-> tokstream#)
 	const tokinitf	: (fd : std.fd, path : byte[:]	-> tokstream#)
+	const tokinits	: (code : byte[:], path : byte[:]	-> tokstream#)
 	const toknext	: (ts : tokstream#	-> tok)
 
 	type tok = struct
@@ -135,6 +136,10 @@ const tokinitf = {fd, name
 	| `std.Ok data: -> mklexer(name, data)
 	| `std.Fail e:	std.fatal("could not read file {}: {}\n", fd, e)
 	;;
+}
+
+const tokinits = {text, name
+	-> mklexer(name, text)
 }
 
 const mklexer = {name, data
