@@ -837,6 +837,11 @@ const parsedecltail = {p, basety
 					err(ploc, "parameters cannot have a storage class\n")
 				;;
 				(name, paramty) = parsedecl(p, paramty)
+				match paramty
+				| `Tyarr arr:
+					paramty = `Typtr std.mk(arr.subty)
+				| _:
+				;;
 				std.slpush(&cfunc.params, (name, paramty))
 				match p.tok.kind
 				| `Tcomma:
