@@ -85,7 +85,6 @@ const cppnext = {pp
 	var mtok, tok, expanded
 	
 	mtok = cppnextnoexp(pp)
-	
 	match std.htget(pp.macros, mtok.text)
 	| `std.Some `Mobj m:
 		expanded = subst(m.toks, [][:], [][:], mtok.hs)
@@ -136,7 +135,7 @@ const cppnext = {pp
 			;;
 			-> cppnext(pp)
 		| _:
-			std.slpush(&expanded, tok)
+			std.slpush(&pp.expanded, tok)
 		;;
 	| `std.None:
 	;;
