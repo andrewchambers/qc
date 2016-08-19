@@ -1219,11 +1219,17 @@ const tyrank = {ty
 	match ty
 	| `Tylong:
 		-> 3
+	| `Tyulong:
+		-> 3
 	| `Tyenum _:
 		-> 2
 	| `Tyint:
 		-> 2
+	| `Tyuint:
+		-> 2
 	| `Tychar:
+		-> 1
+	| `Tyuchar:
 		-> 1
 	| _:
 		std.fatal("tyrank internal error\n")
@@ -1237,6 +1243,10 @@ const usualconv = {e
 	| `Tyint:
 	| `Tychar:
 		-> mkcast(`Tyint, e)
+	| `Tyulong:
+	| `Tyuint:
+	| `Tyuchar:
+		-> mkcast(`Tyuint, e)
 	| _:
 		std.fatal("unimplemented usualconv\n")
 	;;
@@ -1263,11 +1273,23 @@ const arithconv = {l, r
 	| `Tylong:
 		match exprtype(r)
 		| `Tylong:
+		| `Tyulong:
+			result = (mkcast(`Tyulong, l), r)
 		| _:
 			result = (l, mkcast(`Tylong, r))
 		;;
+	| `Tyulong:
+		result = (l, mkcast(`Tyulong, r))
+	| `Tyuint:
+		result = (l, mkcast(`Tyuint, r))
 	| `Tyenum _:
 	| `Tyint:
+		match exprtype(r)
+		| `Tyuint:
+			result = (mkcast(`Tyuint, l), r)
+		| _:
+			result = (l, mkcast(`Tyint, r))
+		;;
 	| _:
 		std.fatal("unimplemented arithconv")
 	;;

@@ -8,6 +8,10 @@ pkg qc =
 		`Tyint
 		`Tyshort
 		`Tychar
+		`Tyulong
+		`Tyuint
+		`Tyushort
+		`Tyuchar
 		`Typtr ctype#
 		`Tyarr carr#
 		`Tystruct std.option(cstruct#)#
@@ -79,6 +83,10 @@ const typealign = {ty
 	| `Tyint: -> `std.Some 4
 	| `Tyenum _: -> `std.Some 4
 	| `Tylong: -> `std.Some 8
+	| `Tyuchar: -> `std.Some 1
+	| `Tyushort: -> `std.Some 2
+	| `Tyuint: -> `std.Some 4
+	| `Tyulong: -> `std.Some 8
 	| `Typtr _: -> `std.Some 8
 	| `Tyarr arr: -> typealign(arr.subty)
 	| `Tystruct &(`std.None): -> `std.None
@@ -95,6 +103,10 @@ const typesize = {ty
 	| `Tyint: -> `std.Some 4
 	| `Tyenum _: -> `std.Some 4
 	| `Tylong: -> `std.Some 8
+	| `Tyuchar: -> `std.Some 1
+	| `Tyushort: -> `std.Some 2
+	| `Tyuint: -> `std.Some 4
+	| `Tyulong: -> `std.Some 8
 	| `Typtr _: -> `std.Some 8
 	| `Tyarr arr:
 		match typesize(arr.subty)
@@ -115,6 +127,10 @@ const isitype = {t
 	| `Tyenum _: -> true
 	| `Tyint: -> true
 	| `Tylong: -> true
+	| `Tyuchar: -> true
+	| `Tyushort: -> true
+	| `Tyuint: -> true
+	| `Tyulong: -> true
 	| _: -> false
 	;;
 }
