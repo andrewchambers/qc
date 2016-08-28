@@ -127,14 +127,14 @@ const Eof = std.Badchar
 const tokinit = {path
 	match std.slurp(path)
 	| `std.Ok data: -> mklexer(path, data)
-	| `std.Fail e:	std.fatal("could not read file {}: {}\n", path, e)
+	| `std.Err e:	std.fatal("could not read file {}: {}\n", path, e)
 	;;
 }
 
 const tokinitf = {fd, name
 	match std.fslurp(fd)
 	| `std.Ok data: -> mklexer(name, data)
-	| `std.Fail e:	std.fatal("could not read file {}: {}\n", fd, e)
+	| `std.Err e:	std.fatal("could not read file {}: {}\n", fd, e)
 	;;
 }
 
