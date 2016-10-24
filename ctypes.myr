@@ -63,6 +63,7 @@ pkg qc =
 	const sametype : (t1 : ctype, t2 : ctype -> bool)
 	const isitype : (ty : ctype -> bool)
 	const isptr : (ty : ctype -> bool)
+	const isvoid : (ty : ctype -> bool)
 	const typesize : (ty : ctype -> std.option(uint32))
 	const typealign : (ty : ctype -> std.option(uint32))
 	
@@ -131,6 +132,13 @@ const isitype = {t
 	| `Tyushort: -> true
 	| `Tyuint: -> true
 	| `Tyulong: -> true
+	| _: -> false
+	;;
+}
+
+const isvoid = {t
+	match t
+	| `Tyvoid: -> true
 	| _: -> false
 	;;
 }

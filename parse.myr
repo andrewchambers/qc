@@ -1165,9 +1165,17 @@ const parsereturn= {p
 		var rexpr
 		
 		next(p)
-		rexpr = parseexpr(p)
+		match p.tok.kind
+		| `Tsemi:
+			if !isvoid(p.curfunc.functy.rty)
+				err(p.tok.loc, "void return in non void function\n")
+			;;
+			rexpr = `std.None
+		| _:
+			rexpr = `std.Some mkcast(p.curfunc.functy.rty,  parseexpr(p))
+		;;
 		expectsemi(p)
-		-> std.mk(`Sreturn mkcast(p.curfunc.functy.rty, rexpr))
+		-> std.mk(`Sreturn rexpr)
 }
 
 const parseexpr = {p
