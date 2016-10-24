@@ -220,7 +220,7 @@ const finalizestruct = {s
 		| `std.None:
 			match ty
 			| `Tystruct &(`std.Some sub):
-				for (xname, [.offset=xoff, .ty=xty, .path=xpath]) in std.htbykeyvals(sub.exports)
+				for (xname, [.offset=xoff, .ty=xty, .path=xpath]) in std.byhtkeyvals(sub.exports)
 					// XXX check for duplicates
 					std.htput(s.exports, xname, [
 						.offset=s.offsets[i]+xoff,
