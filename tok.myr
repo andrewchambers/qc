@@ -527,7 +527,7 @@ const oper = {ts
 	| ':': t = `Tcolon;
 	| ';': t = `Tsemi
 	| '.':
-		if npeekc(ts, 1) == '.' && npeekc(ts, 2) == '.'
+		if npeekc(ts, 0) == '.' && npeekc(ts, 1) == '.'
 			takec(ts)
 			takec(ts)
 			t = `Tellipsis;

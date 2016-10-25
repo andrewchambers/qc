@@ -958,11 +958,12 @@ const parsedecltail = {p, basety
 			;;
 			while true
 				var ploc = p.tok.loc
+				
 				(sclass, paramty) = parsedeclspecs(p)
 				match sclass
 				| `Sclassnone:
 				| _:
-					err(ploc, "parameters cannot have a storage class\n")
+					err(ploc, "parameters cannot have a storage class")
 				;;
 				(name, paramty) = parsedecl(p, paramty)
 				match paramty
@@ -977,7 +978,14 @@ const parsedecltail = {p, basety
 				| _:
 					break
 				;;
-				/* XXX ellipsis */
+				
+				match p.tok.kind
+				| `Tellipsis:
+					cfunc.isvararg = true
+					next(p)
+					break
+				| _:
+				;;
 			;;
 			expectcparen(p)
 			basety = `Tyfunc std.mk(cfunc)
