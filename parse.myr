@@ -386,6 +386,8 @@ const parseblock = {p
 
 const startoftype = {p, tok
 	match tok
+	| `Tsigned: -> true
+	| `Tunsigned: -> true
 	| `Tenum: -> true
 	| `Tstruct: -> true
 	| `Tunion: -> true
@@ -665,6 +667,18 @@ const parsedeclspecs = {p
 			next(p)
 		| `Tvolatile:
 			next(p)
+		| `Tunsigned:
+			if bits&(BITSIGNED|BITUNSIGNED) != 0
+				goto baddecl
+			;;
+			bits |= BITUNSIGNED
+			next(p)
+		| `Tsigned:
+			if bits&(BITSIGNED|BITUNSIGNED) != 0
+				goto baddecl
+			;;
+			bits |= BITSIGNED
+			next(p)
 		| `Tident n:
 			match lookuptype(p, n)
 			| `std.Some t:
@@ -741,6 +755,14 @@ const parsedeclspecs = {p
 		-> (sclass, `Tylong)
 	| BITLONGLONG:
 		-> (sclass, `Tyllong)
+	| BITUNSIGNED|BITCHAR:
+		-> (sclass, `Tyuchar)
+	| BITUNSIGNED|BITINT:
+		-> (sclass, `Tyuint)
+	| BITUNSIGNED|BITLONG:
+		-> (sclass, `Tyulong)
+	| BITUNSIGNED|BITLONGLONG:
+		-> (sclass, `Tyullong)
 	| BITVOID:
 		-> (sclass, `Tyvoid)
 	| BITIDENT:

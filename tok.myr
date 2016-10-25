@@ -81,6 +81,8 @@ pkg qc =
 		`Tsysincl byte[:] /* <foo.h> */
 		`Tenddirective /* \n */
 	
+		`Tsigned /* signed */
+		`Tunsigned /* unsigned */
 		`Tauto	/* auto */
 		`Tswitch  /* switch */
 		`Tcase    /* case */
@@ -477,6 +479,8 @@ const number = {ts, base
 
 const kwident = {ts
 	match identstr(ts)
+	| "signed":	-> `Tsigned
+	| "unsigned":	-> `Tunsigned
 	| "auto":	-> `Tauto
 	| "do":	-> `Tdo
 	| "break": 	-> `Tbreak

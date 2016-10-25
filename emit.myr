@@ -281,6 +281,7 @@ const type2class = {t
 	| `Tyenum _: -> "w"
 	| `Tylong: -> "l"
 	| `Tyllong: -> "l"
+	| `Tyullong: -> "l"
 	| `Typtr _: -> "l"
 	| `Tyvoid: -> ""
 	| _:
@@ -491,6 +492,8 @@ const emitload = {ty, val
 		oi("{} =l load {}\n", v, val)
 	| `Typtr _:
 		oi("{} =l load {}\n", v, val)
+	| `Tyullong:
+		oi("{} =l loadl {}\n", v, val)
 	| _:
 		std.fatal("unimplemented load {}\n", ty)
 	;;
@@ -510,6 +513,8 @@ const emitstore = {ty, dst, v
 	| `Tyllong:
 		oi("storel {}, {}\n", v, dst)
 	| `Typtr _:
+		oi("storel {}, {}\n", v, dst)
+	| `Tyullong:
 		oi("storel {}, {}\n", v, dst)
 	| _:
 		std.fatal("unimplemented store {}\n", ty)
@@ -849,6 +854,8 @@ const emitcast = {cast
 			oi("{} =l extsw {}\n", v2, v1)
 		| `Typtr _:
 			oi("{} =l extsw {}\n", v2, v1)
+		| `Tyullong:
+			oi("{} =l extuw {}\n", v2, v1)
 		| _:
 			std.fatal("unhandled cast\n")
 		;;
@@ -877,6 +884,20 @@ const emitcast = {cast
 		| `Typtr _:
 		| _:
 			std.fatal("unhandled cast\n")
+		;;
+		-> v1
+	| `Tyullong:
+		// XXX: is it necessary to downcast to w?
+		match cast.ty
+		| `Tychar:
+		| `Tyshort:
+		| `Tyenum _:
+		| `Tyint:
+		| `Tylong:
+		| `Tyllong:
+		| `Typtr _:
+		| _:
+			std.fatal("unhandled cast {}, {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v1
 	| `Typtr _:
