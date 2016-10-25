@@ -281,7 +281,7 @@ const type2class = {t
 	| `Tyenum _: -> "w"
 	| `Tylong: -> "l"
 	| `Typtr _: -> "l"
-	| `Tyvoid: -> "l"
+	| `Tyvoid: -> ""
 	| _:
 		std.fatal("unhandled type2class type\n")
 	;;
@@ -345,7 +345,7 @@ const emitstmt = {stmt
 	| &(`Sgoto lbl):
 		ot("jmp @L{}\n", lbl)
 	| &(`Sreturn `std.None):
-		ot("ret 0\n")
+		ot("ret\n")
 	| &(`Sreturn `std.Some expr):
 		v = emitexpr(expr)
 		ot("ret {}\n", v)
