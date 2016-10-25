@@ -5,10 +5,12 @@ pkg qc =
 	type ctype = union
 		`Tyvoid
 		`Tylong
+		`Tyllong
 		`Tyint
 		`Tyshort
 		`Tychar
 		`Tyulong
+		`Tyullong
 		`Tyuint
 		`Tyushort
 		`Tyuchar
@@ -84,10 +86,12 @@ const typealign = {ty
 	| `Tyint: -> `std.Some 4
 	| `Tyenum _: -> `std.Some 4
 	| `Tylong: -> `std.Some 8
+	| `Tyllong: -> `std.Some 8
 	| `Tyuchar: -> `std.Some 1
 	| `Tyushort: -> `std.Some 2
 	| `Tyuint: -> `std.Some 4
 	| `Tyulong: -> `std.Some 8
+	| `Tyullong: -> `std.Some 8
 	| `Typtr _: -> `std.Some 8
 	| `Tyarr arr: -> typealign(arr.subty)
 	| `Tystruct &(`std.None): -> `std.None
@@ -104,10 +108,12 @@ const typesize = {ty
 	| `Tyint: -> `std.Some 4
 	| `Tyenum _: -> `std.Some 4
 	| `Tylong: -> `std.Some 8
+	| `Tyllong: -> `std.Some 8
 	| `Tyuchar: -> `std.Some 1
 	| `Tyushort: -> `std.Some 2
 	| `Tyuint: -> `std.Some 4
 	| `Tyulong: -> `std.Some 8
+	| `Tyullong: -> `std.Some 8
 	| `Typtr _: -> `std.Some 8
 	| `Tyarr arr:
 		match typesize(arr.subty)
@@ -128,10 +134,12 @@ const isitype = {t
 	| `Tyenum _: -> true
 	| `Tyint: -> true
 	| `Tylong: -> true
+	| `Tyllong: -> true
 	| `Tyuchar: -> true
 	| `Tyushort: -> true
 	| `Tyuint: -> true
 	| `Tyulong: -> true
+	| `Tyullong: -> true
 	| _: -> false
 	;;
 }
@@ -156,6 +164,7 @@ const sametype = {t1, t2
 	| (`Tyshort,`Tyshort): -> true
 	| (`Tyint, `Tyint): -> true
 	| (`Tylong, `Tylong): -> true
+	| (`Tyllong, `Tyllong): -> true
 	| (`Typtr sub1, `Typtr sub2): -> sametype(sub1#, sub2#)
 	| _:
 	;;

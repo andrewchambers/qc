@@ -81,6 +81,7 @@ pkg qc =
 		`Tsysincl byte[:] /* <foo.h> */
 		`Tenddirective /* \n */
 	
+		`Tauto	/* auto */
 		`Tswitch  /* switch */
 		`Tcase    /* case */
 		`Tdefault /* default */
@@ -92,12 +93,15 @@ pkg qc =
 		`Tgoto    /* goto */
 		`Tbreak   /* break */
 		`Tcontinue   /* continue */
+		`Tvolatile   /* volatile */
+		`Tstatic  /* static */
 		`Tstruct  /* struct */
 		`Tunion   /* union */
 		`Tenum    /* enum */
 		`Textern  /* extern */
 		`Tconst   /* const */
 		`Treturn  /* return */
+		`Tregister /* register */
 		`Tsizeof  /* sizeof */
 		`Ttypedef /* typedef */
 		`Tvoid	/* void */
@@ -473,6 +477,7 @@ const number = {ts, base
 
 const kwident = {ts
 	match identstr(ts)
+	| "auto":	-> `Tauto
 	| "do":	-> `Tdo
 	| "break": 	-> `Tbreak
 	| "const": 	-> `Tconst
@@ -488,8 +493,10 @@ const kwident = {ts
 	| "typedef":	-> `Ttypedef
 	| "union": 	-> `Tunion
 	| "void": 	-> `Tvoid
+	| "volatile": 	-> `Tvolatile
 	| "while": 	-> `Twhile
 	| "return": -> `Treturn
+	| "register": -> `Tregister
 	| "char":	-> `Tchar
 	| "int":	-> `Tint
 	| "switch":	-> `Tswitch

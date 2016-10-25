@@ -280,6 +280,7 @@ const type2class = {t
 	| `Tyint: -> "w"
 	| `Tyenum _: -> "w"
 	| `Tylong: -> "l"
+	| `Tyllong: -> "l"
 	| `Typtr _: -> "l"
 	| `Tyvoid: -> ""
 	| _:
@@ -486,6 +487,8 @@ const emitload = {ty, val
 		oi("{} =w load {}\n", v, val)
 	| `Tylong:
 		oi("{} =l load {}\n", v, val)
+	| `Tyllong:
+		oi("{} =l load {}\n", v, val)
 	| `Typtr _:
 		oi("{} =l load {}\n", v, val)
 	| _:
@@ -503,6 +506,8 @@ const emitstore = {ty, dst, v
 	| `Tyenum _:
 		oi("storew {}, {}\n", v, dst)
 	| `Tylong:
+		oi("storel {}, {}\n", v, dst)
+	| `Tyllong:
 		oi("storel {}, {}\n", v, dst)
 	| `Typtr _:
 		oi("storel {}, {}\n", v, dst)
@@ -780,6 +785,8 @@ const emitcast = {cast
 			oi("{} =w extsb {}\n", v2, v1)
 		| `Tylong:
 			oi("{} =l extsb {}\n", v2, v1)
+		| `Tyllong:
+			oi("{} =l extsb {}\n", v2, v1)
 		| `Typtr _:
 			oi("{} =l extsb {}\n", v2, v1)
 		| _:
@@ -797,6 +804,8 @@ const emitcast = {cast
 		| `Tyint:
 			oi("{} =w extsh {}\n", v2, v1)
 		| `Tylong:
+			oi("{} =l extsh {}\n", v2, v1)
+		| `Tyllong:
 			oi("{} =l extsh {}\n", v2, v1)
 		| `Typtr _:
 			oi("{} =l extsh {}\n", v2, v1)
@@ -816,6 +825,8 @@ const emitcast = {cast
 			-> v1
 		| `Tylong:
 			oi("{} =l extsw {}\n", v2, v1)
+		| `Tyllong:
+			oi("{} =l extsw {}\n", v2, v1)
 		| `Typtr _:
 			oi("{} =l extsw {}\n", v2, v1)
 		| _:
@@ -834,6 +845,8 @@ const emitcast = {cast
 			-> v1
 		| `Tylong:
 			oi("{} =l extsw {}\n", v2, v1)
+		| `Tyllong:
+			oi("{} =l extsw {}\n", v2, v1)
 		| `Typtr _:
 			oi("{} =l extsw {}\n", v2, v1)
 		| _:
@@ -841,6 +854,19 @@ const emitcast = {cast
 		;;
 		-> v2
 	| `Tylong:
+		// XXX: is it necessary to downcast to w?
+		match cast.ty
+		| `Tychar:
+		| `Tyshort:
+		| `Tyenum _:
+		| `Tyint:
+		| `Tylong:
+		| `Typtr _:
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v1
+	| `Tyllong:
 		// XXX: is it necessary to downcast to w?
 		match cast.ty
 		| `Tychar:

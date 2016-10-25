@@ -607,47 +607,153 @@ const parseenumbody = {p, pbody
 	pbody# = `std.Some e
 }
 
+const issclasstok = {kind
+	match kind
+	| `Ttypedef: -> true
+	| `Textern: -> true
+	| `Tregister: -> true
+	| `Tauto: -> true
+	| `Tstatic: -> true
+	| _: -> false
+	;;
+}
 
 const parsedeclspecs = {p
-	var sclass
+    
+	const BITCHAR : int32 = 1<<0
+	const BITSHORT : int32 = 1<<1
+	const BITINT : int32  = 1<<2
+	const BITLONG : int32 = 1<<3
+	const BITLONGLONG : int32 = 1<<4
+	const BITSIGNED : int32 = 1<<5
+	const BITUNSIGNED : int32 = 1<<6
+	const BITFLOAT : int32 = 1<<7
+	const BITDOUBLE : int32 = 1<<8
+	const BITENUM : int32 = 1<<9
+	const BITSTRUCT : int32 = 1<<10
+	const BITVOID : int32 = 1<<11
+	const BITIDENT : int32 = 1<<12
 	
-	sclass = `Sclassnone
+	var bits : int32 = 0
+	var sclass = `Sclassnone
+	var ty = `Tyint
+	var declpos = p.tok.loc
+
 	while true
-		match p.tok.kind
-		| `Ttypedef:
+	    if issclasstok(p.tok.kind)
+	    	match sclass
+	    	| `Sclassnone:
+	    	| _:
+	    		err(p.tok.loc, "multiple storage classes in declaration specifiers\n")
+	    	;;
+	    	
+	    	match p.tok.kind
+			| `Ttypedef: sclass = `Sclasstypedef
+			| `Textern: sclass = `Sclassglobal
+			| `Tregister: sclass = `Sclasslocal
+			| `Tauto: sclass = `Sclasslocal
+			| `Tstatic: sclass = `Sclassstatic
+			| _:
+				std.fatal("unreachable\n")
+			;;
 			next(p)
-			sclass = `Sclasstypedef
+			continue
+	    ;;
+	
+		match p.tok.kind
+		| `Tconst:
+			next(p)
+		| `Tvolatile:
+			next(p)
 		| `Tident n:
 			match lookuptype(p, n)
-			| `std.Some ty:
+			| `std.Some t:
+				ty = t
+				bits |= BITIDENT
 				next(p)
-				-> (sclass, ty)
 			| `std.None:
-				-> (sclass, `Tyint)
+				/* decl name, not type, so we are done */
 			;;
+			break
 		| `Tchar:
+			if bits&BITCHAR != 0
+				goto baddecl
+			;;
+			bits |= BITCHAR
 			next(p)
-			-> (sclass, `Tychar)
 		| `Tint:
+			if bits&BITINT != 0
+				goto baddecl
+			;;
+			bits |= BITINT
 			next(p)
-			-> (sclass, `Tyint)
 		| `Tlong:
+			if bits&BITLONGLONG != 0
+				goto baddecl
+			;;
+			if bits&BITLONG != 0
+				bits &= ~BITLONG
+				bits |= BITLONGLONG
+			else
+				bits |= BITLONG
+			;;
 			next(p)
-			-> (sclass, `Tylong)
 		| `Tvoid:
+			if bits&BITVOID != 0
+				goto baddecl
+			;;
+			bits |= BITVOID
 			next(p)
-			-> (sclass, `Tyvoid)
 		| `Tstruct:
-			-> (sclass, parsetagtype(p))
+			if bits != 0
+				goto baddecl
+			;;
+			ty = parsetagtype(p)
+			bits |= BITSTRUCT
+			break
 		| `Tunion:
-			-> (sclass, parsetagtype(p))
+			if bits != 0
+				goto baddecl
+			;;
+			ty = parsetagtype(p)
+			bits |= BITSTRUCT
+			break
 		| `Tenum:
-			-> (sclass, parsetagtype(p))
+			if bits != 0
+				goto baddecl
+			;;
+			ty = parsetagtype(p)
+			bits |= BITENUM
+			break
 		| _:
-			-> (sclass, `Tyint)
+			break
 		;;
 	;;
-	std.fatal("unreachable\n")
+	
+	match bits
+	| 0:
+		-> (sclass, `Tyint)
+	| BITCHAR:
+		-> (sclass, `Tychar)
+	| BITINT:
+		-> (sclass, `Tyint)
+	| BITLONG:
+		-> (sclass, `Tylong)
+	| BITLONGLONG:
+		-> (sclass, `Tyllong)
+	| BITVOID:
+		-> (sclass, `Tyvoid)
+	| BITIDENT:
+		-> (sclass, ty)
+	| BITSTRUCT:
+		-> (sclass, ty)
+	| BITENUM:
+		-> (sclass, ty)
+	| _:
+	;;
+	
+:baddecl
+	err(declpos, "invalid declaration specifiers\n")
 }
 
 const blobfinalize = {blob
@@ -1218,13 +1324,17 @@ const mkcast = {ty, expr
 		-> expr
 	;;
 	if !compatibletypes(ty, ety)
-		err(exprloc(expr), "invalid cast {} {}")
+		err(exprloc(expr), "invalid cast {} {}", ty, ety)
 	;;
 	-> std.mk(`Ecast [.ty=ty, .expr=expr])
 }
 
 const tyrank = {ty
 	match ty
+	| `Tyllong:
+		-> 4
+	| `Tyullong:
+		-> 4
 	| `Tylong:
 		-> 3
 	| `Tyulong:
@@ -1248,10 +1358,12 @@ const usualconv = {e
 	match exprtype(e)
 	| `Tyenum _:
 	| `Tylong:
+	| `Tyllong:
 	| `Tyint:
 	| `Tychar:
 		-> mkcast(`Tyint, e)
 	| `Tyulong:
+	| `Tyullong:
 	| `Tyuint:
 	| `Tyuchar:
 		-> mkcast(`Tyuint, e)
@@ -1278,6 +1390,13 @@ const arithconv = {l, r
 	
 	result = (l, r)
 	match exprtype(l)
+	| `Tyllong:
+		match exprtype(r)
+		| `Tyullong:
+			result = (mkcast(`Tyullong, l), r)
+		| _:
+			result = (l, mkcast(`Tyllong, r))
+		;;
 	| `Tylong:
 		match exprtype(r)
 		| `Tylong:
@@ -1286,6 +1405,8 @@ const arithconv = {l, r
 		| _:
 			result = (l, mkcast(`Tylong, r))
 		;;
+	| `Tyullong:
+		result = (l, mkcast(`Tyullong, r))
 	| `Tyulong:
 		result = (l, mkcast(`Tyulong, r))
 	| `Tyuint:
@@ -1299,7 +1420,7 @@ const arithconv = {l, r
 			result = (l, mkcast(`Tyint, r))
 		;;
 	| _:
-		std.fatal("unimplemented arithconv")
+		std.fatal("unimplemented arithconv\n")
 	;;
 	
 	if invert
@@ -1317,7 +1438,7 @@ const parseconstexpr = {p
 	| `std.Some c:
 		-> c
 	| `std.None:
-		err(l, "expected a constant value")
+		err(l, "expected a constant value\n")
 	;;
 }
 

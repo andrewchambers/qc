@@ -249,6 +249,7 @@ pkg qc =
 	type sclass = union
 		`Sclasslocal
 		`Sclassglobal
+		`Sclassstatic
 		`Sclasstypedef
 		`Sclassenum
 		`Sclassnone
