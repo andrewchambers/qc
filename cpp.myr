@@ -107,8 +107,8 @@ const cppnext = {pp
 			
 			var remainingnamed = nnamedparams
 			
-			while remainingnamed != 0 || m.variadic
-				std.slpush(&args, [][:])
+			while true
+				var firsttok = true
 				
 				while true
 					tok = cppnextnoexp(pp)
@@ -122,18 +122,25 @@ const cppnext = {pp
 					| `Toparen:
 						lvl += 1
 					| `Tcparen:
+						if lvl == 1 && remainingnamed != 0
+							remainingnamed -= 1
+							firsttok = true
+						;;
 						lvl -= 1
 					| _:
 					;;
 				
 					if lvl == 0
-						remainingnamed -= 1
-						if remainingnamed == 0 && m.variadic
+						if remainingnamed == 0 && firsttok && m.variadic
 							std.slpush(&args, [][:])
 						;;
 						goto gotparams
 					;;
 					
+					if firsttok
+						std.slpush(&args, [][:])
+					;;
+					firsttok = false
 					std.slpush(&args[args.len-1], tok)
 				;;
 				
@@ -141,9 +148,8 @@ const cppnext = {pp
 			;;
 			
 			:gotparams
-			
 			if args.len != m.params.len
-				err(mtok.loc, "got {} macro param(s) but expected {}", args.len, m.params.len)
+				err(mtok.loc, "expected {} named macro arguments", nnamedparams)
 			;;
 			
 			expanded = subst(m.toks, m.params, args, hsintersect(mtok.hs, tok.hs))
