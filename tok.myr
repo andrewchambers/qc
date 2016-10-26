@@ -468,9 +468,18 @@ const number = {ts, base
 		*/
 	else
 		issigned = true
-		if peekc(ts) == 'u'
-			takec(ts)
-			issigned = false
+		while true
+			match peekc(ts)
+			| 'u':
+				takec(ts)
+				issigned = false
+			| 'l':
+				takec(ts)
+			| 'L':
+				takec(ts)
+			| _:
+				break
+			;;
 		;;
 		v = std.get(std.intparsebase(buf[:nbuf], base))
 		-> `Tintlit v
