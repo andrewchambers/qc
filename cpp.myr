@@ -767,8 +767,9 @@ const validmacroparam = {s
 }
 
 const dirdefine = {pp
-	var toks, tok, name
+	var loc, toks, tok, name
 	var isfuncmacro, mparams
+	var mparamset
 	var variadic
 
 	isfuncmacro = false
@@ -776,7 +777,9 @@ const dirdefine = {pp
 	mparams = [][:]	
 	toks = [][:]
 	
+	
 	tok = cppnextnoexp(pp)
+	loc = tok.loc
 	match tok.kind
 	| `Tenddirective:
 		err(tok.loc, "define expects something to define\n")
@@ -839,6 +842,15 @@ const dirdefine = {pp
 	;;
 	
 	if isfuncmacro
+		mparamset = std.mkht(std.strhash, std.streq)
+		for param in mparams
+			if std.hthas(mparamset, param)
+				err(loc, "macro argument {} appears multiple times", param)
+			;;
+			std.htput(mparamset, param, void)
+		;;
+		std.htfree(mparamset)
+		
 		std.htput(pp.macros, name, `Mfunc std.mk([.params=mparams, .toks=toks, .variadic=variadic]))
 	else
 		std.htput(pp.macros, name, `Mobj std.mk([.toks=toks]))
