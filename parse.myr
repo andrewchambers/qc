@@ -395,8 +395,6 @@ const startoftype = {p, tok
 	// | `Tshort: -> true
 	| `Tint: -> true
 	| `Tlong: -> true
-	// | `Tyunsigned: -> true
-	// | `Tysigned: -> true
 	| `Tvoid: -> true
 	| `Tident n:
 		match lookuptype(p, n)
