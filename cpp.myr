@@ -25,6 +25,7 @@ pkg qc =
 	type funcmacro = struct
 		params : byte[:][:]
 		toks : tok[:]
+		variadic : bool
 	;;
 	
 	type macro = union
@@ -96,39 +97,55 @@ const cppnext = {pp
 		tok = cppnextnoexp(pp)
 		match tok.kind
 		| `Toparen:
-			var args = [][:]
-			tok = cppnextnoexp(pp)
-			match tok.kind
-			| `Tcparen:
-				goto gotargs
-			| _:
-				std.slpush(&args, [][:])
-			;;
 			var lvl = 1
-			while true
-				match tok.kind
-				| `Tcomma:
-					if lvl == 1
-						std.slpush(&args, [][:])
-						tok = cppnextnoexp(pp)
-						continue
+			var args = [][:]
+			var nnamedparams = m.params.len
+
+			if m.variadic
+				nnamedparams -= 1
+			;;
+			
+			var remainingnamed = nnamedparams
+			
+			while remainingnamed != 0 || m.variadic
+				std.slpush(&args, [][:])
+				
+				while true
+					tok = cppnextnoexp(pp)
+					
+					match tok.kind
+					| `Tcomma:
+						if lvl == 1 && remainingnamed != 0
+							remainingnamed -= 1
+							goto nextparam
+						;;
+					| `Toparen:
+						lvl += 1
+					| `Tcparen:
+						lvl -= 1
+					| _:
 					;;
-				| `Toparen:
-					lvl += 1
-				| `Tcparen:
-					lvl -= 1
-				| _:
+				
+					if lvl == 0
+						remainingnamed -= 1
+						if remainingnamed == 0 && m.variadic
+							std.slpush(&args, [][:])
+						;;
+						goto gotparams
+					;;
+					
+					std.slpush(&args[args.len-1], tok)
 				;;
-				if lvl == 0
-					break
-				;;
-				std.slpush(&args[args.len-1], tok)
-				tok = cppnextnoexp(pp)
+				
+				:nextparam
 			;;
-			:gotargs
-			if m.params.len != args.len
-				err(mtok.loc, "incorrect number of macro arguments\n")
+			
+			:gotparams
+			
+			if args.len != m.params.len
+				err(mtok.loc, "got {} macro param(s) but expected {}", args.len, m.params.len)
 			;;
+			
 			expanded = subst(m.toks, m.params, args, hsintersect(mtok.hs, tok.hs))
 			for var i = expanded.len - 1; i >= 0 ; i--
 				std.slpush(&pp.expanded, expanded[i])
@@ -746,8 +763,10 @@ const validmacroparam = {s
 const dirdefine = {pp
 	var toks, tok, name
 	var isfuncmacro, mparams
+	var variadic
 
 	isfuncmacro = false
+	variadic = false
 	mparams = [][:]	
 	toks = [][:]
 	
@@ -774,6 +793,14 @@ const dirdefine = {pp
 		| _:
 		;;
 		while true
+			match tok.kind
+			| `Tellipsis:
+				variadic = true
+				std.slpush(&mparams, "__VA_ARGS__")
+				tok = cppnextnoexp(pp)
+				break
+			| _:
+			;;
 			if !validmacroparam(tok.text)
 				break
 			;;
@@ -806,7 +833,7 @@ const dirdefine = {pp
 	;;
 	
 	if isfuncmacro
-		std.htput(pp.macros, name, `Mfunc std.mk([.params=mparams, .toks=toks]))
+		std.htput(pp.macros, name, `Mfunc std.mk([.params=mparams, .toks=toks, .variadic=variadic]))
 	else
 		std.htput(pp.macros, name, `Mobj std.mk([.toks=toks]))
 	;;
