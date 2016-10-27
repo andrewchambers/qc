@@ -97,7 +97,7 @@ const typealign = {ty
 	| `Tystruct &(`std.None): -> `std.None
 	| `Tystruct &(`std.Some s): -> `std.Some s.align
 	| _:
-		std.fatal("unimplemented typesize\n")
+		std.fatal("unimplemented typealign\n")
 	;;
 }
 
