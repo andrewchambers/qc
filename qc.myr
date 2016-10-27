@@ -5,10 +5,14 @@ use "cpp"
 use "parse"
 use "emit"
 
+const builtins = \
+"#define __extension__\n#define __attribute__(X)\n"
+
 const defineprelude = {defs
 	var sb
 	
 	sb = std.mksb()
+	
 	for def in defs
 		match std.strfind(def, "=")
 		| `std.Some idx:
@@ -58,5 +62,6 @@ const main = {args
 	pp = qc.mkcpp(incpath, sysincpaths)
 	qc.cpppushts(pp, ts)
 	qc.cpppushts(pp, defineprelude(defs))
+	qc.cpppushts(pp, qc.tokinits(builtins, "<builtins>"))
 	qc.emit(qc.parse(pp))
 }
