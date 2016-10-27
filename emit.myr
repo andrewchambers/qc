@@ -277,6 +277,7 @@ const emitfunc = {f
 const type2class = {t
 	match t
 	| `Tychar: -> "w"
+	| `Tyshort: -> "w"
 	| `Tyint: -> "w"
 	| `Tyenum _: -> "w"
 	| `Tylong: -> "l"
@@ -482,6 +483,8 @@ const emitload = {ty, val
 	match ty
 	| `Tychar:
 		oi("{} =w loadsb {}\n", v, val)
+	| `Tyshort:
+		oi("{} =w loadsh {}\n", v, val)
 	| `Tyint:
 		oi("{} =w load {}\n", v, val)
  	| `Tyenum _:
@@ -504,6 +507,8 @@ const emitstore = {ty, dst, v
 	match ty
 	| `Tychar:
 		oi("storeb {}, {}\n", v, dst)
+	| `Tyshort:
+		oi("storeh {}, {}\n", v, dst)
 	| `Tyint:
 		oi("storew {}, {}\n", v, dst)
 	| `Tyenum _:

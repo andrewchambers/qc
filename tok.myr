@@ -81,9 +81,9 @@ pkg qc =
 		`Tsysincl byte[:] /* <foo.h> */
 		`Tenddirective /* \n */
 	
-		`Tsigned /* signed */
+		`Tsigned   /* signed */
 		`Tunsigned /* unsigned */
-		`Tauto	/* auto */
+		`Tauto    /* auto */
 		`Tswitch  /* switch */
 		`Tcase    /* case */
 		`Tdefault /* default */
@@ -108,6 +108,7 @@ pkg qc =
 		`Ttypedef /* typedef */
 		`Tvoid	/* void */
 		`Tchar	/* char */
+		`Tshort	/* short */
 		`Tint	/* int */
 		`Tlong	/* long */
 	
@@ -511,6 +512,7 @@ const kwident = {ts
 	| "return": -> `Treturn
 	| "register": -> `Tregister
 	| "char":	-> `Tchar
+	| "short":	-> `Tshort
 	| "int":	-> `Tint
 	| "switch":	-> `Tswitch
 	| "case":	-> `Tcase

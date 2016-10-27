@@ -392,7 +392,7 @@ const startoftype = {p, tok
 	| `Tstruct: -> true
 	| `Tunion: -> true
 	| `Tchar: -> true
-	// | `Tshort: -> true
+	| `Tshort: -> true
 	| `Tint: -> true
 	| `Tlong: -> true
 	| `Tvoid: -> true
@@ -692,6 +692,12 @@ const parsedeclspecs = {p
 			;;
 			bits |= BITCHAR
 			next(p)
+		| `Tshort:
+			if bits&BITSHORT != 0
+				goto baddecl
+			;;
+			bits |= BITSHORT
+			next(p)
 		| `Tint:
 			if bits&BITINT != 0
 				goto baddecl
@@ -746,14 +752,28 @@ const parsedeclspecs = {p
 		-> (sclass, `Tyint)
 	| BITCHAR:
 		-> (sclass, `Tychar)
+	| BITSHORT:
+		-> (sclass, `Tyshort)
 	| BITINT:
 		-> (sclass, `Tyint)
 	| BITLONG:
 		-> (sclass, `Tylong)
 	| BITLONGLONG:
 		-> (sclass, `Tyllong)
+	| BITSIGNED|BITCHAR:
+		-> (sclass, `Tychar)
+	| BITSIGNED|BITSHORT:
+		-> (sclass, `Tyshort)
+	| BITSIGNED|BITINT:
+		-> (sclass, `Tyint)
+	| BITSIGNED|BITLONG:
+		-> (sclass, `Tylong)
+	| BITSIGNED|BITLONGLONG:
+		-> (sclass, `Tyllong)
 	| BITUNSIGNED|BITCHAR:
 		-> (sclass, `Tyuchar)
+	| BITUNSIGNED|BITSHORT:
+		-> (sclass, `Tyushort)
 	| BITUNSIGNED|BITINT:
 		-> (sclass, `Tyuint)
 	| BITUNSIGNED|BITLONG:
@@ -1358,24 +1378,17 @@ const mkcast = {ty, expr
 
 const tyrank = {ty
 	match ty
-	| `Tyllong:
-		-> 4
-	| `Tyullong:
-		-> 4
-	| `Tylong:
-		-> 3
-	| `Tyulong:
-		-> 3
-	| `Tyenum _:
-		-> 2
-	| `Tyint:
-		-> 2
-	| `Tyuint:
-		-> 2
-	| `Tychar:
-		-> 1
-	| `Tyuchar:
-		-> 1
+	| `Tyllong:  -> 4
+	| `Tyullong: -> 4
+	| `Tylong:   -> 3
+	| `Tyulong:  -> 3
+	| `Tyenum _: -> 2
+	| `Tyint:    -> 2
+	| `Tyuint:   -> 2
+	| `Tyshort:  -> 1
+	| `Tyushort: -> 1
+	| `Tychar:   -> 0
+	| `Tyuchar:  -> 0
 	| _:
 		std.fatal("tyrank internal error\n")
 	;;
@@ -1387,11 +1400,15 @@ const usualconv = {e
 	| `Tylong:
 	| `Tyllong:
 	| `Tyint:
+	| `Tyshort:
+		-> mkcast(`Tyint, e)
 	| `Tychar:
 		-> mkcast(`Tyint, e)
 	| `Tyulong:
 	| `Tyullong:
 	| `Tyuint:
+	| `Tyushort:
+		-> mkcast(`Tyuint, e)
 	| `Tyuchar:
 		-> mkcast(`Tyuint, e)
 	| _:
