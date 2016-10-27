@@ -938,29 +938,70 @@ const parsedeclinit = {p, basety
 	
 }
 
+type declop = union
+	`Dcl_deref
+	`Dcl_call cfunc#
+	`Dcl_arr uint32
+;;
+
 const parsedecl = {p, basety
+	var name
+	var stk : declop[:]
+	
+	stk = [][:]
+	
+	name = parsedeclstk(p, &stk)
+	
+	while stk.len != 0
+		match std.slpop(&stk)
+		| `Dcl_deref:
+			basety = `Typtr std.mk(basety)
+		| `Dcl_call call:
+			call.rty = basety
+			basety = `Tyfunc call
+		| `Dcl_arr sz:
+			basety = `Tyarr std.mk([.len=sz, .subty=basety])
+		;;
+	;;
+	-> (name, basety)
+}
+
+const parsedeclstk = {p, pstk
+	var name
+	
 	match p.tok.kind
 	| `Tmul:
 		next(p)
-		-> parsedecl(p, `Typtr std.mk(basety))
+		name = parsedeclstk(p, pstk)
+		std.slpush(pstk, `Dcl_deref)
 	| _:
-		-> parsedirectdecl(p, basety)
+		name = parsedirectdecl(p, pstk)
 	;;
+	-> name
 }
 
-const parsedirectdecl = {p, basety
+const parsedirectdecl = {p, pstk
+	var name
+	
 	match p.tok.kind
-	| `Tident name:
+	| `Toparen:
 		next(p)
-		-> (`std.Some name, parsedecltail(p, basety))
+		name = parsedeclstk(p, pstk)
+		expectcparen(p)
+	| `Tident ident:
+		next(p)
+		name = `std.Some ident
 	| _:
-		-> (`std.None, parsedecltail(p, basety))
+		name = `std.None
 	;;
+	parsedecltail(p, pstk)
+	-> name
 }
 
-const parsedecltail = {p, basety
+const parsedecltail = {p, pstk
 	var arrlen
-	var cfunc, paramty, sclass, name
+	var paramty, sclass, name
+	var cfunc : cfunc
 	
 	while true
 		match p.tok.kind
@@ -979,17 +1020,14 @@ const parsedecltail = {p, basety
 				err(exprloc, "array length cannot be derived from a pointer\n")
 			;;
 			expectcsqbrac(p)
-			basety = `Tyarr std.mk([.len=arrlen, .subty=basety])
+			std.slpush(pstk, `Dcl_arr arrlen)
 		| `Toparen:
 			next(p)
 			cfunc.isvararg = false
 			cfunc.params = [][:]
-			cfunc.rty = basety
 			match p.tok.kind
 			| `Tcparen:
-				basety = `Tyfunc std.mk(cfunc)
-				next(p)
-				continue
+				goto doneparams
 			| _:
 			;;
 			while true
@@ -1023,13 +1061,14 @@ const parsedecltail = {p, basety
 				| _:
 				;;
 			;;
+			:doneparams
+			
 			expectcparen(p)
-			basety = `Tyfunc std.mk(cfunc)
+			std.slpush(pstk, `Dcl_call std.mk(cfunc))
 		| _:
 			break
 		;;
 	;;
-	-> basety
 }
 
 const parsedeclaration = {p
