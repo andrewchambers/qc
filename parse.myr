@@ -715,6 +715,18 @@ const parsedeclspecs = {p
 				bits |= BITLONG
 			;;
 			next(p)
+		| `Tfloat:
+			if bits&BITFLOAT != 0
+				goto baddecl
+			;;
+			bits |= BITFLOAT
+			next(p)
+		| `Tdouble:
+			if bits&BITDOUBLE != 0
+				goto baddecl
+			;;
+			bits |= BITDOUBLE
+			next(p)
 		| `Tvoid:
 			if bits&BITVOID != 0
 				goto baddecl
@@ -780,6 +792,13 @@ const parsedeclspecs = {p
 		-> (sclass, `Tyulong)
 	| BITUNSIGNED|BITLONGLONG:
 		-> (sclass, `Tyullong)
+	// XXX Float and double are bogus until we have a float parser...
+	| BITFLOAT:
+		-> (sclass, `Tyllong)
+	| BITDOUBLE:
+		-> (sclass, `Tyllong)
+	| BITLONG|BITDOUBLE:
+		-> (sclass, `Tyllong)
 	| BITVOID:
 		-> (sclass, `Tyvoid)
 	| BITIDENT:

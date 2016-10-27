@@ -111,6 +111,8 @@ pkg qc =
 		`Tshort	/* short */
 		`Tint	/* int */
 		`Tlong	/* long */
+		`Tfloat	/* floud */
+		`Tdouble	/* double */
 	
 		`Tintlit int64
 		`Tstrlit byte[:]
@@ -514,10 +516,12 @@ const kwident = {ts
 	| "char":	-> `Tchar
 	| "short":	-> `Tshort
 	| "int":	-> `Tint
+	| "long":	-> `Tlong
+	| "float":	-> `Tfloat
+	| "double":	-> `Tdouble
 	| "switch":	-> `Tswitch
 	| "case":	-> `Tcase
 	| "default":	-> `Tdefault
-	| "long":	-> `Tlong
 	| ident:	-> `Tident ident
 	;;
 }
