@@ -292,6 +292,7 @@ const type2class = {t
 
 const emitcall = {call
 	var result, args, v
+	var fptr, funcstr
 
 	result = newreg()
 	args = [][:]
@@ -301,18 +302,22 @@ const emitcall = {call
 	;;
 	match call.func
 	| &(`Eident &([.name=name, .sc=`Sclassglobal])):
-		oi("{} =l call ${}(", result, name)
-		for var i = 0; i < args.len; i++
-			var arg = args[i]
-			o("{} {}", type2class(exprtype(call.args[i])), arg)
-			if i != args.len-1
-				o(",")
-			;;
-		;;
-		o(")\n")
+		funcstr = std.fmt("${}", name)
 	| _:
-		std.fatal("function pointers are unimplemented\n")
+		fptr = emitexpr(call.func)
+		funcstr = std.fmt("{}", fptr)
 	;;
+	
+	oi("{} =l call {}(", result, funcstr)
+	for var i = 0; i < args.len; i++
+		var arg = args[i]
+		o("{} {}", type2class(exprtype(call.args[i])), arg)
+		if i != args.len-1
+			o(",")
+		;;
+	;;
+	o(")\n")
+	
 	-> result
 }
 
@@ -472,6 +477,8 @@ const emitload = {ty, val
 	var v
 	
 	match ty
+	| `Tyfunc _:
+		-> val
 	| `Tyarr _:
 		-> val
 	| `Tystruct _:
@@ -929,6 +936,13 @@ const emitcast = {cast
 		| `Tylong:
 		| `Typtr _:
 		| `Tyarr _:
+		| _:
+			std.fatal("unhandled cast\n")
+		;;
+		-> v1
+	| `Tyfunc _:
+		match cast.ty
+		| `Typtr _:
 		| _:
 			std.fatal("unhandled cast\n")
 		;;

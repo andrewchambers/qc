@@ -1906,6 +1906,8 @@ const parsepostexpr = {p
 			next(p)
 			funclike = expr
 			match exprtype(funclike)
+			| `Typtr &(`Tyfunc fty):
+				functy = fty
 			| `Tyfunc fty:
 				functy = fty
 			| _:
