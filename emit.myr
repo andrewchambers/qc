@@ -300,6 +300,7 @@ const emitcall = {call
 		v = emitexpr(arg)
 		std.slpush(&args, v)
 	;;
+	
 	match call.func
 	| &(`Eident &([.name=name, .sc=`Sclassglobal])):
 		funcstr = std.fmt("${}", name)
