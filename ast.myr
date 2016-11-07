@@ -252,7 +252,6 @@ pkg qc =
 		`Sclassstatic
 		`Sclasstypedef
 		`Sclassenum
-		`Sclassnone
 	;;
 	
 	type sym = struct

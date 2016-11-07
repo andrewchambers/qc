@@ -541,6 +541,7 @@ const parsestructbody = {p, pbody, isunion
 	var sc, basety
 	var namety
 	var s
+	var declspecloc
 	
 	s = std.mk([
 		.isunion = isunion,
@@ -557,7 +558,13 @@ const parsestructbody = {p, pbody, isunion
 			break
 		| _:
 		;;
+		declspecloc = p.tok.loc
 		(sc, basety) = parsedeclspecs(p);
+		match sc
+		| `std.None:
+		| `std.Some _:
+			err(declspecloc, "struct members cannot specify a storage class")
+		;;
 		while true
 			namety = parsedecl(p, basety);
 			addtostruct(s, namety)
@@ -652,24 +659,24 @@ const parsedeclspecs = {p
 	const BITIDENT : int32 = 1<<12
 	
 	var bits : int32 = 0
-	var sclass = `Sclassnone
+	var sclass : std.option(sclass) = `std.None
 	var ty = `Tyint
 	var declpos = p.tok.loc
 
 	while true
 	    if issclasstok(p.tok.kind)
 	    	match sclass
-	    	| `Sclassnone:
-	    	| _:
+	    	| `std.None:
+	    	| `std.Some _:
 	    		err(p.tok.loc, "multiple storage classes in declaration specifiers\n")
 	    	;;
 	    	
 	    	match p.tok.kind
-			| `Ttypedef: sclass = `Sclasstypedef
-			| `Textern: sclass = `Sclassglobal
-			| `Tregister: sclass = `Sclasslocal
-			| `Tauto: sclass = `Sclasslocal
-			| `Tstatic: sclass = `Sclassstatic
+			| `Ttypedef: sclass = `std.Some `Sclasstypedef
+			| `Textern: sclass = `std.Some `Sclassglobal
+			| `Tregister: sclass = `std.Some `Sclasslocal
+			| `Tauto: sclass = `std.Some `Sclasslocal
+			| `Tstatic: sclass = `std.Some `Sclassstatic
 			| _:
 				std.fatal("unreachable\n")
 			;;
@@ -1151,8 +1158,8 @@ const parsedecltail = {p, pstk
 				
 				(sclass, paramty) = parsedeclspecs(p)
 				match sclass
-				| `Sclassnone:
-				| _:
+				| `std.None:
+				| `std.Some _:
 					err(ploc, "parameters cannot have a storage class")
 				;;
 				(name, paramty) = parsedecl(p, paramty)
@@ -1188,28 +1195,28 @@ const parsedecltail = {p, pstk
 }
 
 const parsedeclaration = {p
-	var sclass, name, basety, ty, sym
+	var maybesclass, sclass, name, basety, ty, sym
 	var decls, loc, paramsym, init
 	
 	decls.syms = [][:]
-	(sclass, basety) = parsedeclspecs(p)
+	(maybesclass, basety) = parsedeclspecs(p)
+	
+	match maybesclass
+	| `std.None:
+		sclass = `Sclasslocal
+		if inglobalscope(p)
+			sclass = `Sclassglobal
+		;;
+	| `std.Some sc:
+		sclass = sc
+	;;
+	
 	while true
 		loc = p.tok.loc
 		(name, ty, init) = parsedeclinit(p, basety)
 		match name
 		| `std.Some n:
 			match sclass
-			| `Sclassnone:
-				if inglobalscope(p)
-					sclass = `Sclassglobal
-				else
-					sclass = `Sclasslocal
-				;;
-			| _:
-			;;
-			match sclass
-			| `Sclassnone:
-				std.fatal("internal error\n")
 			| `Sclassglobal:
 				sym = mkglobal(p, n, ty)
 				declare(p, loc, n, sym)
