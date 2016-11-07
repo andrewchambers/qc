@@ -6,7 +6,8 @@ use "parse"
 use "emit"
 
 const builtins = \
-"#define __extension__\n#define __attribute__(X)\n"
+"#define __extension__\n" \
+"#define __attribute__(X)\n"
 
 const defineprelude = {defs
 	var sb

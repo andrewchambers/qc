@@ -91,10 +91,9 @@ const popscope = {p
 
 const declaretag = {p, name, tag
 	if std.hthas(p.tagtab[p.tagtab.len-1], name)
-		-> false
+		std.fatal("internal error")
 	;;
 	std.htput(p.tagtab[p.tagtab.len-1], name, tag)
-	-> true
 }
 
 const lookuptag = {p, name
@@ -119,20 +118,38 @@ const lookuptype = {p, name
 	-> `std.None
 }
 
-const declare = {p, name, sym
+const declare = {p, loc, name, sym
+	var oldsym
+	
 	if std.hthas(p.symtab[p.symtab.len-1], name)
-		-> false
+		oldsym = std.get(std.htget(p.symtab[p.symtab.len-1], name))
+		redeclare(p, loc, oldsym, sym)
+		-> void
 	;;
 	std.htput(p.symtab[p.symtab.len-1], name, sym)
-	-> true
 }
 
-const declaretype = {p, name, ty
+const redeclare = {p, loc, oldsym, newsym
+	
+	match (oldsym.sc, newsym.sc)
+	| (`Sclasslocal, `Sclasslocal):
+	| (`Sclassglobal, `Sclassglobal):
+	| (`Sclassstatic, `Sclassstatic):
+	| (`Sclassenum, `Sclassenum):
+	| _:
+		 err(loc, "invalid redeclaration of symbol {} (storage classes differ)", oldsym.name)
+	;;
+	
+	if !sametype(oldsym.ty, newsym.ty)
+		 err(loc, "invalid redeclaration of symbol {} (types differ)", oldsym.name)
+	;;
+}
+
+const declaretype = {p, loc, name, ty
 	if std.hthas(p.typetab[p.typetab.len-1], name)
-		-> false
+		err(loc, "redeclaration of type {}", name)
 	;;
 	std.htput(p.typetab[p.typetab.len-1], name, ty)
-	-> true
 }
 
 const lookup = {p, name
@@ -477,17 +494,13 @@ const parsetagtype = {p
 			if tag == tagstruct || tag == tagunion
 				var pbody = std.mk(`std.None)
 				ty = `Tystruct pbody
-				if !declaretag(p, name, (tag, ty))
-					std.fatal("internal error\n")
-				;;
+				declaretag(p, name, (tag, ty))
 				parsestructbody(p, pbody, tag == tagunion)
 				-> ty
 			else
 				var pbody = std.mk(`std.None)
 				ty = `Tyenum pbody
-				if !declaretag(p, name, (tag, ty))
-					std.fatal("internal error\n")
-				;;
+				declaretag(p, name, (tag, ty))
 				parseenumbody(p, pbody)
 				-> ty
 			;;
@@ -511,9 +524,7 @@ const parsetagtype = {p
 			else
 				ty = `Tyenum std.mk(`std.None)
 			;;
-			if !declaretag(p, name, (tag, ty))
-				std.fatal("internal error\n")
-			;;
+			declaretag(p, name, (tag, ty))
 			-> ty
 		| `std.Some (oldtag, oldty):
 			if oldtag != tag
@@ -530,6 +541,7 @@ const parsestructbody = {p, pbody, isunion
 	var sc, basety
 	var namety
 	var s
+	var declspecloc
 	
 	s = std.mk([
 		.isunion = isunion,
@@ -546,7 +558,13 @@ const parsestructbody = {p, pbody, isunion
 			break
 		| _:
 		;;
+		declspecloc = p.tok.loc
 		(sc, basety) = parsedeclspecs(p);
+		match sc
+		| `std.None:
+		| `std.Some _:
+			err(declspecloc, "struct members cannot specify a storage class")
+		;;
 		while true
 			namety = parsedecl(p, basety);
 			addtostruct(s, namety)
@@ -585,9 +603,7 @@ const parseenumbody = {p, pbody
 		| `Tident name:
 			l = p.tok.loc
 			next(p)
-			if !declare(p, name, mkenumsym(p, name, `Tyenum pbody))
-				err(l, "redefinition of {}", name)
-			;;
+			declare(p, l, name, mkenumsym(p, name, `Tyenum pbody))
 			match p.tok.kind
 			| `Tasn:
 				next(p)
@@ -643,24 +659,24 @@ const parsedeclspecs = {p
 	const BITIDENT : int32 = 1<<12
 	
 	var bits : int32 = 0
-	var sclass = `Sclassnone
+	var sclass : std.option(sclass) = `std.None
 	var ty = `Tyint
 	var declpos = p.tok.loc
 
 	while true
 	    if issclasstok(p.tok.kind)
 	    	match sclass
-	    	| `Sclassnone:
-	    	| _:
+	    	| `std.None:
+	    	| `std.Some _:
 	    		err(p.tok.loc, "multiple storage classes in declaration specifiers\n")
 	    	;;
 	    	
 	    	match p.tok.kind
-			| `Ttypedef: sclass = `Sclasstypedef
-			| `Textern: sclass = `Sclassglobal
-			| `Tregister: sclass = `Sclasslocal
-			| `Tauto: sclass = `Sclasslocal
-			| `Tstatic: sclass = `Sclassstatic
+			| `Ttypedef: sclass = `std.Some `Sclasstypedef
+			| `Textern: sclass = `std.Some `Sclassglobal
+			| `Tregister: sclass = `std.Some `Sclasslocal
+			| `Tauto: sclass = `std.Some `Sclasslocal
+			| `Tstatic: sclass = `std.Some `Sclassstatic
 			| _:
 				std.fatal("unreachable\n")
 			;;
@@ -1142,8 +1158,8 @@ const parsedecltail = {p, pstk
 				
 				(sclass, paramty) = parsedeclspecs(p)
 				match sclass
-				| `Sclassnone:
-				| _:
+				| `std.None:
+				| `std.Some _:
 					err(ploc, "parameters cannot have a storage class")
 				;;
 				(name, paramty) = parsedecl(p, paramty)
@@ -1179,46 +1195,40 @@ const parsedecltail = {p, pstk
 }
 
 const parsedeclaration = {p
-	var sclass, name, basety, ty, sym
+	var maybesclass, sclass, name, basety, ty, sym
 	var decls, loc, paramsym, init
 	
 	decls.syms = [][:]
-	(sclass, basety) = parsedeclspecs(p)
+	(maybesclass, basety) = parsedeclspecs(p)
+	
+	match maybesclass
+	| `std.None:
+		sclass = `Sclasslocal
+		if inglobalscope(p)
+			sclass = `Sclassglobal
+		;;
+	| `std.Some sc:
+		sclass = sc
+	;;
+	
 	while true
 		loc = p.tok.loc
 		(name, ty, init) = parsedeclinit(p, basety)
 		match name
 		| `std.Some n:
 			match sclass
-			| `Sclassnone:
-				if inglobalscope(p)
-					sclass = `Sclassglobal
-				else
-					sclass = `Sclasslocal
-				;;
-			| _:
-			;;
-			match sclass
-			| `Sclassnone:
-				std.fatal("internal error\n")
 			| `Sclassglobal:
 				sym = mkglobal(p, n, ty)
-				if !declare(p, n, sym)
-					err(loc, "redefinition of {}\n", n)
-				;;
+				declare(p, loc, n, sym)
 			| `Sclasslocal:
 				if inglobalscope(p)
 					err(loc, "cannot declare a local outside of a function")
 				;;
 				sym = mklocal(p, n, ty)
-				if !declare(p, n, sym)
-					err(loc, "redefinition of {}\n", n)
-				;;
+				declare(p, loc, n, sym)
 			| `Sclasstypedef:
 				sym = std.mk([.name=n, .ty=ty, .sc=`Sclasstypedef])
-				if !declaretype(p, n, ty)
-					err(loc, "redefinition of type {}\n", n)
-				;;
+				declaretype(p, loc, n, ty)
 			| _:
 				std.fatal("unimplemented sclass\n")
 			;;
@@ -1260,9 +1270,7 @@ const parsedeclaration = {p
 				match pname
 				| `std.Some n:
 					paramsym = mklocal(p, n, pty)
-					if !declare(p, n, paramsym)
-						err(loc, "duplicate param name {}\n", n)
-					;;
+					declare(p, loc, n, paramsym)
 					std.slpush(&p.curfunc.params, paramsym)
 				| `std.None:
 				;;
