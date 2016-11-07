@@ -51,7 +51,7 @@ pkg qc =
 	;;
 
 	type carr = struct
-		len : uint32
+		len : std.option(uint32)
 		subty : ctype
 	;;
 
@@ -119,7 +119,11 @@ const typesize = {ty
 	| `Tyarr arr:
 		match typesize(arr.subty)
 		| `std.None: -> `std.None
-		| `std.Some subtysz: -> `std.Some (arr.len * subtysz)
+		| `std.Some subtysz:
+			match arr.len
+			| `std.Some len: -> `std.Some (len * subtysz)
+			| `std.None: -> `std.None
+			;;
 		;;
 	| `Tystruct &(`std.None): -> `std.None
 	| `Tystruct &(`std.Some s): -> `std.Some s.size

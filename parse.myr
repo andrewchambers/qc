@@ -260,6 +260,15 @@ const expectsemi = {p
 	;;
 }
 
+const expectassign = {p
+	match p.tok.kind
+	| `Tasn:
+		next(p)
+	| _:
+		err(p.tok.loc, "expected '='\n")
+	;;
+}
+
 const parseif = {p
 	var cond, iftrue, iffalse
 	
@@ -922,12 +931,109 @@ const parsestructinit = {p, s
 	-> std.mk(blob)
 }
 
+
+const parsearrayinit = {p, arr
+	var loc, subinit, blob
+	var index, maxindex, entsize, offset
+	
+	
+	blob = [
+		.vals = [][:]
+	]
+	
+	loc = p.tok.loc
+	index = 0
+	offset = 0
+	maxindex = 0
+	
+	match typesize(arr.subty)
+	| `std.Some sz:
+		entsize = sz
+	| `std.None:
+		err(loc, "cannot intiialize array of an incomplete type\n")
+	;;
+	
+	expectobrace(p)
+	while true
+		match p.tok.kind
+		| `Tcbrace:
+			break
+		| _:
+		;;
+		
+		match p.tok.kind
+		| `Tosqbrac:
+			next(p)
+			var exprloc = p.tok.loc
+			match parseconstexpr(p)
+			| `Constint v:
+				index = (v : uint32)
+				offset = entsize * index
+				if index > maxindex
+					maxindex = index
+				;;
+			| `Constptr _:
+				err(exprloc, "array offset cannot be derived from a pointer\n")
+			;;
+			expectcsqbrac(p)
+			expectassign(p)
+		| _:
+		;;
+		
+		subinit = parseinit(p, arr.subty)
+		
+		match subinit
+		| `Initexpr subexpr:
+			match foldexpr(subexpr)
+			| `std.None:
+				err(loc, "not a constant value")
+			| `std.Some c:
+				std.slpush(&blob.vals, (offset, arr.subty, c))
+			;;
+		| `Initblob subblob:
+			for (suboffset, subty, c) in subblob.vals
+				std.slpush(&blob.vals, (offset+suboffset, subty, c))
+			;;
+		;;
+		
+		match p.tok.kind
+		| `Tcomma:
+			index += 1
+			offset = entsize * index
+			if index > maxindex
+				maxindex = index
+			;;
+			next(p)
+		| _:
+			break
+		;;
+	;;
+	expectcbrace(p)
+	
+	match arr.len
+	| `std.Some len:
+		if len != maxindex+1
+			err(loc, "incorrect number of array elements (got {}, expected {})\n", maxindex+1, len)
+		;;
+	| `std.None:
+		arr.len = `std.Some maxindex+1
+	;;
+	
+	if !blobfinalize(&blob)
+		err(loc, "initializer has overlapping values\n")
+	;;
+	
+	-> std.mk(blob)
+}
+
 const parseinit = {p, ty
 	match ty
 	| `Tystruct &(`std.None):
 		std.fatal("internal error\n")
 	| `Tystruct &(`std.Some s):
 		-> `Initblob parsestructinit(p, s)
+	| `Tyarr arr:
+		-> `Initblob parsearrayinit(p, arr)
 	| _:
 		-> `Initexpr mkcast(ty, parseassign(p))
 	;;
@@ -950,7 +1056,7 @@ const parsedeclinit = {p, basety
 type declop = union
 	`Dcl_deref
 	`Dcl_call cfunc#
-	`Dcl_arr uint32
+	`Dcl_arr std.option(uint32)
 ;;
 
 const parsedecl = {p, basety
@@ -1018,18 +1124,19 @@ const parsedecltail = {p, pstk
 			next(p)
 			match p.tok.kind
 			| `Tcsqbrac:
-				err(p.tok.loc, "unimplemented inferred arr size")
+				std.slpush(pstk, `Dcl_arr `std.None)
+				expectcsqbrac(p)
 			| _:
+				var exprloc = p.tok.loc
+				match parseconstexpr(p)
+				| `Constint v:
+					arrlen = (v : uint32)
+				| `Constptr _:
+					err(exprloc, "array length cannot be derived from a pointer\n")
+				;;
+				expectcsqbrac(p)
+				std.slpush(pstk, `Dcl_arr `std.Some arrlen)
 			;;
-			var exprloc = p.tok.loc
-			match parseconstexpr(p)
-			| `Constint v:
-				arrlen = (v : uint32)
-			| `Constptr _:
-				err(exprloc, "array length cannot be derived from a pointer\n")
-			;;
-			expectcsqbrac(p)
-			std.slpush(pstk, `Dcl_arr arrlen)
 		| `Toparen:
 			next(p)
 			cfunc.isvararg = false
@@ -1877,7 +1984,7 @@ const parsepostexpr = {p
 			|  `Typtr subty:
 				idxty = subty#
 			| _:
-				err(l, "[] be used on pointers or arrays\n")
+				err(l, "[] can only be used on pointers or arrays\n")
 			;;
 			match typesize(idxty)
 			| `std.None:
