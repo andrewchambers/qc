@@ -18,7 +18,7 @@ do
 		continue
 	fi
 	
-	if ! timeout 2s cc -static $t.s -o $t.bin
+	if ! timeout 2s cc -fno-pie -static $t.s -o $t.bin
 	then
 		echo "!}>> fail assembling failed"
 		continue
