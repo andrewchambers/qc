@@ -11,4 +11,4 @@ bin qc =
 	fold.myr
 ;;
 
-cmd tests {test} = bash test.sh ;;
+cmd tests {test} = bash ./test/test.sh ;;
