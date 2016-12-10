@@ -7,8 +7,8 @@ language, a language by Ori Bernstein that is under heavy development, and also 
 
 # Building
 
-```mbld```
+`mbld`
 
 # Running tests
 
-```mbld test```
+`mbld test`
