@@ -8,9 +8,9 @@ language, a language by Ori Bernstein that is under heavy development, and also 
 # Project Goals
 
 - Give QBE a serious C frontend to use for testing.
-- Make a Myrddin self hosting language, even if it depends on some C code.
+- Make Myrddin self hosting language, even if it depends on some C code.
 - Allow Myrddin programs to embed C code without depending on the system C compiler.
-- Spread awareness of the Myrddin programming language
+- Spread awareness of the Myrddin programming language.
 
 # Status
 
