@@ -302,11 +302,12 @@ const type2class = {t
 	| `Tyenum _: -> "w"
 	| `Tylong: -> "l"
 	| `Tyllong: -> "l"
+	| `Tyulong: -> "l"
 	| `Tyullong: -> "l"
 	| `Typtr _: -> "l"
 	| `Tyvoid: -> ""
 	| _:
-		std.fatal("unhandled type2class type\n")
+		std.fatal("unhandled type2class type: {}\n", t)
 	;;
 }
 
@@ -834,7 +835,7 @@ const emitcast = {cast
 		| `Typtr _:
 			oi("{} =l extsb {}\n", v2, v1)
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v2
 	| `Tyshort:
@@ -854,7 +855,7 @@ const emitcast = {cast
 		| `Typtr _:
 			oi("{} =l extsh {}\n", v2, v1)
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v2
 	| `Tyenum _:
@@ -874,7 +875,7 @@ const emitcast = {cast
 		| `Typtr _:
 			oi("{} =l extsw {}\n", v2, v1)
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v2
 	| `Tyint:
@@ -893,10 +894,12 @@ const emitcast = {cast
 			oi("{} =l extsw {}\n", v2, v1)
 		| `Typtr _:
 			oi("{} =l extsw {}\n", v2, v1)
+		| `Tyulong:
+			oi("{} =l extuw {}\n", v2, v1)
 		| `Tyullong:
 			oi("{} =l extuw {}\n", v2, v1)
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v2
 	| `Tylong:
@@ -909,7 +912,7 @@ const emitcast = {cast
 		| `Tylong:
 		| `Typtr _:
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v1
 	| `Tyllong:
@@ -922,7 +925,7 @@ const emitcast = {cast
 		| `Tylong:
 		| `Typtr _:
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v1
 	| `Tyullong:
@@ -936,7 +939,7 @@ const emitcast = {cast
 		| `Tyllong:
 		| `Typtr _:
 		| _:
-			std.fatal("unhandled cast {}, {}\n", exprtype(cast.expr), cast.ty)
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v1
 	| `Typtr _:
@@ -950,7 +953,7 @@ const emitcast = {cast
 		| `Typtr _:
 		| `Tyarr _:
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v1
 	| `Tyarr _:
@@ -964,18 +967,18 @@ const emitcast = {cast
 		| `Typtr _:
 		| `Tyarr _:
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v1
 	| `Tyfunc _:
 		match cast.ty
 		| `Typtr _:
 		| _:
-			std.fatal("unhandled cast\n")
+			std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 		;;
 		-> v1
 	| _:
-		std.fatal("unhandled cast\n")
+		std.fatal("unhandled cast: {} -> {}\n", exprtype(cast.expr), cast.ty)
 	;;	
 }
 

@@ -681,16 +681,19 @@ const parsedeclspecs = {p
 	var sclass : std.option(sclass) = `std.None
 	var ty = `Tyint
 	var declpos = p.tok.loc
+	var declspectext = [][:]
 
 	while true
-	    if issclasstok(p.tok.kind)
-	    	match sclass
-	    	| `std.None:
-	    	| `std.Some _:
-	    		err(p.tok.loc, "multiple storage classes in declaration specifiers\n")
-	    	;;
-	    	
-	    	match p.tok.kind
+		std.slpush(&declspectext, p.tok.text)
+		
+		if issclasstok(p.tok.kind)
+			match sclass
+			| `std.None:
+			| `std.Some _:
+				err(p.tok.loc, "multiple storage classes in declaration specifiers\n")
+			;;
+
+			match p.tok.kind
 			| `Ttypedef: sclass = `std.Some `Sclasstypedef
 			| `Textern: sclass = `std.Some `Sclassextern
 			| `Tregister: sclass = `std.Some `Sclasslocal
@@ -803,6 +806,8 @@ const parsedeclspecs = {p
 		;;
 	;;
 	
+	std.slpop(&declspectext)
+	
 	match bits
 	| 0:
 		-> (sclass, `Tyint)
@@ -824,12 +829,16 @@ const parsedeclspecs = {p
 		-> (sclass, `Tyint)
 	| BITSIGNED|BITLONG:
 		-> (sclass, `Tylong)
+	| BITINT|BITLONG:
+		-> (sclass, `Tylong)
 	| BITSIGNED|BITLONGLONG:
 		-> (sclass, `Tyllong)
 	| BITUNSIGNED|BITCHAR:
 		-> (sclass, `Tyuchar)
 	| BITUNSIGNED|BITSHORT:
 		-> (sclass, `Tyushort)
+	| BITUNSIGNED:
+		-> (sclass, `Tyuint)
 	| BITUNSIGNED|BITINT:
 		-> (sclass, `Tyuint)
 	| BITUNSIGNED|BITLONG:
@@ -855,7 +864,7 @@ const parsedeclspecs = {p
 	;;
 	
 :baddecl
-	err(declpos, "invalid declaration specifiers\n")
+	err(declpos, "invalid declaration specifiers: {}\n", std.strjoin(declspectext, " "))
 }
 
 const blobfinalize = {blob
