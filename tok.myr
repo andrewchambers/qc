@@ -118,6 +118,7 @@ pkg qc =
 		`Tstrlit byte[:]
 		`Tfltlit flt64
 		`Tchrlit char
+		`Twchrlit char // XXX: wrong
 		
 		`Tellipsis/* ... */
 		`Tsemi   /* ; */
@@ -230,6 +231,8 @@ const tokread = {ts
 		kind = `Tenddirective
 	elif c == '\''
 		kind = chrlit(ts)
+	elif c == 'L' && npeekc(ts, 1) == '\''
+		kind = wchrlit(ts)
 	elif c == '<' && expectsysincl(ts)
 		kind = sysincl(ts)
 	elif c == '"'
@@ -317,6 +320,22 @@ const chrlit = {ts
 		err(ts.loc, "expected closing ' in character literal, got {}\n", close)
 	;;
 	-> `Tchrlit c
+}
+
+const wchrlit = {ts
+	var c, close
+
+	takec(ts)
+	takec(ts)
+	c = takec(ts)
+	if c == '\\'
+		c = unescape(ts)
+	;;
+	close = takec(ts)
+	if close != '\''
+		err(ts.loc, "expected closing ' in character literal, got {}\n", close)
+	;;
+	-> `Twchrlit c
 }
 
 const strlit = {ts

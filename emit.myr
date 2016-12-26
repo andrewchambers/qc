@@ -661,6 +661,8 @@ const emitexpr = {expr
 		-> `Vlit v
 	| &(`Echrlit c):
 		-> `Vlit (c : int64)
+	| &(`Ewchrlit c):
+		-> `Vlit (c : int64)
 	| &(`Eincdec incdec):
 		-> emitincdec(incdec)
 	| &(`Eunop u):

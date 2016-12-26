@@ -33,7 +33,7 @@ pkg qc =
 		`Mfunc funcmacro#
 	;;
 	
-	const mkcpp : (incpath : byte[:] ,sysincpaths : byte[:][:] -> pp#) 
+	const mkcpp : (incpath : byte[:], sysincpaths : byte[:][:] -> pp#) 
 	const cppnext : (pp : pp# -> tok)
 	const cpppushts : (pp : pp#, ts : tokstream# -> void)
 ;;
@@ -475,6 +475,12 @@ const evalprimaryexpr = {expr
 	var v
 	
 	match expr#[0].kind
+	| `Tchrlit c:
+		expr# = expr#[1:]
+		-> (c : int64)
+	| `Twchrlit c:
+		expr# = expr#[1:]
+		-> (c : int64)
 	| `Tintlit n:
 		expr# = expr#[1:]
 		-> n

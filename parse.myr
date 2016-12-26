@@ -2167,6 +2167,9 @@ const parseprimaryexpr = {p
 	| `Tchrlit c:
 		next(p)
 		-> std.mk(`Echrlit c)
+	| `Twchrlit c:
+		next(p)
+		-> std.mk(`Ewchrlit c)
 	| `Tstrlit s:
 		next(p)
 		while true
