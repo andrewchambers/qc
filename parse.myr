@@ -1548,9 +1548,17 @@ const parseexpr = {p
 }
 
 const mkrelop = {op, l, r
-	l = usualconv(l)
-	r = usualconv(r)
-	(l, r) = arithconv(l, r)
+	if isitype(exprtype(l))
+		l = usualconv(l)
+	;;
+	if isitype(exprtype(r))
+		r = usualconv(r)
+	;;
+	
+	if isitype(exprtype(l)) && isitype(exprtype(r))
+		(l, r) = arithconv(l, r)
+	;;
+	
 	-> std.mk(`Erelop [.op=op, .l=l, .r=r])
 }
 
@@ -1567,7 +1575,8 @@ const mkbinop = {op, l, r
 	| (`Oplus , _, `Typtr _):
 		-> std.mk(`Eptrarith [.op=`Opadd, .ptr=r, .amnt=l])
 	| _:
-	;;	
+	;;
+	
 	l = usualconv(l)
 	r = usualconv(r)
 	(l, r) = arithconv(l, r)
