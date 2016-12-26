@@ -767,7 +767,7 @@ const validmacroparam = {s
 }
 
 const dirdefine = {pp
-	var loc, toks, tok, name
+	var loc, toks, tok, name, m
 	var isfuncmacro, mparams
 	var mparamset
 	var variadic
@@ -785,9 +785,6 @@ const dirdefine = {pp
 		err(tok.loc, "define expects something to define\n")
 	| _:
 		name = tok.text
-		if std.hthas(pp.macros, name)
-			err(tok.loc, "redefinition of macro {}\n", name)
-		;;
 	;;
 	
 	tok = peeknoexp(pp)
@@ -851,11 +848,66 @@ const dirdefine = {pp
 		;;
 		std.htfree(mparamset)
 		
-		std.htput(pp.macros, name, `Mfunc std.mk([.params=mparams, .toks=toks, .variadic=variadic]))
+		m = `Mfunc std.mk([.params=mparams, .toks=toks, .variadic=variadic])
 	else
-		std.htput(pp.macros, name, `Mobj std.mk([.toks=toks]))
+		m = `Mobj std.mk([.toks=toks])
 	;;
 	
+	match std.htget(pp.macros, name)
+	| `std.Some oldm:
+		if !identicalmacros(oldm, m)
+			// GCC and friends treat this as a warning, i think we can be stricter.
+			err(loc, "redefinition of macro {}\n", name)
+		;;
+	| `std.None:
+	;;
+	
+	std.htput(pp.macros, name, m)
+	
+}
+
+const identicalmacros = {m1, m2
+	match (m1, m2)
+	| (`Mfunc _, `Mobj _): -> false
+	| (`Mobj _, `Mfunc _): -> false
+	| (`Mfunc f1, `Mfunc f2):
+		
+		if f1.variadic != f2.variadic
+			-> false
+		;;
+		
+		if f1.params.len != f2.params.len
+			-> false
+		;;
+		
+		for (t1, t2) in std.byzip(f1.params, f2.params)
+			if !std.streq(t1, t2)
+				-> false
+			;;
+		;;
+		
+		if f1.toks.len != f2.toks.len
+			-> false
+		;;
+		
+		for ([.text=t1], [.text=t2]) in std.byzip(f1.toks, f2.toks)
+			if !std.streq(t1, t2)
+				-> false
+			;;
+		;;
+		
+	| (`Mobj o1, `Mobj o2):
+		if o1.toks.len != o2.toks.len
+			-> false
+		;;
+		for ([.text=t1], [.text=t2]) in std.byzip(o1.toks, o2.toks)
+			if !std.streq(t1, t2)
+				-> false
+			;;
+		;;
+	;;
+	
+	-> true
 }
 
 const dirundef = {pp
