@@ -133,6 +133,7 @@ const declare = {p, loc, name, sym
 		redeclare(p, loc, oldsym, sym)
 		-> void
 	;;
+	
 	std.htput(p.symtab[p.symtab.len-1], name, sym)
 }
 
@@ -1118,6 +1119,9 @@ const parsedeclstk = {p, pstk
 		next(p)
 		name = parsedeclstk(p, pstk)
 		std.slpush(pstk, `Dcl_deref)
+	| `Tconst:
+		next(p)
+		name = parsedeclstk(p, pstk)
 	| _:
 		name = parsedirectdecl(p, pstk)
 	;;
@@ -1610,8 +1614,8 @@ const usualconv = {e
 		-> mkcast(`Tyuint, e)
 	| `Tyuchar:
 		-> mkcast(`Tyuint, e)
-	| _:
-		std.fatal("unimplemented usualconv\n")
+	| t:
+		std.fatal("unimplemented usualconv: {}\n", t)
 	;;
 	-> e
 }
@@ -2060,8 +2064,11 @@ const parsepostexpr = {p
 				next(p)
 			| _:
 				while true
-					(_, paramty) = functy.params[args.len]
-					expr = mkcast(paramty, parseexpr(p))
+					expr = parseexpr(p)
+					if args.len < functy.params.len
+						(_, paramty) = functy.params[args.len]
+						expr = mkcast(paramty, expr)
+					;;
 					std.slpush(&args, expr)
 					match p.tok.kind
 					| `Tcparen:
@@ -2073,6 +2080,15 @@ const parsepostexpr = {p
 					;;
 				;;
 			;;
+			
+			if args.len < functy.params.len
+				err(l, "too few params to function call")
+			;;
+			
+			if args.len != functy.params.len && !functy.isvararg
+				err(l, "incorrect number of function params")
+			;;
+			
 			expr = std.mk(`Ecall [
 				.functy=functy,
 				.func=funclike,
