@@ -32,6 +32,13 @@ const mkglobal = {p, name, ty, init
 	-> g
 }
 
+const mkstatic = {p, name, ty, init
+	var s
+	
+	s = std.mk([.ty=ty, .name=name, .sc=`Sclassstatic, .init=init])
+	-> s
+}
+
 const mkenumsym = {p, name, ty
 	var e
 	
@@ -454,7 +461,12 @@ const startoftype = {p, tok
 }
 
 const startofdecl = {p
-	-> startoftype(p, p.tok.kind)
+	match p.tok.kind
+	| `Tstatic: -> true
+	| `Textern: -> true
+	| `Tregister: -> true
+	| _: -> startoftype(p, p.tok.kind)
+	;;
 }
 
 const parsetagtype = {p
@@ -1259,6 +1271,9 @@ const parsedeclaration = {p
 			| `Sclassglobal:
 				sym = mkglobal(p, n, ty, init)
 				declare(p, loc, n, sym)
+			| `Sclassstatic:
+				sym = mkstatic(p, n, ty, init)
+				declare(p, loc, n, sym)
 			| `Sclasslocal:
 				if inglobalscope(p)
 					err(loc, "cannot declare a local outside of a function")
@@ -1280,14 +1295,18 @@ const parsedeclaration = {p
 		| `Tcomma:
 			next(p)
 		| `Tobrace:
+			if !inglobalscope(p)
+				err(p.tok.loc, "unexpected {{\n")
+			;;
+			
 			match sclass
+			| `Sclassstatic:
 			| `Sclassglobal:
 			| _:
-				err(p.tok.loc, "function outside of global scope")
+				err(p.tok.loc, "unexpected {{\n")
 			;;
-			if decls.syms.len != 1
-				err(p.tok.loc, "unexpected {\n")
-			;;
+			
+
 			match name
 			| `std.Some n:
 				p.lbltab=std.mkht(std.slhash, std.sleq)
@@ -1297,8 +1316,16 @@ const parsedeclaration = {p
 					.params=[][:],
 					.lblcnt= 0,
 				])
+				match sclass
+				| `Sclassstatic:
+					sym = mkstatic(p, decls.syms[0].name, decls.syms[0].ty, `std.Some `Initfunc p.curfunc)
+				| `Sclassglobal:
+					sym = mkglobal(p, decls.syms[0].name, decls.syms[0].ty, `std.Some `Initfunc p.curfunc)
+				| _:
+					std.fatal("internal error: function body that isn't static or global")
+				;;
 				// Redeclare now that we have a body, will update the original symbol
-				declare(p, loc, decls.syms[0].name, mkglobal(p, decls.syms[0].name, decls.syms[0].ty, `std.Some `Initfunc p.curfunc))
+				declare(p, loc, decls.syms[0].name, sym)
 			| `std.None:
 				err(loc, "function requires a name\n")
 			;;

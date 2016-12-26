@@ -531,6 +531,7 @@ const kwident = {ts
 	| "volatile": 	-> `Tvolatile
 	| "while": 	-> `Twhile
 	| "return": -> `Treturn
+	| "static":	-> `Tstatic
 	| "register": -> `Tregister
 	| "char":	-> `Tchar
 	| "short":	-> `Tshort

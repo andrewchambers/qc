@@ -92,7 +92,14 @@ const emitglobaldecl = {decl
 			match sym.init
 			| `std.None:
 			| `std.Some `Initfunc f:
-				emitfunc(f)
+				match sym.sc
+				| `Sclassglobal:
+					emitfunc(f, true)
+				| `Sclassstatic:
+					emitfunc(f, false)
+				| _:
+					std.fatal("internal error\n")
+				;;
 			| _:
 				std.fatal("internal error\n")
 			;;
@@ -101,19 +108,20 @@ const emitglobaldecl = {decl
 		
 		match sym.init
 		| `std.None:
-			match sym.ty
-			| `Tyfunc _:
-				continue
-			| _:
-			;;
 			match sym.sc
 			| `Sclasstypedef:
 				continue
 			| `Sclassextern:
 				continue
+			| `Sclassstatic:
+				std.slpush(&pendingdata,  [
+					.isglobal=false,
+					.label=sym.name,
+					.val=`Dzero std.get(typesize(sym.ty)),
+				])
 			| `Sclassglobal:
 				std.slpush(&pendingdata,  [
-					.isglobal= true,
+					.isglobal=true,
 					.label=sym.name,
 					.val=`Dzero std.get(typesize(sym.ty)),
 				])
@@ -121,61 +129,66 @@ const emitglobaldecl = {decl
 				std.fatal("internal error...\n")
 			;;
 		| `std.Some init:
+
+			var isglobal
+			
 			match sym.sc
 			| `Sclasstypedef:
 				continue
+			| `Sclassstatic:
+				isglobal = false
 			| `Sclassglobal:
-				match init
-				| `Initexpr expr:
-					// XXX frontend doesn't check this...
-					var c = std.get(foldexpr(expr))
-					var d = [
-						.isglobal= true,
-						.label=sym.name,
-					]
-					match exprtype(expr)
-					| `Tyint:
-						d.val = `Dint c
-					| `Tylong:
-						d.val = `Dlong c
-					| `Typtr _:
-						d.val = `Dlong c
-					| _:
-						std.fatal("unimplemented initializer type")
-					;;
-					std.slpush(&pendingdata, d)
-				| `Initblob blob:
-					var d = [
-						.isglobal= true,
-						.label=sym.name,
-					]
-					var arr = [][:]
-					var curoff = 0
-					for (off, ty, c) in blob.vals
-						if off > curoff
-							std.slpush(&arr, `Dzero off - curoff)
-							curoff = off
-						;;
-						match ty
-						| `Tyint:
-							std.slpush(&arr, `Dint c)
-						| `Tylong:
-							std.slpush(&arr, `Dlong c)
-						| `Typtr _:
-							std.slpush(&arr, `Dlong c)
-						| _:
-							std.fatal("unimplemented initializer type")
-						;;
-						curoff += std.get(typesize(ty))
-					;;
-					d.val = `Darr arr
-					std.slpush(&pendingdata, d)
-				| _:
-					std.fatal("unimplemented initializer")
-				;;				
+				isglobal = true
 			| _:
 				std.fatal("internal error...\n")
 			;;
+			
+			var d = [
+				.isglobal=isglobal,
+				.label=sym.name,
+			]
+			
+			match init
+			| `Initexpr expr:
+				// XXX frontend doesn't check this...
+				var c = std.get(foldexpr(expr))
+
+				match exprtype(expr)
+				| `Tyint:
+					d.val = `Dint c
+				| `Tylong:
+					d.val = `Dlong c
+				| `Typtr _:
+					d.val = `Dlong c
+				| _:
+					std.fatal("unimplemented initializer type")
+				;;
+			| `Initblob blob:
+				var arr = [][:]
+				var curoff = 0
+				for (off, ty, c) in blob.vals
+					if off > curoff
+						std.slpush(&arr, `Dzero off - curoff)
+						curoff = off
+					;;
+					match ty
+					| `Tyint:
+						std.slpush(&arr, `Dint c)
+					| `Tylong:
+						std.slpush(&arr, `Dlong c)
+					| `Typtr _:
+						std.slpush(&arr, `Dlong c)
+					| _:
+						std.fatal("unimplemented initializer type")
+					;;
+					curoff += std.get(typesize(ty))
+				;;
+				d.val = `Darr arr
+			| _:
+				std.fatal("unimplemented initializer")
+			;;
+			
+			std.slpush(&pendingdata, d)				
 		;;
 	;;
 }
@@ -241,15 +254,17 @@ const ot = {msg : byte[:], args : ...
 }
 
 var curfunc
-const emitfunc = {f
+const emitfunc = {f, isglobal
 	var alloca, namestoparamregs, reg
 	
 	curfunc = f
 	allocas = std.mkht({x; -> (x : uint32)}, {x, y; -> x == y})
 	nreg = 0
 	
-	
-	o("export\nfunction {} ${}(", type2class(f.functy.rty), f.name)
+	if isglobal
+		o("export\n")
+	;;
+	o("function {} ${}(", type2class(f.functy.rty), f.name)
 	
 	namestoparamregs = std.mkht(std.slhash, std.sleq)
 	for var i = 0; i < f.functy.params.len; i++
@@ -478,6 +493,10 @@ const emitlval = {expr
 	| &(`Eident sym):
 		match sym.sc
 		| `Sclassextern:
+			v = newreg()
+			oi("{} =l copy ${}\n", v, sym.name)
+			-> v
+		| `Sclassstatic:
 			v = newreg()
 			oi("{} =l copy ${}\n", v, sym.name)
 			-> v
@@ -1119,6 +1138,9 @@ const emitrelop = {b
 
 const emitpendingdata = {
 	for data in pendingdata
+		if data.isglobal
+			o("export\n")
+		;;
 		match data.val
 		| `Dzero sz:
 			o("data ${} = {{z {}}}\n", data.label, sz)
