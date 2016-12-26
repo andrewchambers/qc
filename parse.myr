@@ -7,28 +7,35 @@ use "ast"
 use "fold"
 
 pkg qc =
-	const parse : (pp : pp# -> node#[:])
+	const parse : (pp : pp# -> decl[:])
 ;;
 
-const mklocal = {p, name, ty
+const mklocal = {p, name, ty, init : std.option(init) // Type inference error
 	var l
 	
-	l = std.mk([.ty=ty, .name=name, .sc=`Sclasslocal])
+	l = std.mk([.ty=ty, .name=name, .sc=`Sclasslocal, .init=init])
 	std.slpush(&p.curfunc.locals, l)
 	-> l
 }
 
-const mkglobal = {p, name, ty
+const mkextern = {p, name, ty
 	var g
 	
-	g = std.mk([.ty=ty, .name=name, .sc=`Sclassglobal])
+	g = std.mk([.ty=ty, .name=name, .sc=`Sclassextern, .init=`std.None])
+	-> g
+}
+
+const mkglobal = {p, name, ty, init
+	var g
+	
+	g = std.mk([.ty=ty, .name=name, .sc=`Sclassglobal, .init=init])
 	-> g
 }
 
 const mkenumsym = {p, name, ty
 	var e
 	
-	e = std.mk([.ty=ty, .name=name, .sc=`Sclassenum])
+	e = std.mk([.ty=ty, .name=name, .sc=`Sclassenum, .init=`std.None])
 	-> e
 }
 
@@ -131,18 +138,29 @@ const declare = {p, loc, name, sym
 
 const redeclare = {p, loc, oldsym, newsym
 	
+	if !sametype(oldsym.ty, newsym.ty)
+		 err(loc, "invalid redeclaration of symbol {} (types differ)", oldsym.name)
+	;;
+	
 	match (oldsym.sc, newsym.sc)
 	| (`Sclasslocal, `Sclasslocal):
 	| (`Sclassglobal, `Sclassglobal):
+	| (`Sclassextern, `Sclassglobal):
+		oldsym.sc = `Sclassextern
 	| (`Sclassstatic, `Sclassstatic):
 	| (`Sclassenum, `Sclassenum):
 	| _:
 		 err(loc, "invalid redeclaration of symbol {} (storage classes differ)", oldsym.name)
 	;;
 	
-	if !sametype(oldsym.ty, newsym.ty)
-		 err(loc, "invalid redeclaration of symbol {} (types differ)", oldsym.name)
+	match (oldsym.init, newsym.init)
+	| (`std.Some _, `std.Some _):
+		err(loc, "symbol {} already has intializer", oldsym.name)
+	| (`std.None, `std.Some _):
+		oldsym.init = newsym.init
+	| _:
 	;;
+	
 }
 
 const declaretype = {p, loc, name, ty
@@ -673,7 +691,7 @@ const parsedeclspecs = {p
 	    	
 	    	match p.tok.kind
 			| `Ttypedef: sclass = `std.Some `Sclasstypedef
-			| `Textern: sclass = `std.Some `Sclassglobal
+			| `Textern: sclass = `std.Some `Sclassextern
 			| `Tregister: sclass = `std.Some `Sclasslocal
 			| `Tauto: sclass = `std.Some `Sclasslocal
 			| `Tstatic: sclass = `std.Some `Sclassstatic
@@ -921,6 +939,8 @@ const parsestructinit = {p, s
 			for (o, t, c) in subblob.vals
 				std.slpush(&blob.vals, (o+memboffset, t, c))
 			;;
+		| `Initfunc _:
+			std.fatal("internal error\n")
 		;;
 		
 		match p.tok.kind
@@ -1001,6 +1021,8 @@ const parsearrayinit = {p, arr
 			for (suboffset, subty, c) in subblob.vals
 				std.slpush(&blob.vals, (offset+suboffset, subty, c))
 			;;
+		| `Initfunc _:
+			std.fatal("internal error\n")
 		;;
 		
 		match p.tok.kind
@@ -1217,14 +1239,19 @@ const parsedeclaration = {p
 		match name
 		| `std.Some n:
 			match sclass
+			| `Sclassextern:
+				// XXX: disallow non-null init...
+				sym = mkextern(p, n, ty)
+				declare(p, loc, n, sym)
 			| `Sclassglobal:
-				sym = mkglobal(p, n, ty)
+				sym = mkglobal(p, n, ty, init)
 				declare(p, loc, n, sym)
 			| `Sclasslocal:
 				if inglobalscope(p)
 					err(loc, "cannot declare a local outside of a function")
 				;;
-				sym = mklocal(p, n, ty)
+				// XXX: fix none init
+				sym = mklocal(p, n, ty, `std.None)
 				declare(p, loc, n, sym)
 			| `Sclasstypedef:
 				sym = std.mk([.name=n, .ty=ty, .sc=`Sclasstypedef])
@@ -1232,9 +1259,10 @@ const parsedeclaration = {p
 			| _:
 				std.fatal("unimplemented sclass\n")
 			;;
-			std.slpush(&decls.syms, (sym, init))
+			std.slpush(&decls.syms, sym)
 		| `std.None:
 		;;
+		
 		match p.tok.kind
 		| `Tcomma:
 			next(p)
@@ -1256,6 +1284,8 @@ const parsedeclaration = {p
 					.params=[][:],
 					.lblcnt= 0,
 				])
+				// Redeclare now that we have a body, will update the original symbol
+				declare(p, loc, decls.syms[0].name, mkglobal(p, decls.syms[0].name, decls.syms[0].ty, `std.Some `Initfunc p.curfunc))
 			| `std.None:
 				err(loc, "function requires a name\n")
 			;;
@@ -1269,32 +1299,28 @@ const parsedeclaration = {p
 			for (pname, pty) in p.curfunc.functy.params
 				match pname
 				| `std.Some n:
-					paramsym = mklocal(p, n, pty)
+					paramsym = mklocal(p, n, pty, `std.None)
 					declare(p, loc, n, paramsym)
 					std.slpush(&p.curfunc.params, paramsym)
 				| `std.None:
 				;;
 			;;
+			
 			p.curfunc.body = parseblock(p)
 			popscope(p)
-			-> std.mk(`Nfunc p.curfunc)
+			-> decls
 		| _:
 			break
 		;;
 	;;
 	:done
 	expectsemi(p)
-	-> std.mk(`Ndecl decls)
+	-> decls
 }
 
 const parsedeclorstmt = {p	
 	if startofdecl(p)
-		match parsedeclaration(p)
-		| &(`Ndecl decls):
-			-> std.mk(`Sdecl decls)
-		| _:
-			std.fatal("internal error\n")
-		;;
+		-> std.mk(`Sdecl parsedeclaration(p))
 	;;
 	-> parsestmt(p)
 }

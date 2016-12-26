@@ -6,7 +6,7 @@ use "ast"
 use "fold"
 
 pkg qc =
-	const emit : (globals : node#[:] -> void)
+	const emit : (globals : decl[:] -> void)
 ;;
 
 type Val = union
@@ -30,6 +30,7 @@ type data = struct
 ;;
 
 var allocas : std.htab(sym#, Val)#
+var alreadyemitted : std.htab(byte[:], void)#
 var pendingdata : data[:]
 
 var nreg = 0
@@ -66,23 +67,40 @@ const newnamedreg = {name
 }
 
 const emit = {globals
+	
 	pendingdata = [][:]
+	alreadyemitted = std.mkht(std.strhash, std.streq)
 	
 	for g in globals
-		match g
-		| &(`Nfunc f):
-			emitfunc(f)
-		| &(`Ndecl decls):
-			emitdecls(decls)
-		;;
+		emitglobaldecl(g)
 	;;
 	emitpendingdata()
+	
+	std.htfree(alreadyemitted)
 }
 
-const emitdecls = {decls
-	for decl in decls.syms
-		match decl
-		| (sym, `std.None):
+const emitglobaldecl = {decl
+	for sym in decl.syms
+		
+		if std.hthas(alreadyemitted, sym.name)
+			continue
+		;;
+		
+		std.htput(alreadyemitted, sym.name, void)
+		
+		if isfunc(sym.ty)
+			match sym.init
+			| `std.None:
+			| `std.Some `Initfunc f:
+				emitfunc(f)
+			| _:
+				std.fatal("internal error\n")
+			;;
+			continue
+		;;
+		
+		match sym.init
+		| `std.None:
 			match sym.ty
 			| `Tyfunc _:
 				continue
@@ -90,6 +108,8 @@ const emitdecls = {decls
 			;;
 			match sym.sc
 			| `Sclasstypedef:
+				continue
+			| `Sclassextern:
 				continue
 			| `Sclassglobal:
 				std.slpush(&pendingdata,  [
@@ -100,7 +120,7 @@ const emitdecls = {decls
 			| _:
 				std.fatal("internal error...\n")
 			;;
-		| (sym, `std.Some init):
+		| `std.Some init:
 			match sym.sc
 			| `Sclasstypedef:
 				continue
@@ -302,6 +322,8 @@ const emitcall = {call
 	;;
 	
 	match call.func
+	| &(`Eident &([.name=name, .sc=`Sclassextern])):
+		funcstr = std.fmt("${}", name)
 	| &(`Eident &([.name=name, .sc=`Sclassglobal])):
 		funcstr = std.fmt("${}", name)
 	| _:
@@ -454,6 +476,10 @@ const emitlval = {expr
 	match expr
 	| &(`Eident sym):
 		match sym.sc
+		| `Sclassextern:
+			v = newreg()
+			oi("{} =l copy ${}\n", v, sym.name)
+			-> v
 		| `Sclassglobal:
 			v = newreg()
 			oi("{} =l copy ${}\n", v, sym.name)

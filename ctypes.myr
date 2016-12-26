@@ -172,6 +172,7 @@ const isfunc = {t
 
 const sametype = {t1, t2
 	match (t1, t2)
+	| (`Tyvoid, `Tyvoid): -> true
 	| (`Tychar, `Tychar): -> true
 	| (`Tyshort,`Tyshort): -> true
 	| (`Tyint, `Tyint): -> true
@@ -183,9 +184,32 @@ const sametype = {t1, t2
 	| (`Tyulong, `Tyulong): -> true
 	| (`Tyullong, `Tyullong): -> true
 	| (`Typtr sub1, `Typtr sub2): -> sametype(sub1#, sub2#)
+	| (`Tyfunc f1, `Tyfunc f2): -> samefunctype(f1, f2)
+	| (`Tystruct ptr1, `Tystruct ptr2): -> ptr1 == ptr2
 	| _:
 	;;
 	-> false
+}
+
+const samefunctype = {f1, f2
+	if !sametype(f1.rty, f2.rty)
+		-> false
+	;;
+	
+	if f1.isvararg != f2.isvararg 
+		-> false
+	;;
+	
+	if f1.params.len != f2.params.len
+		-> false
+	;;
+	
+	for ((_, t1), (_, t2)) in std.byzip(f1.params, f2.params)
+		if !sametype(t1, t2)
+			-> false
+		;;
+	;;
+	-> true
 }
 
 const compatibletypes = {t1, t2

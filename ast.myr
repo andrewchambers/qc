@@ -5,13 +5,8 @@ use "err"
 
 pkg qc = 
 	
-	type node = union
-		`Nfunc func#
-		`Ndecl decl
-	;;
-	
 	type decl = struct
-		syms : (sym#, std.option(init))[:]
+		syms : sym#[:]
 	;;
 	
 	type func = struct
@@ -81,6 +76,7 @@ pkg qc =
 	type init = union
 		`Initexpr expr#
 		`Initblob initblob#
+		`Initfunc func#
 	;;
 	
 	type constval = union
@@ -247,6 +243,7 @@ pkg qc =
 	;;
 	
 	type sclass = union
+		`Sclassextern
 		`Sclasslocal
 		`Sclassglobal
 		`Sclassstatic
@@ -258,6 +255,7 @@ pkg qc =
 		name : byte[:]
 		ty : ctype
 		sc : sclass
+		init : std.option(init)
 	;;
 	
 	const nextlbl : (f : func# -> int)
