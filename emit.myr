@@ -320,6 +320,7 @@ const type2class = {t
 	| `Tyulong: -> "l"
 	| `Tyullong: -> "l"
 	| `Typtr _: -> "l"
+	| `Tystruct _: -> "l"
 	| `Tyvoid: -> ""
 	| _:
 		std.fatal("unhandled type2class type: {}\n", t)
@@ -575,6 +576,8 @@ const emitstore = {ty, dst, v
 		oi("storel {}, {}\n", v, dst)
 	| `Tyullong:
 		oi("storel {}, {}\n", v, dst)
+	| `Tystruct _:
+		oi("call $memcpy(l {}, l {}, l {})\n", dst, v, std.get(typesize(ty)))
 	| _:
 		std.fatal("unimplemented store {}\n", ty)
 	;;
@@ -805,6 +808,7 @@ const emitunop = {u
 	var lone, lzero, lend
 	
 	class = type2class(u.ty)
+	
 	match u.op
 	| `Oaddr:
 		-> emitlval(u.operand)
