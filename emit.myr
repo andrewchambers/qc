@@ -831,6 +831,21 @@ const emitunop = {u
 		v2 = newreg()
 		oi("{} ={} sub 0, {}\n", v2, class, v1)
 		-> v2
+	| `Obnot:
+		var notconst : uint64
+		
+		v1 = emitexpr(u.operand)
+		v2 = newreg()
+		match class
+		| "l":
+			notconst = 0xffffffffffffffff
+		| "w":
+			notconst = 0xffffffff
+		| _:
+			std.fatal("internal error: not of unsupported class")
+		;;
+		oi("{} ={} xor {}, {}\n", v2, class, notconst, v1)
+		-> v2
 	| _:
 		std.fatal("unsupported unop: {}\n", u.op)
 	;;
