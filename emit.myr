@@ -789,8 +789,12 @@ const emitassign = {a
 		else
 			v3 = emitbinop2(`Ominus, a.ty, a.l, a.r)
 		;;
-	| _:
-		std.fatal("internal error\n")
+	| `Obandasn:
+		v3 = emitbinop2(`Oand, a.ty, a.l, a.r)
+	| `Oborasn:
+		v3 = emitbinop2(`Oor, a.ty, a.l, a.r)
+	| `Oasn:
+		std.fatal("internal error\n")		
 	;;
 	emitstore(a.ty, v1, v3)
 	-> v3

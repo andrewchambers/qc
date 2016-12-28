@@ -462,6 +462,7 @@ const startoftype = {p, tok
 
 const startofdecl = {p
 	match p.tok.kind
+	| `Tconst: -> true
 	| `Tstatic: -> true
 	| `Textern: -> true
 	| `Tregister: -> true
@@ -1754,6 +1755,8 @@ const parseassign = {p
 	| `Tasn: op = `Oasn
 	| `Taddeq: op = `Oaddasn
 	| `Tsubeq: op = `Osubasn
+	| `Tboreq: op = `Oborasn
+	| `Tbandeq: op = `Obandasn
 	| _:
 		-> l
 	;;
@@ -1980,10 +1983,11 @@ const parsecastexpr = {p
 		expectoparen(p)
 		ty = parsetypename(p)
 		expectcparen(p)
-		expr = parseunop(p)
+		expr = parsecastexpr(p)
 		-> mkcast(ty, expr)
 	| _:
 	;;
+	
 	:notcast
 	-> parseunop(p)
 }
@@ -2004,34 +2008,34 @@ const parseunop = {p
 	match p.tok.kind
 	| `Tinc:
 		next(p)
-		operand = parseunop(p)
+		operand = parsecastexpr(p)
 		-> mkincdec(l, `Opreinc, operand)
 	| `Tdec:
 		next(p)
-		operand = parseunop(p)
+		operand = parsecastexpr(p)
 		-> mkincdec(l, `Opredec, operand)
 	| `Tband:
 		next(p)
-		operand = parseunop(p)
+		operand = parsecastexpr(p)
 		if !islval(operand)
 			err(l, "can only take the address of an lvalue")
 		;;
 		-> std.mk(`Eunop [.op=`Oaddr, .ty=`Typtr std.mk(exprtype(operand)), .operand=operand])
 	| `Tminus:
 		next(p)
-		operand = parseunop(p)
+		operand = parsecastexpr(p)
 		-> std.mk(`Eunop [.op=`Oneg, .ty=exprtype(operand), .operand=operand])
 	| `Tlnot:
 		next(p)
-		operand = parseunop(p)
+		operand = parsecastexpr(p)
 		-> std.mk(`Eunop [.op=`Olnot, .ty=exprtype(operand), .operand=operand])
 	| `Tbnot:
 		next(p)
-		operand = parseunop(p)
+		operand = parsecastexpr(p)
 		-> std.mk(`Eunop [.op=`Obnot, .ty=exprtype(operand), .operand=operand])
 	| `Tmul:
 		next(p)
-		operand = parseunop(p)
+		operand = parsecastexpr(p)
 		match exprtype(operand)
 		|`Typtr &(`Tyvoid):
 			err(l, "dereference of a void*")
@@ -2254,7 +2258,7 @@ const parseprimaryexpr = {p
 		expectcparen(p)
 		-> expr
 	| _:
-		err(p.tok.loc, "expected expression\n")
+		err(p.tok.loc, "expected expression but got '{}'\n", p.tok.text)
 	;;	
 }
 

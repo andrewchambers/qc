@@ -147,6 +147,8 @@ pkg qc =
 		`Oasn
 		`Oaddasn
 		`Osubasn
+		`Oborasn
+		`Obandasn
 	;;
 	
 	type bop = union
