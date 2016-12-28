@@ -152,6 +152,7 @@ pkg qc =
 	type bop = union
 		`Oplus
 		`Ominus
+		`Oshl
 		`Omul
 		`Odiv
 		`Omod

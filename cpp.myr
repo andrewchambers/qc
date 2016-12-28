@@ -407,8 +407,8 @@ const evalshiftexpr = {expr
 	l = evaladdexpr(expr)
 	while true
 		match expr#[0].kind
-		| `Tbsl: f = {l, r; -> l << r}
-		| `Tbsr: f = {l, r; -> l >> r}
+		| `Tshl: f = {l, r; -> l << r}
+		| `Tshr: f = {l, r; -> l >> r}
 		| _:
 			break
 		;;

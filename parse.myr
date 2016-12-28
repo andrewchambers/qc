@@ -1897,7 +1897,7 @@ const parseeqlexpr = {p
 const parserelexpr = {p
 	var l, r, op
 	
-	l = parseaddexpr(p)
+	l = parseshiftexpr(p)
 	while true
 		match p.tok.kind
 		| `Tgt: op = `Ogt
@@ -1908,8 +1908,26 @@ const parserelexpr = {p
 			break
 		;;
 		next(p)
-		r = parseaddexpr(p)
+		r = parseshiftexpr(p)
 		l = mkrelop(op, l, r)
+	;;
+	-> l
+}
+
+const parseshiftexpr = {p
+	var l, r, op
+	
+	l = parseaddexpr(p)
+	while true
+		match p.tok.kind
+		| `Tshl: op = `Oshl
+		// | `Tshr: op = `Osr
+		| _:
+			break
+		;;
+		next(p)
+		r = parseaddexpr(p)
+		l = mkbinop(op, l, r)
 	;;
 	-> l
 }

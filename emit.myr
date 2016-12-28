@@ -1103,6 +1103,7 @@ const emitbinop2 = {op, ty, lexpr, rexpr
 	| `Oxor:   o = "xor"
 	| `Oand:   o = "and"
 	| `Oor:    o = "or"
+	| `Oshl:   o = "shl"
 	;;
 	
 	oi("{} ={} {} {}, {}\n", result, class, o, l, r)

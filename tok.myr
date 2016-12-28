@@ -48,15 +48,16 @@ pkg qc =
 		`Tboreq   /* |= */
 		`Tbxoreq  /* ^= */
 		`Tbandeq  /* &= */
-		`Tbsleq   /* <<= */
-		`Tbsreq   /* >>= */
+		`Tshleq   /* <<= */
+		`Tshreq   /* >>= */
 		
 		`Tbor     /* | */
 		`Tbxor    /* ^ */
 		`Tband    /* & */
-		`Tbsl     /* << */
-		`Tbsr     /* >> */
 		`Tbnot    /* ~ */
+	
+		`Tshl     /* << */
+		`Tshr     /* >> */
 	
 		`Teq      /* == */
 		`Tgt      /* > */
@@ -638,9 +639,9 @@ const oper = {ts
 			t = `Tle;
 		elif matchc(ts, '<')
 			if matchc(ts, '=')
-				t = `Tbsleq
+				t = `Tshleq
 			else
-				t = `Tbsl
+				t = `Tshl
 			;;
 		else
 			t = `Tlt;
@@ -650,9 +651,9 @@ const oper = {ts
 			t = `Tge
 		elif matchc(ts, '>')
 			if matchc(ts, '=')
-				t = `Tbsreq
+				t = `Tshreq
 			else
-				t = `Tbsr
+				t = `Tshr
 			;;
 		else
 			t = `Tgt;

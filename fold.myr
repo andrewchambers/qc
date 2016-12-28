@@ -34,13 +34,16 @@ const foldexpr = {e
 		;;
 	| &(`Ebinop [.op=op, .l=l, .r=r]):
 		match (op, foldexpr(l), foldexpr(r))
+		| (`Oplus, `std.Some `Constint c1,  `std.Some `Constint c2):
+			-> `std.Some `Constint c1 + c2
+		| (`Oshl, `std.Some `Constint c1,  `std.Some `Constint c2):
+			-> `std.Some `Constint c1 << c2
 		| (_, `std.None, _):
 			-> `std.None
 		| (_, _, `std.None):
 			-> `std.None
-		| (`Oplus, `std.Some `Constint c1,  `std.Some `Constint c2):
-			-> `std.Some `Constint c1 + c2
 		| _:
+			-> `std.None
 		;;
 	| _:
 		-> `std.None
