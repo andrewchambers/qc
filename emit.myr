@@ -445,22 +445,24 @@ const emitfor = {forstmt
 		emitexpr(expr)
 	| `std.None:
 	;;
-	ol("@L{}\n", forstmt.contlbl)
+	
+	ol("@L{}\n", forstmt.condlbl)
 	match forstmt.cond
 	| `std.Some expr:
 		cond = emitexpr(expr)
 		ot("jnz {}, @L{}, @L{}\n", cond, forstmt.stmtlbl, forstmt.breaklbl)
 	| `std.None:
-		ot("jmp @L{}\n", forstmt.stmtlbl)
 	;;
 	ol("@L{}\n", forstmt.stmtlbl)
 	emitstmt(forstmt.stmt)
+	
+	ol("@L{}\n", forstmt.contlbl)
 	match forstmt.step
 	| `std.Some expr:
 		emitexpr(expr)
 	| `std.None:
 	;;
-	ot("jmp @L{}\n", forstmt.contlbl)
+	ot("jmp @L{}\n", forstmt.condlbl)
 	ol("@L{}\n", forstmt.breaklbl)
 }
 

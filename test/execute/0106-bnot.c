@@ -15,7 +15,7 @@ main()
 	
 	l = ~l;
 	if (x != 0xffffffffffffffff)
-		return 1;
+		return 2;
 
 	
 	return 0;

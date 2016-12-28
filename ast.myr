@@ -55,6 +55,7 @@ pkg qc =
 		cond : std.option(expr#)
 		step : std.option(expr#)
 		stmt : stmt#
+		condlbl : int
 		contlbl : int
 		stmtlbl : int
 		breaklbl : int

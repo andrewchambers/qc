@@ -402,9 +402,10 @@ const parsefor = {p
 		forstmt.step = `std.Some parseexpr(p)
 		expectcparen(p)
 	;;
-	forstmt.contlbl=nextlbl(p.curfunc)
-	forstmt.stmtlbl=nextlbl(p.curfunc)
-	forstmt.breaklbl=nextlbl(p.curfunc)
+	forstmt.condlbl = nextlbl(p.curfunc)
+	forstmt.contlbl = nextlbl(p.curfunc)
+	forstmt.stmtlbl = nextlbl(p.curfunc)
+	forstmt.breaklbl = nextlbl(p.curfunc)
 	pushbreakcont(p, forstmt.breaklbl, forstmt.contlbl)
 	forstmt.stmt = parsestmt(p)
 	popbreakcont(p)
