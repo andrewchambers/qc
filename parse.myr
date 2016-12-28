@@ -1215,7 +1215,18 @@ const parsedecltail = {p, pstk
 					paramty = `Typtr std.mk(arr.subty)
 				| _:
 				;;
-				std.slpush(&cfunc.params, (name, paramty))
+				
+				match paramty
+				| `Tyvoid:
+					match p.tok.kind
+					| `Tcparen:
+					| _:
+						err(ploc, "void is only valid as a parameter by itself")
+					;;
+				| _:
+					std.slpush(&cfunc.params, (name, paramty))
+				;;
+
 				match p.tok.kind
 				| `Tcomma:
 					next(p);
@@ -1234,6 +1245,7 @@ const parsedecltail = {p, pstk
 			:doneparams
 			
 			expectcparen(p)
+			
 			std.slpush(pstk, `Dcl_call std.mk(cfunc))
 		| _:
 			break

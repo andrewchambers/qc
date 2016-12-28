@@ -1148,6 +1148,8 @@ const emitpendingdata = {
 			o("data ${} = {{b \"", data.label)
 			for c in std.bychar(s)
 				match c
+				| '\\':
+					o("\\\\")
 				| '\n':
 					o("\\n")
 				| _:

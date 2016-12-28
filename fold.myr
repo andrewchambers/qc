@@ -8,6 +8,12 @@ pkg qc =
 
 const foldexpr = {e
 	match e
+	| &(`Eident &[.sc=`Sclassenum, .name=name, .ty=`Tyenum &(`std.Some enum)]):
+		-> `std.Some `Constint std.get(std.htget(enum.membs, name))
+	| &(`Ewchrlit c):
+		-> `std.Some `Constint (c : int64)
+	| &(`Echrlit c):
+		-> `std.Some `Constint (c : int64)
 	| &(`Ecast c):
 		-> foldexpr(c.expr)
 	| &(`Eintlit v):
@@ -25,6 +31,16 @@ const foldexpr = {e
 			-> `std.Some `Constint -v
 		| _:
 			-> `std.None
+		;;
+	| &(`Ebinop [.op=op, .l=l, .r=r]):
+		match (op, foldexpr(l), foldexpr(r))
+		| (_, `std.None, _):
+			-> `std.None
+		| (_, _, `std.None):
+			-> `std.None
+		| (`Oplus, `std.Some `Constint c1,  `std.Some `Constint c2):
+			-> `std.Some `Constint c1 + c2
+		| _:
 		;;
 	| _:
 		-> `std.None

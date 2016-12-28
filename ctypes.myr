@@ -186,6 +186,7 @@ const sametype = {t1, t2
 	| (`Typtr sub1, `Typtr sub2): -> sametype(sub1#, sub2#)
 	| (`Tyfunc f1, `Tyfunc f2): -> samefunctype(f1, f2)
 	| (`Tystruct ptr1, `Tystruct ptr2): -> ptr1 == ptr2
+	| (`Tyenum ptr1, `Tyenum ptr2): -> ptr1 == ptr2
 	| _:
 	;;
 	-> false
