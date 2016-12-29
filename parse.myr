@@ -10,7 +10,7 @@ pkg qc =
 	const parse : (pp : pp# -> decl[:])
 ;;
 
-const mklocal = {p, name, ty, init : std.option(init) // Type inference error
+const mklocal = {p, name, ty, init : std.option(syminit) // Type inference error
 	var l
 	
 	l = std.mk([.ty=ty, .name=name, .sc=`Sclasslocal, .init=init])
@@ -640,12 +640,7 @@ const parseenumbody = {p, pbody
 			match p.tok.kind
 			| `Tasn:
 				next(p)
-				match parseconstexpr(p)
-				| `Constint c:
-					v = c
-				| `Constptr _:
-					err(l, "enum value cannot be derived from a pointer\n")
-				;;
+				v = parseconstexpr(p)
 			| _:
 			;;
 			std.htput(e.membs, name, v)
@@ -881,19 +876,19 @@ const parsedeclspecs = {p
 	err(declpos, "invalid declaration specifiers: {}\n", std.strjoin(declspectext, " "))
 }
 
-const blobfinalize = {blob
+const initlistfinalize = {initlist
 	var cmp = {a, b
 		var off1, off2
-		(off1, _, _) = a
-		(off2, _, _) = b
+		(off1, _) = a
+		(off2, _) = b
 		-> std.numcmp(off1, off2)
 	}
-	var off1, off2, ty
-	std.sort(blob.vals, cmp)
-	for var i = 0; i < blob.vals.len - 1; i++
-		(off1, ty, _) = blob.vals[i]
-		(off2, _, _) = blob.vals[i+1]
-		if off1 + std.get(typesize(ty)) > off2
+	var off1, off2, e
+	std.sort(initlist.vals, cmp)
+	for var i = 0; i < initlist.vals.len - 1; i++
+		(off1, e) = initlist.vals[i]
+		(off2, _) = initlist.vals[i+1]
+		if off1 + std.get(typesize(exprtype(e))) > off2
 			-> false
 		;;
 	;;
@@ -904,12 +899,13 @@ const parsestructinit = {p, s
 	var neednext, it, loc
 	var membname, memboffset, membty
 	var subinit
-	var blob
+	var initlist
 	
 	
-	blob = [
+	initlist = [
 		.vals = [][:]
 	]
+	
 	loc = p.tok.loc
 	expectobrace(p)
 	it = mkstructiter(s)
@@ -952,19 +948,12 @@ const parsestructinit = {p, s
 		subinit = parseinit(p, membty)
 		
 		match subinit
-		| `Initexpr sube:
-			match foldexpr(sube)
-			| `std.None:
-				err(loc, "not a constant value")
-			| `std.Some c:
-				std.slpush(&blob.vals, (memboffset, membty, c))
+		| &(`Einit subinitlist):
+			for (o, e) in subinitlist.vals
+				std.slpush(&initlist.vals, (o+memboffset, e))
 			;;
-		| `Initblob subblob:
-			for (o, t, c) in subblob.vals
-				std.slpush(&blob.vals, (o+memboffset, t, c))
-			;;
-		| `Initfunc _:
-			std.fatal("internal error\n")
+		| _:
+			std.slpush(&initlist.vals, (memboffset, subinit))
 		;;
 		
 		match p.tok.kind
@@ -976,19 +965,20 @@ const parsestructinit = {p, s
 		
 	;;
 	expectcbrace(p)
-	if !blobfinalize(&blob)
+	if !initlistfinalize(&initlist)
 		err(loc, "initializer has overlapping values\n")
 	;;
-	-> std.mk(blob)
+	
+	-> std.mk(`Einit initlist)
 }
 
 
 const parsearrayinit = {p, arr
-	var loc, subinit, blob
+	var loc, subinit, initlist
 	var index, maxindex, entsize, offset
 	
 	
-	blob = [
+	initlist = [
 		.vals = [][:]
 	]
 	
@@ -1016,15 +1006,11 @@ const parsearrayinit = {p, arr
 		| `Tosqbrac:
 			next(p)
 			var exprloc = p.tok.loc
-			match parseconstexpr(p)
-			| `Constint v:
-				index = (v : uint32)
-				offset = entsize * index
-				if index > maxindex
-					maxindex = index
-				;;
-			| `Constptr _:
-				err(exprloc, "array offset cannot be derived from a pointer\n")
+			var v = parseconstexpr(p)
+			index = (v : uint32)
+			offset = entsize * index
+			if index > maxindex
+				maxindex = index
 			;;
 			expectcsqbrac(p)
 			expectassign(p)
@@ -1034,19 +1020,12 @@ const parsearrayinit = {p, arr
 		subinit = parseinit(p, arr.subty)
 		
 		match subinit
-		| `Initexpr subexpr:
-			match foldexpr(subexpr)
-			| `std.None:
-				err(loc, "not a constant value")
-			| `std.Some c:
-				std.slpush(&blob.vals, (offset, arr.subty, c))
+		| &(`Einit subinitlist):
+			for (o, e) in subinitlist.vals
+				std.slpush(&initlist.vals, (o+offset, e))
 			;;
-		| `Initblob subblob:
-			for (suboffset, subty, c) in subblob.vals
-				std.slpush(&blob.vals, (offset+suboffset, subty, c))
-			;;
-		| `Initfunc _:
-			std.fatal("internal error\n")
+		| _:
+			std.slpush(&initlist.vals, (offset, subinit))
 		;;
 		
 		match p.tok.kind
@@ -1072,11 +1051,11 @@ const parsearrayinit = {p, arr
 		arr.len = `std.Some maxindex+1
 	;;
 	
-	if !blobfinalize(&blob)
+	if !initlistfinalize(&initlist)
 		err(loc, "initializer has overlapping values\n")
 	;;
 	
-	-> std.mk(blob)
+	-> std.mk(`Einit initlist)
 }
 
 const parseinit = {p, ty
@@ -1084,11 +1063,11 @@ const parseinit = {p, ty
 	| `Tystruct &(`std.None):
 		std.fatal("internal error\n")
 	| `Tystruct &(`std.Some s):
-		-> `Initblob parsestructinit(p, s)
+		-> parsestructinit(p, s)
 	| `Tyarr arr:
-		-> `Initblob parsearrayinit(p, arr)
+		-> parsearrayinit(p, arr)
 	| _:
-		-> `Initexpr mkcast(ty, parseassign(p))
+		-> mkcast(ty, parseassign(p))
 	;;
 }
 
@@ -1099,7 +1078,7 @@ const parsedeclinit = {p, basety
 	match p.tok.kind
 	| `Tasn:
 		next(p)
-		-> (name, ty, `std.Some parseinit(p, ty))
+		-> (name, ty, `std.Some `Initexpr parseinit(p, ty))
 	| _:
 		-> (name, ty, `std.None)
 	;;
@@ -1184,12 +1163,7 @@ const parsedecltail = {p, pstk
 				expectcsqbrac(p)
 			| _:
 				var exprloc = p.tok.loc
-				match parseconstexpr(p)
-				| `Constint v:
-					arrlen = (v : uint32)
-				| `Constptr _:
-					err(exprloc, "array length cannot be derived from a pointer\n")
-				;;
+				arrlen = (parseconstexpr(p) : uint32)
 				expectcsqbrac(p)
 				std.slpush(pstk, `Dcl_arr `std.Some arrlen)
 			;;
@@ -1457,7 +1431,7 @@ const parseswitch = {p
 }
 
 const parsecase = {p
-	var loc, sw, lbl
+	var loc, sw, lbl, v
 	
 	lbl = nextlbl(p.curfunc)
 	match p.tok.kind
@@ -1472,17 +1446,13 @@ const parsecase = {p
 	;;
 	
 	loc = p.tok.loc
-	match parseconstexpr(p)
-	| `Constint v:
-		for (caseval, _) in sw.cases
-			if caseval == v
-				err(loc, "duplicate case in switch")
-			;;
+	v = parseconstexpr(p)
+	for (caseval, _) in sw.cases
+		if caseval == v
+			err(loc, "duplicate case in switch")
 		;;
-		std.slpush(&sw.cases, (v, lbl))
-	| `Constptr _:
-		err(loc, "pointer derived constant cannot be used in case")
 	;;
+	std.slpush(&sw.cases, (v, lbl))
 	expectcolon(p)
 	-> std.mk(`Slabeled [.stmt=parsestmt(p), .lbl=lbl])
 }
@@ -1741,10 +1711,10 @@ const parseconstexpr = {p
 	
 	l = p.tok.loc
 	match foldexpr(parseexpr(p))
-	| `std.Some c:
+	| `std.Some `Constint c:
 		-> c
-	| `std.None:
-		err(l, "expected a constant value\n")
+	| _:
+		err(l, "expected a constant integer\n")
 	;;
 }
 

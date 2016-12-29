@@ -15,18 +15,20 @@ type Val = union
 	`Vreg (int, byte[:])
 ;;
 
-type dataval = union
-	`Dstr byte[:]
-	`Dzero uint32
-	`Dint constval
-	`Dlong constval
-	`Darr dataval[:]
-;;
-
 type data = struct
 	isglobal : bool
 	label : byte[:]
 	val : dataval
+;;
+
+type dataval = union
+	`Dstr byte[:]
+	`Dzero uint32
+	`Dword int64
+	`Dlong int64
+	`Dptrword (byte[:], int64)
+	`Dptrlong (byte[:], int64)
+	`Dblob dataval[:]
 ;;
 
 var allocas : std.htab(sym#, Val)#
@@ -150,48 +152,58 @@ const emitglobaldecl = {decl
 			
 			match init
 			| `Initexpr expr:
-				// XXX frontend doesn't check this...
-				var c = std.get(foldexpr(expr))
-
-				match exprtype(expr)
-				| `Tyint:
-					d.val = `Dint c
-				| `Tylong:
-					d.val = `Dlong c
-				| `Typtr _:
-					d.val = `Dlong c
-				| _:
-					std.fatal("unimplemented initializer type")
-				;;
-			| `Initblob blob:
-				var arr = [][:]
-				var curoff = 0
-				for (off, ty, c) in blob.vals
-					if off > curoff
-						std.slpush(&arr, `Dzero off - curoff)
-						curoff = off
-					;;
-					match ty
-					| `Tyint:
-						std.slpush(&arr, `Dint c)
-					| `Tylong:
-						std.slpush(&arr, `Dlong c)
-					| `Typtr _:
-						std.slpush(&arr, `Dlong c)
-					| _:
-						std.fatal("unimplemented initializer type")
-					;;
-					curoff += std.get(typesize(ty))
-				;;
-				d.val = `Darr arr
+				d.val = expr2dataval(expr)
 			| _:
-				std.fatal("unimplemented initializer")
+				std.fatal("internal error")
 			;;
 			
-			std.slpush(&pendingdata, d)				
+			std.slpush(&pendingdata, d)	
 		;;
 	;;
 }
+
+const expr2dataval = {expr
+	var c = std.get(foldexpr(expr))
+	-> const2dataval(exprtype(expr), c)
+}
+
+const const2dataval = {ty, c
+	match c
+	| `Constblob blob:
+		var subvals = [][:]
+		var curoff = 0
+		
+		for (off, subty, subc) in blob
+			if off > curoff
+				std.slpush(&subvals, `Dzero off - curoff)
+				curoff = off
+			;;
+			std.slpush(&subvals, const2dataval(subty, subc))
+			curoff += std.get(typesize(subty))
+		;;
+		
+		-> `Dblob subvals
+	| _:
+	;;
+	
+	match (ty, c)
+	| (`Tyint, `Constint v):
+		-> `Dword v
+	| (`Tylong, `Constint v):
+		-> `Dlong v
+	| (`Typtr _, `Constint v):
+		-> `Dlong v
+	| (`Tyint, `Constptr (lbl, v)):
+		-> `Dptrword (lbl, v)
+	| (`Tylong, `Constptr (lbl, v)):
+		-> `Dptrlong (lbl, v)
+	| (`Typtr _, `Constptr (lbl, v)):
+		-> `Dptrlong (lbl, v)
+	| _:
+		std.fatal("unhandled type/constant pair\n")
+	;;
+}
+
 
 const vo = {msg : byte[:], ap : std.valist#
 	var sb, ln
@@ -1183,38 +1195,26 @@ const emitpendingdata = {
 				;;	
 			;;
 			o("\", b 0}}\n")
-		| `Dint c:
-			match c
-			| `Constint v:
-				o("data ${} = {{w {}}}\n", data.label, v)
-			| `Constptr (p, off):
-				std.fatal("unimplemented...")
-			;;
-		| `Dlong c:
-			match c
-			| `Constint v:
-				o("data ${} = {{l {}}}\n", data.label, v)
-			| `Constptr (p, off):
-				o("data ${} = {{l ${}+{}}}\n", data.label, p, off)
-			;;
-		| `Darr arr:
+		| `Dword v:
+			o("data ${} = {{w {}}}\n", data.label, v)
+		| `Dlong v:
+			o("data ${} = {{l {}}}\n", data.label, v)
+		| `Dptrword (lbl, off):
+			o("data ${} = {{w ${}+{}}}\n", data.label, lbl, off)
+		| `Dptrlong (lbl, off):
+			o("data ${} = {{l ${}+{}}}\n", data.label, lbl, off)
+		| `Dblob blob:
 			o("data ${} = {{", data.label)
-				for d in arr
+				for d in blob
 					match d
-					| `Dint c:
-						match c
-						| `Constint v:
-							o("w {}, ", v)
-						| `Constptr (p, off):
-							o("w {}+{}, ", p, off)
-						;;
-					| `Dlong c:
-						match c
-						| `Constint v:
-							o("l {}, ", v)
-						| `Constptr (p, off):
-							o("l ${}+{}, ", p, off)
-						;;
+					| `Dword v:
+						o("w {}, ", v)
+					| `Dlong v:
+						o("l {}, ", v)
+					| `Dptrword (lbl, off):
+						o("w ${}+{}\n", lbl, off)
+					| `Dptrlong (lbl, off):
+						o("l ${}+{}\n", lbl, off)
 					| `Dzero z:
 						o("z {}, ", z)
 					| _:

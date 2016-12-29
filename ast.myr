@@ -74,19 +74,15 @@ pkg qc =
 		lbl : int
 	;;
 	
-	type init = union
+	type syminit = union
 		`Initexpr expr#
-		`Initblob initblob#
 		`Initfunc func#
 	;;
 	
 	type constval = union
 		`Constint int64
 		`Constptr (byte[:], int64)
-	;;
-	
-	type initblob = struct
-		vals : (uint32, ctype, constval)[:]
+		`Constblob (uint32, ctype, constval)[:]
 	;;
 	
 	type expr = union
@@ -109,6 +105,11 @@ pkg qc =
 		`Eincdec incdec
 		`Esizeof int
 		`Econd cond
+		`Einit initlist
+	;;
+	
+	type initlist = struct
+		vals : (uint32, expr#)[:]
 	;;
 	
 	type cond = struct
@@ -260,7 +261,7 @@ pkg qc =
 		name : byte[:]
 		ty : ctype
 		sc : sclass
-		init : std.option(init)
+		init : std.option(syminit)
 	;;
 	
 	const nextlbl : (f : func# -> int)

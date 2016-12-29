@@ -45,6 +45,17 @@ const foldexpr = {e
 		| _:
 			-> `std.None
 		;;
+	| &(`Einit initlist):
+		var vals = [][:]
+		for (offset, sube) in initlist.vals
+			match foldexpr(sube)
+			| `std.Some v:
+				std.slpush(&vals, (offset, exprtype(sube), v))
+			| `std.None:
+				-> `std.None
+			;;
+		;;
+		-> `std.Some `Constblob vals
 	| _:
 		-> `std.None
 	;;
