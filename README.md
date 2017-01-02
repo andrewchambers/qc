@@ -14,7 +14,9 @@ language, a language by Ori Bernstein that is under heavy development, and also 
 
 # Status
 
-The compiler itself is nearly complete enough to start compiling real programs. My first target will be my old [self hosting C compiler](https://github.com/andrewchambers/c). There is not much work required to complete that goal, though there will be a steady grind of bug fixes to make it a reality.
+The compiler itself is nearly complete enough to start compiling real programs. My first target will be my old [self hosting C compiler](https://github.com/andrewchambers/c). Currently, more than 5k LOC from that project can be built with qc + qbe.
+
+There is not much work required to complete that goal, though there will be a steady grind of bug fixes to make it a reality.
 
 # Building
 
