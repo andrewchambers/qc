@@ -1048,7 +1048,7 @@ const parsearrayinit = {p, arr
 			err(loc, "incorrect number of array elements (got {}, expected {})\n", maxindex+1, len)
 		;;
 	| `std.None:
-		arr.len = `std.Some maxindex+1
+		arr.len = `std.Some (maxindex+1)
 	;;
 	
 	if !initlistfinalize(&initlist)

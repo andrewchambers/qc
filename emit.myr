@@ -175,7 +175,7 @@ const const2dataval = {ty, c
 		
 		for (off, subty, subc) in blob
 			if off > curoff
-				std.slpush(&subvals, `Dzero off - curoff)
+				std.slpush(&subvals, `Dzero (off - curoff))
 				curoff = off
 			;;
 			std.slpush(&subvals, const2dataval(subty, subc))
