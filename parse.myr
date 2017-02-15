@@ -473,16 +473,16 @@ const startofdecl = {p
 
 const parsetagtype = {p
 	var tagloc, tagname
-	var tag, ty
+	var tagtype, ty
 	
 	tagloc = p.tok.loc
 	match p.tok.kind
 	| `Tstruct:
-		tag = tagstruct
+		tagtype = tagstruct
 	| `Tunion:
-		tag = tagunion
+		tagtype = tagunion
 	| `Tenum:
-		tag = tagenum
+		tagtype = tagenum
 	| _:
 		err(p.tok.loc, "expected struct/union/enum\n")
 	;;
@@ -500,7 +500,7 @@ const parsetagtype = {p
 	| (`std.Some name, `Tobrace):
 		match std.htget(p.tagtab[p.tagtab.len - 1], name)
 		| `std.Some (oldtag, oldty):
-			if tag != oldtag
+			if tagtype != oldtag
 				err(tagloc, "struct/union/enum accessed with wrong tag type")
 			;;
 			match oldty
@@ -510,7 +510,7 @@ const parsetagtype = {p
 					err(tagloc, "redefinition of tag {}", name)
 				| &(`std.None):
 				;;
-				parsestructbody(p, pbody, tag == tagunion)
+				parsestructbody(p, tagname, pbody, tagtype == tagunion)
 				-> `Tystruct pbody
 			| `Tyenum pbody:
 				match pbody
@@ -518,49 +518,49 @@ const parsetagtype = {p
 					err(tagloc, "redefinition of tag {}", name)
 				| &(`std.None):
 				;;
-				parseenumbody(p, pbody)
+				parseenumbody(p, tagname, pbody)
 				-> `Tyenum pbody
 			| _:
 				std.fatal("internal error\n")
 			;;
 		| `std.None:
-			if tag == tagstruct || tag == tagunion
+			if tagtype == tagstruct || tagtype == tagunion
 				var pbody = std.mk(`std.None)
 				ty = `Tystruct pbody
-				declaretag(p, name, (tag, ty))
-				parsestructbody(p, pbody, tag == tagunion)
+				declaretag(p, name, (tagtype, ty))
+				parsestructbody(p, tagname, pbody, tagtype == tagunion)
 				-> ty
 			else
 				var pbody = std.mk(`std.None)
 				ty = `Tyenum pbody
-				declaretag(p, name, (tag, ty))
-				parseenumbody(p, pbody)
+				declaretag(p, name, (tagtype, ty))
+				parseenumbody(p, tagname, pbody)
 				-> ty
 			;;
 			
 		;;
 	| (`std.None, `Tobrace):
-		if tag == tagstruct || tag == tagunion
+		if tagtype == tagstruct || tagtype == tagunion
 			var pbody = std.mk(`std.None)
-			parsestructbody(p, pbody, tag == tagunion)
+			parsestructbody(p, tagname, pbody, tagtype == tagunion)
 			-> `Tystruct pbody
 		else
 			var pbody = std.mk(`std.None)
-			parseenumbody(p, pbody)
+			parseenumbody(p, tagname, pbody)
 			-> `Tyenum pbody
 		;;
 	| (`std.Some name, _):
 		match lookuptag(p, name)
 		| `std.None:
-			if tag == tagstruct || tag == tagunion
+			if tagtype == tagstruct || tagtype == tagunion
 				ty = `Tystruct std.mk(`std.None)
 			else
 				ty = `Tyenum std.mk(`std.None)
 			;;
-			declaretag(p, name, (tag, ty))
+			declaretag(p, name, (tagtype, ty))
 			-> ty
 		| `std.Some (oldtag, oldty):
-			if oldtag != tag
+			if oldtag != tagtype
 				err(tagloc, "struct/union/enum accessed with wrong tag type")
 			;;
 			-> oldty
@@ -570,13 +570,14 @@ const parsetagtype = {p
 	;;
 }
 
-const parsestructbody = {p, pbody, isunion
+const parsestructbody = {p, tagname, pbody, isunion
 	var sc, basety
 	var namety
 	var s
 	var declspecloc
 	
 	s = std.mk([
+		.tag = tagname,
 		.isunion = isunion,
 		.align = 1,
 		.size = 0,
@@ -615,10 +616,11 @@ const parsestructbody = {p, pbody, isunion
 	pbody# = `std.Some s
 }
 
-const parseenumbody = {p, pbody
+const parseenumbody = {p, tagname, pbody
 	var e, v, l
 	
 	e = std.mk([
+		.tag = tagname,
 		.membs=std.mkht(std.strhash, std.streq)
 	])
 	v = (0 : int64)

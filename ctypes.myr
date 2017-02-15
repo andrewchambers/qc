@@ -22,10 +22,12 @@ pkg qc =
 	;;
 
 	type cenum = struct
+		tag : std.option(byte[:])
 		membs : std.htab(byte[:], int64)#
 	;;
 
 	type cstruct = struct
+		tag : std.option(byte[:])
 		isunion : bool
 		align : uint32
 		size : uint32
