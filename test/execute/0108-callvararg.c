@@ -11,5 +11,6 @@ main()
 	
 	if (strcmp("hello world!", buf) != 0)
 		return 1;
+
 	return 0;
 }
