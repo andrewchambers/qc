@@ -368,6 +368,9 @@ const emitcall = {call
 			o(",")
 		;;
 	;;
+	if call.functy.isvararg 
+		o(", ...")
+	;;
 	o(")\n")
 	
 	-> result
