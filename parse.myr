@@ -12,7 +12,7 @@ pkg qc =
 
 const mklocal = {p, name, ty, init : std.option(syminit) // Type inference error
 	var l
-	
+
 	l = std.mk([.ty=ty, .name=name, .sc=`Sclasslocal, .init=init])
 	std.slpush(&p.curfunc.locals, l)
 	-> l
@@ -20,28 +20,28 @@ const mklocal = {p, name, ty, init : std.option(syminit) // Type inference error
 
 const mkextern = {p, name, ty
 	var g
-	
+
 	g = std.mk([.ty=ty, .name=name, .sc=`Sclassextern, .init=`std.None])
 	-> g
 }
 
 const mkglobal = {p, name, ty, init
 	var g
-	
+
 	g = std.mk([.ty=ty, .name=name, .sc=`Sclassglobal, .init=init])
 	-> g
 }
 
 const mkstatic = {p, name, ty, init
 	var s
-	
+
 	s = std.mk([.ty=ty, .name=name, .sc=`Sclassstatic, .init=init])
 	-> s
 }
 
 const mkenumsym = {p, name, ty
 	var e
-	
+
 	e = std.mk([.ty=ty, .name=name, .sc=`Sclassenum, .init=`std.None])
 	-> e
 }
@@ -61,7 +61,7 @@ type parser = struct
 	pp : pp#
 	tok : tok
 	lookahead: tok
-	
+
 	symtab : std.htab(byte[:], sym#)#[:]
 	typetab : std.htab(byte[:], ctype)#[:]
 	tagtab : std.htab(byte[:], (tagty, ctype))#[:]
@@ -94,7 +94,7 @@ const pushscope = {p
 
 const popscope = {p
 	var symtab, typetab, tagtab
-	
+
 	symtab = std.slpop(&p.symtab)
 	typetab = std.slpop(&p.typetab)
 	tagtab = std.slpop(&p.tagtab)
@@ -134,22 +134,22 @@ const lookuptype = {p, name
 
 const declare = {p, loc, name, sym
 	var oldsym
-	
+
 	if std.hthas(p.symtab[p.symtab.len-1], name)
 		oldsym = std.get(std.htget(p.symtab[p.symtab.len-1], name))
 		redeclare(p, loc, oldsym, sym)
 		-> void
 	;;
-	
+
 	std.htput(p.symtab[p.symtab.len-1], name, sym)
 }
 
 const redeclare = {p, loc, oldsym, newsym
-	
+
 	if !sametype(oldsym.ty, newsym.ty)
 		 err(loc, "invalid redeclaration of symbol {} (types differ)", oldsym.name)
 	;;
-	
+
 	match (oldsym.sc, newsym.sc)
 	| (`Sclasslocal, `Sclasslocal):
 	| (`Sclassglobal, `Sclassglobal):
@@ -160,7 +160,7 @@ const redeclare = {p, loc, oldsym, newsym
 	| _:
 		 err(loc, "invalid redeclaration of symbol {} (storage classes differ)", oldsym.name)
 	;;
-	
+
 	match (oldsym.init, newsym.init)
 	| (`std.Some _, `std.Some _):
 		err(loc, "symbol {} already has intializer", oldsym.name)
@@ -168,7 +168,7 @@ const redeclare = {p, loc, oldsym, newsym
 		oldsym.init = newsym.init
 	| _:
 	;;
-	
+
 }
 
 const declaretype = {p, loc, name, ty
@@ -192,7 +192,7 @@ const lookup = {p, name
 const parse = {pp
 	var p : parser#
 	var globals
-	
+
 	p = std.mk([
 		.pp = pp,
 		.symtab = [][:],
@@ -205,7 +205,7 @@ const parse = {pp
 	pushscope(p)
 	p.tok = cppnext(pp)
 	p.lookahead = cppnext(pp)
-	
+
 	globals = [][:]
 	while true
 		match p.tok.kind
@@ -297,7 +297,7 @@ const expectassign = {p
 
 const parseif = {p
 	var cond, iftrue, iffalse
-	
+
 	next(p)
 	expectoparen(p)
 	cond = parseexpr(p)
@@ -323,7 +323,7 @@ const parseif = {p
 const parsewhile = {p
 	var cond, stmt
 	var breaklbl, contlbl
-	
+
 	next(p)
 	expectoparen(p)
 	cond = parseexpr(p)
@@ -333,7 +333,7 @@ const parsewhile = {p
 	pushbreakcont(p, breaklbl, contlbl)
 	stmt = parsestmt(p)
 	popbreakcont(p)
-	
+
 	-> std.mk(`Swhile [
 		.cond=cond,
 		.stmt=stmt,
@@ -346,7 +346,7 @@ const parsewhile = {p
 const parsedowhile = {p
 	var cond, stmt
 	var breaklbl, contlbl
-	
+
 	next(p)
 	breaklbl = nextlbl(p.curfunc)
 	contlbl = nextlbl(p.curfunc)
@@ -363,7 +363,7 @@ const parsedowhile = {p
 	cond = parseexpr(p)
 	expectcparen(p)
 	expectsemi(p)
-	
+
 	-> std.mk(`Sdowhile [
 		.cond=cond,
 		.stmt=stmt,
@@ -375,7 +375,7 @@ const parsedowhile = {p
 
 const parsefor = {p
 	var forstmt
-	
+
 	next(p)
 	expectoparen(p)
 	match p.tok.kind
@@ -409,13 +409,13 @@ const parsefor = {p
 	pushbreakcont(p, forstmt.breaklbl, forstmt.contlbl)
 	forstmt.stmt = parsestmt(p)
 	popbreakcont(p)
-	
+
 	-> std.mk(`Sfor forstmt)
 }
 
 const parseblock = {p
 	var stmts
-	
+
 	stmts = [][:]
 	match p.tok.kind
 	| `Tobrace:
@@ -474,7 +474,7 @@ const startofdecl = {p
 const parsetagtype = {p
 	var tagloc, tagname
 	var tagtype, ty
-	
+
 	tagloc = p.tok.loc
 	match p.tok.kind
 	| `Tstruct:
@@ -487,7 +487,7 @@ const parsetagtype = {p
 		err(p.tok.loc, "expected struct/union/enum\n")
 	;;
 	next(p)
-	
+
 	match p.tok.kind
 	| `Tident tname:
 		next(p)
@@ -495,7 +495,7 @@ const parsetagtype = {p
 	| _:
 		tagname = `std.None
 	;;
-	
+
 	match (tagname, p.tok.kind)
 	| (`std.Some name, `Tobrace):
 		match std.htget(p.tagtab[p.tagtab.len - 1], name)
@@ -537,7 +537,7 @@ const parsetagtype = {p
 				parseenumbody(p, tagname, pbody)
 				-> ty
 			;;
-			
+
 		;;
 	| (`std.None, `Tobrace):
 		if tagtype == tagstruct || tagtype == tagunion
@@ -575,7 +575,7 @@ const parsestructbody = {p, tagname, pbody, isunion
 	var namety
 	var s
 	var declspecloc
-	
+
 	s = std.mk([
 		.tag = tagname,
 		.isunion = isunion,
@@ -618,7 +618,7 @@ const parsestructbody = {p, tagname, pbody, isunion
 
 const parseenumbody = {p, tagname, pbody
 	var e, v, l
-	
+
 	e = std.mk([
 		.tag = tagname,
 		.membs=std.mkht(std.strhash, std.streq)
@@ -646,7 +646,7 @@ const parseenumbody = {p, tagname, pbody
 			| _:
 			;;
 			std.htput(e.membs, name, v)
-			v += 1	
+			v += 1
 			match p.tok.kind
 			| `Tcomma:
 				next(p)
@@ -673,7 +673,7 @@ const issclasstok = {kind
 }
 
 const parsedeclspecs = {p
-    
+
 	const BITCHAR : int32 = 1<<0
 	const BITSHORT : int32 = 1<<1
 	const BITINT : int32  = 1<<2
@@ -687,7 +687,7 @@ const parsedeclspecs = {p
 	const BITSTRUCT : int32 = 1<<10
 	const BITVOID : int32 = 1<<11
 	const BITIDENT : int32 = 1<<12
-	
+
 	var bits : int32 = 0
 	var sclass : std.option(sclass) = `std.None
 	var ty = `Tyint
@@ -696,7 +696,7 @@ const parsedeclspecs = {p
 
 	while true
 		std.slpush(&declspectext, p.tok.text)
-		
+
 		if issclasstok(p.tok.kind)
 			match sclass
 			| `std.None:
@@ -716,7 +716,7 @@ const parsedeclspecs = {p
 			next(p)
 			continue
 	    ;;
-	
+
 		match p.tok.kind
 		| `Tconst:
 			next(p)
@@ -816,9 +816,9 @@ const parsedeclspecs = {p
 			break
 		;;
 	;;
-	
+
 	std.slpop(&declspectext)
-	
+
 	match bits
 	| 0:
 		-> (sclass, `Tyint)
@@ -873,7 +873,7 @@ const parsedeclspecs = {p
 		-> (sclass, ty)
 	| _:
 	;;
-	
+
 :baddecl
 	err(declpos, "invalid declaration specifiers: {}\n", std.strjoin(declspectext, " "))
 }
@@ -902,12 +902,12 @@ const parsestructinit = {p, s
 	var membname, memboffset, membty
 	var subinit
 	var initlist
-	
-	
+
+
 	initlist = [
 		.vals = [][:]
 	]
-	
+
 	loc = p.tok.loc
 	expectobrace(p)
 	it = mkstructiter(s)
@@ -939,38 +939,38 @@ const parsestructinit = {p, s
 		| _:
 			neednext = true
 		;;
-		
+
 		if neednext
 			if !structiternext(&it)
 				err(loc, "too many struct initializers")
 			;;
 		;;
-		
+
 		(membname, memboffset, membty) = structiterwalk(it)
 		subinit = parseinit(p, membty)
-		
+
 		match subinit
 		| &(`Einit subinitlist):
-			for (o, e) in subinitlist.vals
+			for (o, e) : subinitlist.vals
 				std.slpush(&initlist.vals, (o+memboffset, e))
 			;;
 		| _:
 			std.slpush(&initlist.vals, (memboffset, subinit))
 		;;
-		
+
 		match p.tok.kind
 		| `Tcomma:
 			next(p)
 		| _:
 			break
 		;;
-		
+
 	;;
 	expectcbrace(p)
 	if !initlistfinalize(&initlist)
 		err(loc, "initializer has overlapping values\n")
 	;;
-	
+
 	-> std.mk(`Einit initlist)
 }
 
@@ -978,24 +978,24 @@ const parsestructinit = {p, s
 const parsearrayinit = {p, arr
 	var loc, subinit, initlist
 	var index, maxindex, entsize, offset
-	
-	
+
+
 	initlist = [
 		.vals = [][:]
 	]
-	
+
 	loc = p.tok.loc
 	index = 0
 	offset = 0
 	maxindex = 0
-	
+
 	match typesize(arr.subty)
 	| `std.Some sz:
 		entsize = sz
 	| `std.None:
 		err(loc, "cannot intiialize array of an incomplete type\n")
 	;;
-	
+
 	expectobrace(p)
 	while true
 		match p.tok.kind
@@ -1003,7 +1003,7 @@ const parsearrayinit = {p, arr
 			break
 		| _:
 		;;
-		
+
 		match p.tok.kind
 		| `Tosqbrac:
 			next(p)
@@ -1018,18 +1018,18 @@ const parsearrayinit = {p, arr
 			expectassign(p)
 		| _:
 		;;
-		
+
 		subinit = parseinit(p, arr.subty)
-		
+
 		match subinit
 		| &(`Einit subinitlist):
-			for (o, e) in subinitlist.vals
+			for (o, e) : subinitlist.vals
 				std.slpush(&initlist.vals, (o+offset, e))
 			;;
 		| _:
 			std.slpush(&initlist.vals, (offset, subinit))
 		;;
-		
+
 		match p.tok.kind
 		| `Tcomma:
 			index += 1
@@ -1043,7 +1043,7 @@ const parsearrayinit = {p, arr
 		;;
 	;;
 	expectcbrace(p)
-	
+
 	match arr.len
 	| `std.Some len:
 		if len != maxindex+1
@@ -1052,11 +1052,11 @@ const parsearrayinit = {p, arr
 	| `std.None:
 		arr.len = `std.Some (maxindex+1)
 	;;
-	
+
 	if !initlistfinalize(&initlist)
 		err(loc, "initializer has overlapping values\n")
 	;;
-	
+
 	-> std.mk(`Einit initlist)
 }
 
@@ -1076,7 +1076,7 @@ const parseinit = {p, ty
 const parsedeclinit = {p, basety
 	var name, ty
 	(name, ty) = parsedecl(p, basety)
-	
+
 	match p.tok.kind
 	| `Tasn:
 		next(p)
@@ -1084,7 +1084,7 @@ const parsedeclinit = {p, basety
 	| _:
 		-> (name, ty, `std.None)
 	;;
-	
+
 }
 
 type declop = union
@@ -1096,11 +1096,11 @@ type declop = union
 const parsedecl = {p, basety
 	var name
 	var stk : declop[:]
-	
+
 	stk = [][:]
-	
+
 	name = parsedeclstk(p, &stk)
-	
+
 	while stk.len != 0
 		match std.slpop(&stk)
 		| `Dcl_deref:
@@ -1117,7 +1117,7 @@ const parsedecl = {p, basety
 
 const parsedeclstk = {p, pstk
 	var name
-	
+
 	match p.tok.kind
 	| `Tmul:
 		next(p)
@@ -1134,7 +1134,7 @@ const parsedeclstk = {p, pstk
 
 const parsedirectdecl = {p, pstk
 	var name
-	
+
 	match p.tok.kind
 	| `Toparen:
 		next(p)
@@ -1154,7 +1154,7 @@ const parsedecltail = {p, pstk
 	var arrlen
 	var paramty, sclass, name
 	var cfunc : cfunc
-	
+
 	while true
 		match p.tok.kind
 		| `Tosqbrac:
@@ -1180,7 +1180,7 @@ const parsedecltail = {p, pstk
 			;;
 			while true
 				var ploc = p.tok.loc
-				
+
 				(sclass, paramty) = parsedeclspecs(p)
 				match sclass
 				| `std.None:
@@ -1193,7 +1193,7 @@ const parsedecltail = {p, pstk
 					paramty = `Typtr std.mk(arr.subty)
 				| _:
 				;;
-				
+
 				match paramty
 				| `Tyvoid:
 					match p.tok.kind
@@ -1211,7 +1211,7 @@ const parsedecltail = {p, pstk
 				| _:
 					break
 				;;
-				
+
 				match p.tok.kind
 				| `Tellipsis:
 					cfunc.isvararg = true
@@ -1221,9 +1221,9 @@ const parsedecltail = {p, pstk
 				;;
 			;;
 			:doneparams
-			
+
 			expectcparen(p)
-			
+
 			std.slpush(pstk, `Dcl_call std.mk(cfunc))
 		| _:
 			break
@@ -1234,10 +1234,10 @@ const parsedecltail = {p, pstk
 const parsedeclaration = {p
 	var maybesclass, sclass, name, basety, ty, sym
 	var decls, loc, paramsym, init
-	
+
 	decls.syms = [][:]
 	(maybesclass, basety) = parsedeclspecs(p)
-	
+
 	match maybesclass
 	| `std.None:
 		sclass = `Sclasslocal
@@ -1247,7 +1247,7 @@ const parsedeclaration = {p
 	| `std.Some sc:
 		sclass = sc
 	;;
-	
+
 	while true
 		loc = p.tok.loc
 		(name, ty, init) = parsedeclinit(p, basety)
@@ -1280,7 +1280,7 @@ const parsedeclaration = {p
 			std.slpush(&decls.syms, sym)
 		| `std.None:
 		;;
-		
+
 		match p.tok.kind
 		| `Tcomma:
 			next(p)
@@ -1288,14 +1288,14 @@ const parsedeclaration = {p
 			if !inglobalscope(p)
 				err(p.tok.loc, "unexpected {{\n")
 			;;
-			
+
 			match sclass
 			| `Sclassstatic:
 			| `Sclassglobal:
 			| _:
 				err(p.tok.loc, "unexpected {{\n")
 			;;
-			
+
 
 			match name
 			| `std.Some n:
@@ -1326,7 +1326,7 @@ const parsedeclaration = {p
 				err(loc, "non function type cannot have a function\n")
 			;;
 			pushscope(p)
-			for (pname, pty) in p.curfunc.functy.params
+			for (pname, pty) : p.curfunc.functy.params
 				match pname
 				| `std.Some n:
 					paramsym = mklocal(p, n, pty, `std.None)
@@ -1335,7 +1335,7 @@ const parsedeclaration = {p
 				| `std.None:
 				;;
 			;;
-			
+
 			p.curfunc.body = parseblock(p)
 			popscope(p)
 			-> decls
@@ -1348,7 +1348,7 @@ const parsedeclaration = {p
 	-> decls
 }
 
-const parsedeclorstmt = {p	
+const parsedeclorstmt = {p
 	if startofdecl(p)
 		-> std.mk(`Sdecl parsedeclaration(p))
 	;;
@@ -1357,13 +1357,13 @@ const parsedeclorstmt = {p
 
 const parsestmt = {p
 	var expr
-	
+
 	match (p.tok.kind, p.lookahead.kind)
 	| (`Tident _, `Tcolon):
 		-> parselabeled(p)
 	| _:
 	;;
-	
+
 	match p.tok.kind
 	| `Tsemi:
 		next(p)
@@ -1409,7 +1409,7 @@ const parsestmt = {p
 
 const parseswitch = {p
 	var sw
-	
+
 	match p.tok.kind
 	| `Tswitch:
 		next(p)
@@ -1434,7 +1434,7 @@ const parseswitch = {p
 
 const parsecase = {p
 	var loc, sw, lbl, v
-	
+
 	lbl = nextlbl(p.curfunc)
 	match p.tok.kind
 	| `Tcase:
@@ -1446,10 +1446,10 @@ const parsecase = {p
 	| _:
 		err(p.tok.loc, "expected 'case'\n")
 	;;
-	
+
 	loc = p.tok.loc
 	v = parseconstexpr(p)
-	for (caseval, _) in sw.cases
+	for (caseval, _) : sw.cases
 		if caseval == v
 			err(loc, "duplicate case in switch")
 		;;
@@ -1461,7 +1461,7 @@ const parsecase = {p
 
 const parsedefault = {p
 	var loc, sw, lbl
-	
+
 	lbl = nextlbl(p.curfunc)
 	match p.tok.kind
 	| `Tdefault:
@@ -1486,7 +1486,7 @@ const parsedefault = {p
 
 const parsegoto = {p
 	var loc, name, lbl
-	
+
 	loc = p.tok.loc
 	next(p)
 	match p.tok.kind
@@ -1496,7 +1496,7 @@ const parsegoto = {p
 	| _:
 		err(p.tok.loc, "expected 'identifier'\n")
 	;;
-	
+
 	match std.htget(p.lbltab, name)
 	| `std.None:
 		lbl = nextlbl(p.curfunc)
@@ -1511,7 +1511,7 @@ const parsegoto = {p
 
 const parselabeled = {p
 	var loc, name, lbl
-	
+
 	match p.tok.kind
 	| `Tident n:
 		loc = p.tok.loc
@@ -1541,7 +1541,7 @@ const parselabeled = {p
 
 const parsereturn= {p
 		var rexpr
-		
+
 		next(p)
 		match p.tok.kind
 		| `Tsemi:
@@ -1567,17 +1567,17 @@ const mkrelop = {op, l, r
 	if isitype(exprtype(r))
 		r = usualconv(r)
 	;;
-	
+
 	if isitype(exprtype(l)) && isitype(exprtype(r))
 		(l, r) = arithconv(l, r)
 	;;
-	
+
 	-> std.mk(`Erelop [.op=op, .l=l, .r=r])
 }
 
 const mkbinop = {op, l, r
 	var ty
-	
+
 	match (op, exprtype(l), exprtype(r))
 	| (`Oplus , `Typtr _, `Typtr _):
 		std.fatal("XXX unhandled adding two pointers")
@@ -1589,7 +1589,7 @@ const mkbinop = {op, l, r
 		-> std.mk(`Eptrarith [.op=`Opadd, .ptr=r, .amnt=l])
 	| _:
 	;;
-	
+
 	l = usualconv(l)
 	r = usualconv(r)
 	(l, r) = arithconv(l, r)
@@ -1599,7 +1599,7 @@ const mkbinop = {op, l, r
 
 const mkcast = {ty, expr
 	var ety
-	
+
 	ety = exprtype(expr)
 	if sametype(ty, ety)
 		-> expr
@@ -1655,17 +1655,17 @@ const arithconv = {l, r
 	var lrank, rrank
 	var invert
 	var result
-	
+
 	lrank = tyrank(exprtype(l))
 	rrank = tyrank(exprtype(r))
-	
+
 	if rrank > lrank
 		invert = true
 		(l, r) = (r, l)
 	else
 		invert = false
 	;;
-	
+
 	result = (l, r)
 	match exprtype(l)
 	| `Tyllong:
@@ -1700,7 +1700,7 @@ const arithconv = {l, r
 	| _:
 		std.fatal("unimplemented arithconv\n")
 	;;
-	
+
 	if invert
 		(r, l) = result
 		result = (l, r)
@@ -1710,7 +1710,7 @@ const arithconv = {l, r
 
 const parseconstexpr = {p
 	var l
-	
+
 	l = p.tok.loc
 	match foldexpr(parseexpr(p))
 	| `std.Some `Constint c:
@@ -1722,7 +1722,7 @@ const parseconstexpr = {p
 
 const parseassign = {p
 	var l, r, op
-	
+
 	l = parsecond(p)
 	match p.tok.kind
 	| `Tasn: op = `Oasn
@@ -1740,7 +1740,7 @@ const parseassign = {p
 
 const parsecond = {p
 	var cond, iftrue, iffalse
-	
+
 	cond = parselogorexpr(p)
 	match p.tok.kind
 	| `Tqmark:
@@ -1769,7 +1769,7 @@ const parsecond = {p
 
 const parselogorexpr = {p
 	var l, r
-	
+
 	l = parselogandexpr(p)
 	while true
 		match p.tok.kind
@@ -1786,7 +1786,7 @@ const parselogorexpr = {p
 
 const parselogandexpr = {p
 	var l, r
-	
+
 	l = parseorexpr(p)
 	while true
 		match p.tok.kind
@@ -1803,7 +1803,7 @@ const parselogandexpr = {p
 
 const parseorexpr = {p
 	var l, r
-	
+
 	l = parsexorexpr(p)
 	while true
 		match p.tok.kind
@@ -1820,7 +1820,7 @@ const parseorexpr = {p
 
 const parsexorexpr = {p
 	var l, r
-	
+
 	l = parseandexpr(p)
 	while true
 		match p.tok.kind
@@ -1837,7 +1837,7 @@ const parsexorexpr = {p
 
 const parseandexpr = {p
 	var l, r
-	
+
 	l = parseeqlexpr(p)
 	while true
 		match p.tok.kind
@@ -1854,7 +1854,7 @@ const parseandexpr = {p
 
 const parseeqlexpr = {p
 	var l, r, op
-	
+
 	l = parserelexpr(p)
 	while true
 		match p.tok.kind
@@ -1872,7 +1872,7 @@ const parseeqlexpr = {p
 
 const parserelexpr = {p
 	var l, r, op
-	
+
 	l = parseshiftexpr(p)
 	while true
 		match p.tok.kind
@@ -1892,7 +1892,7 @@ const parserelexpr = {p
 
 const parseshiftexpr = {p
 	var l, r, op
-	
+
 	l = parseaddexpr(p)
 	while true
 		match p.tok.kind
@@ -1910,7 +1910,7 @@ const parseshiftexpr = {p
 
 const parseaddexpr = {p
 	var l, r, op
-	
+
 	l = parsemulexpr(p)
 	while true
 		match p.tok.kind
@@ -1928,7 +1928,7 @@ const parseaddexpr = {p
 
 const parsemulexpr = {p
 	var l, r, op
-	
+
 	l = parsecastexpr(p)
 	while true
 		match p.tok.kind
@@ -1947,7 +1947,7 @@ const parsemulexpr = {p
 
 const parsecastexpr = {p
 	var ty, expr
-	
+
 	match p.tok.kind
 	| `Toparen:
 		if !startoftype(p, p.lookahead.kind)
@@ -1960,7 +1960,7 @@ const parsecastexpr = {p
 		-> mkcast(ty, expr)
 	| _:
 	;;
-	
+
 	:notcast
 	-> parseunop(p)
 }
@@ -1976,7 +1976,7 @@ const mkincdec = {l, op, expr
 const parseunop = {p
 	var operand
 	var l
-	
+
 	l = p.tok.loc
 	match p.tok.kind
 	| `Tinc:
@@ -2017,7 +2017,7 @@ const parseunop = {p
 		| _:
 			err(l, "can only dereference pointer types")
 		;;
-		
+
 	| `Tsizeof:
 		-> parsesizeof(p)
 	| _:
@@ -2028,7 +2028,7 @@ const parseunop = {p
 
 const parseseltail = {p, expr, selstruct
 	var seloff, selty
-	
+
 	match p.tok.kind
 	| `Tident name:
 		match structmemb(selstruct, name)
@@ -2051,7 +2051,7 @@ const parsepostexpr = {p
 	var funclike, args
 	var functy, paramty
 	var l
-	
+
 	expr = parseprimaryexpr(p)
 	while true
 		l = p.tok.loc
@@ -2132,15 +2132,15 @@ const parsepostexpr = {p
 					;;
 				;;
 			;;
-			
+
 			if args.len < functy.params.len
 				err(l, "too few params to function call")
 			;;
-			
+
 			if args.len != functy.params.len && !functy.isvararg
 				err(l, "incorrect number of function params")
 			;;
-			
+
 			expr = std.mk(`Ecall [
 				.functy=functy,
 				.func=funclike,
@@ -2163,7 +2163,7 @@ const parsetypename = {p
 
 const parsesizeof = {p
 	var loc, ty
-	
+
 	// XXX: This may be incorrect.
 	// needs more edge test cases.
 	loc = p.tok.loc
@@ -2194,7 +2194,7 @@ const parsesizeof = {p
 
 const parseprimaryexpr = {p
 	var expr
-	
+
 	match p.tok.kind
 	| `Tident n:
 		match lookup(p, n)
@@ -2232,6 +2232,6 @@ const parseprimaryexpr = {p
 		-> expr
 	| _:
 		err(p.tok.loc, "expected expression but got '{}'\n", p.tok.text)
-	;;	
+	;;
 }
 

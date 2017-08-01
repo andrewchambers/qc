@@ -207,7 +207,7 @@ const samefunctype = {f1, f2
 		-> false
 	;;
 	
-	for ((_, t1), (_, t2)) in std.byzip(f1.params, f2.params)
+	for ((_, t1), (_, t2)) : std.byzip(f1.params, f2.params)
 		if !sametype(t1, t2)
 			-> false
 		;;
@@ -260,13 +260,13 @@ const finalizestruct = {s
 	var curoffset
 	
 	/* calc alignment */
-	for (_, ty) in s.membs
+	for (_, ty) : s.membs
 		s.align = alignoff(s.align, std.get(typealign(ty)))
 	;;
 	
 	/* calc member offsets */
 	if s.isunion
-		for (name, ty) in s.membs
+		for (name, ty) : s.membs
 			std.slpush(&s.offsets, 0)
 			if std.get(typesize(ty)) > s.size
 				s.size = std.get(typesize(ty))
@@ -274,7 +274,7 @@ const finalizestruct = {s
 		;;
 	else
 		curoffset = 0
-		for (name, ty) in s.membs
+		for (name, ty) : s.membs
 			curoffset = alignoff(curoffset, std.get(typealign(ty)))
 			std.slpush(&s.offsets, curoffset)
 			curoffset += std.get(typesize(ty))
@@ -282,12 +282,12 @@ const finalizestruct = {s
 		s.size = curoffset
 	;;
 	/* exports */
-	for (i, (name, ty)) in std.byenum(s.membs)
+	for (i, (name, ty)) : std.byenum(s.membs)
 		match name
 		| `std.None:
 			match ty
 			| `Tystruct &(`std.Some sub):
-				for (xname, [.offset=xoff, .ty=xty, .path=xpath]) in std.byhtkeyvals(sub.exports)
+				for (xname, [.offset=xoff, .ty=xty, .path=xpath]) : std.byhtkeyvals(sub.exports)
 					// XXX check for duplicates
 					std.htput(s.exports, xname, [
 						.offset=s.offsets[i]+xoff,

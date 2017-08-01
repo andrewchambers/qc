@@ -22,7 +22,7 @@ const defineprelude = {defs
 	
 	sb = std.mksb()
 	
-	for def in defs
+	for def : defs
 		match std.strfind(def, "=")
 		| `std.Some idx:
 			std.sbfmt(sb, "#define {} {}\n", def[0:idx], def[idx+1:])
@@ -53,7 +53,7 @@ const main = {args
 		][:]
 	])
 	
-	for opt in cmd.opts
+	for opt : cmd.opts
 		match opt
 		| ('I', inc): std.slpush(&sysincpaths, inc)
 		| ('D', def): std.slpush(&defs, def)

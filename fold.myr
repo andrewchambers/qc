@@ -47,7 +47,7 @@ const foldexpr = {e
 		;;
 	| &(`Einit initlist):
 		var vals = [][:]
-		for (offset, sube) in initlist.vals
+		for (offset, sube) : initlist.vals
 			match foldexpr(sube)
 			| `std.Some v:
 				std.slpush(&vals, (offset, exprtype(sube), v))

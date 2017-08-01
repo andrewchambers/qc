@@ -698,7 +698,7 @@ const skipcond = {pp
 }
 
 const findsysinc = {pp, header
-	for ipath in pp.sysincpaths
+	for ipath : pp.sysincpaths
 		var fullpath = std.pathjoin([ipath, header][:])
 		if std.fexists(fullpath)
 			-> `std.Some fullpath
@@ -764,7 +764,7 @@ const validmacroparam = {s
 		-> false
 	;;
 	
-	for c in std.bychar(rest)
+	for c : std.bychar(rest)
 		if !std.isalnum(c) && c != '_'
 			-> false
 		;;
@@ -846,7 +846,7 @@ const dirdefine = {pp
 	
 	if isfuncmacro
 		mparamset = std.mkht(std.strhash, std.streq)
-		for param in mparams
+		for param : mparams
 			if std.hthas(mparamset, param)
 				err(loc, "macro argument {} appears multiple times", param)
 			;;
@@ -886,7 +886,7 @@ const identicalmacros = {m1, m2
 			-> false
 		;;
 		
-		for (t1, t2) in std.byzip(f1.params, f2.params)
+		for (t1, t2) : std.byzip(f1.params, f2.params)
 			if !std.streq(t1, t2)
 				-> false
 			;;
@@ -896,7 +896,7 @@ const identicalmacros = {m1, m2
 			-> false
 		;;
 		
-		for ([.text=t1], [.text=t2]) in std.byzip(f1.toks, f2.toks)
+		for ([.text=t1], [.text=t2]) : std.byzip(f1.toks, f2.toks)
 			if !std.streq(t1, t2)
 				-> false
 			;;
@@ -906,7 +906,7 @@ const identicalmacros = {m1, m2
 		if o1.toks.len != o2.toks.len
 			-> false
 		;;
-		for ([.text=t1], [.text=t2]) in std.byzip(o1.toks, o2.toks)
+		for ([.text=t1], [.text=t2]) : std.byzip(o1.toks, o2.toks)
 			if !std.streq(t1, t2)
 				-> false
 			;;

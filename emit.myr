@@ -73,7 +73,7 @@ const emit = {globals
 	pendingdata = [][:]
 	alreadyemitted = std.mkht(std.strhash, std.streq)
 	
-	for g in globals
+	for g : globals
 		emitglobaldecl(g)
 	;;
 	emitpendingdata()
@@ -82,7 +82,7 @@ const emit = {globals
 }
 
 const emitglobaldecl = {decl
-	for sym in decl.syms
+	for sym : decl.syms
 		
 		if std.hthas(alreadyemitted, sym.name)
 			continue
@@ -173,7 +173,7 @@ const const2dataval = {ty, c
 		var subvals = [][:]
 		var curoff = 0
 		
-		for (off, subty, subc) in blob
+		for (off, subty, subc) : blob
 			if off > curoff
 				std.slpush(&subvals, `Dzero (off - curoff))
 				curoff = off
@@ -297,19 +297,19 @@ const emitfunc = {f, isglobal
 	o(") {{\n")
 	ol("@L{}\n", nextlbl(f))
 	
-	for l in f.locals
+	for l : f.locals
 		alloca = newnamedreg(l.name)
 		std.htput(allocas, l, alloca)
 		oi("{} =l alloc16 {}\n", alloca, std.get(typesize(l.ty)))
 	;;
 	
-	for param in f.params
+	for param : f.params
 		reg = std.get(std.htget(namestoparamregs, param.name))
 		alloca = std.get(std.htget(allocas, param))
 		emitstore(param.ty, alloca, reg)
 	;;
 	
-	for stmt in f.body
+	for stmt : f.body
 		emitstmt(stmt)
 	;;
 	
@@ -345,7 +345,7 @@ const emitcall = {call
 
 	result = newreg()
 	args = [][:]
-	for arg in call.args
+	for arg : call.args
 		v = emitexpr(arg)
 		std.slpush(&args, v)
 	;;
@@ -382,7 +382,7 @@ const emitswitch = {sw
 
 	cond = emitexpr(sw.expr)
 	eq = newreg()
-	for (v, lbl) in sw.cases
+	for (v, lbl) : sw.cases
 		nlbl = nextlbl(curfunc)
 		oi("{} =w ceq{} {}, {}\n", eq, type2class(exprtype(sw.expr)), cond, v)
 		ot("jnz {}, @L{}, @L{}\n", eq, lbl, nlbl)
@@ -425,7 +425,7 @@ const emitstmt = {stmt
 	| &(`Sfor forstmt):
 		emitfor(forstmt)
 	| &(`Sblock block):
-		for substmt in block
+		for substmt : block
 			emitstmt(substmt)
 		;;
 	| &(`Sdecl _):
@@ -1178,7 +1178,7 @@ const emitrelop = {b
 
 
 const emitpendingdata = {
-	for data in pendingdata
+	for data : pendingdata
 		if data.isglobal
 			o("export\n")
 		;;
@@ -1187,7 +1187,7 @@ const emitpendingdata = {
 			o("data ${} = {{z {}}}\n", data.label, sz)
 		| `Dstr s:
 			o("data ${} = {{b \"", data.label)
-			for c in std.bychar(s)
+			for c : std.bychar(s)
 				match c
 				| '\\':
 					o("\\\\")
@@ -1208,7 +1208,7 @@ const emitpendingdata = {
 			o("data ${} = {{l ${}+{}}}\n", data.label, lbl, off)
 		| `Dblob blob:
 			o("data ${} = {{", data.label)
-				for d in blob
+				for d : blob
 					match d
 					| `Dword v:
 						o("w {}, ", v)
