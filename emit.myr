@@ -270,7 +270,7 @@ const emitfunc = {f, isglobal
 	var alloca, namestoparamregs, reg
 	
 	curfunc = f
-	allocas = std.mkht({x; -> (x : uint32)}, {x, y; -> x == y})
+	allocas = std.mkht({x; -> (x : uint64)}, {x, y; -> x == y})
 	nreg = 0
 	
 	if isglobal

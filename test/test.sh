@@ -6,7 +6,7 @@ for t in test/execute/*.c
 do
 	echo "test $t <<{!"
 	
-	if ! timeout 2s ./qc -I./test/execute/include $t > $t.ssa
+	if ! timeout 2s ./obj/qc -I./test/execute/include $t > $t.ssa
 	then
 		echo "!}>> fail qc failed"
 		continue
@@ -37,7 +37,7 @@ for t in test/error/*.c
 do
 	echo "test $t <<{!"
 	
-	if ./qc $t > /dev/null 2> $t.stderr
+	if ./obj/qc $t > /dev/null 2> $t.stderr
 	then
 		echo "!}>> fail qc returned zero"
 		continue
