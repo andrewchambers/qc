@@ -1,4 +1,5 @@
 use std
+use iter
 use "err"
 use "tok"
 use "hideset"
@@ -47,7 +48,7 @@ const mkcpp = {incpath, sysincpaths
 		.sysincpaths=sysincpaths,
 		.expanded=[][:],
 		.condstack=[][:],
-		.macros=std.mkht(std.strhash, std.streq)
+		.macros=std.mkht()
 	])
 	-> pp
 }
@@ -757,9 +758,9 @@ const validmacroparam = {s
 	if s.len == 0
 		-> false
 	;;
-	
-	(first, rest) = std.strstep(s)
-	
+
+	(first, rest) = std.charstep(s)
+
 	if !std.isalpha(first) && first != '_'
 		-> false
 	;;
@@ -845,7 +846,7 @@ const dirdefine = {pp
 	;;
 	
 	if isfuncmacro
-		mparamset = std.mkht(std.strhash, std.streq)
+		mparamset = std.mkht()
 		for param : mparams
 			if std.hthas(mparamset, param)
 				err(loc, "macro argument {} appears multiple times", param)
@@ -885,9 +886,9 @@ const identicalmacros = {m1, m2
 		if f1.params.len != f2.params.len
 			-> false
 		;;
-		
-		for (t1, t2) : std.byzip(f1.params, f2.params)
-			if !std.streq(t1, t2)
+
+		for (t1, t2) : iter.byzip(f1.params, f2.params)
+			if !std.eq(t1, t2)
 				-> false
 			;;
 		;;
@@ -895,9 +896,9 @@ const identicalmacros = {m1, m2
 		if f1.toks.len != f2.toks.len
 			-> false
 		;;
-		
-		for ([.text=t1], [.text=t2]) : std.byzip(f1.toks, f2.toks)
-			if !std.streq(t1, t2)
+
+		for var i = 0; i < f1.toks.len; ++i
+			if !std.eq(f1.toks[i].text, f2.toks[i].text)
 				-> false
 			;;
 		;;
@@ -906,8 +907,8 @@ const identicalmacros = {m1, m2
 		if o1.toks.len != o2.toks.len
 			-> false
 		;;
-		for ([.text=t1], [.text=t2]) : std.byzip(o1.toks, o2.toks)
-			if !std.streq(t1, t2)
+		for var i = 0; i < o1.toks.len; ++i
+			if !std.eq(o1.toks[i].text, o2.toks[i].text)
 				-> false
 			;;
 		;;

@@ -56,7 +56,7 @@ const __init__ = {
 	var v : Val
 	
 	v = `Vreg (0, [][:])
-	std.fmtinstall(std.typeof(v), fmtval, [][:])
+	std.fmtinstall(std.typeof(v), fmtval)
 }
 
 var datalblcount = 0
@@ -71,8 +71,8 @@ const newnamedreg = {name
 const emit = {globals
 	
 	pendingdata = [][:]
-	alreadyemitted = std.mkht(std.strhash, std.streq)
-	
+	alreadyemitted = std.mkht()
+
 	for g : globals
 		emitglobaldecl(g)
 	;;
@@ -212,9 +212,8 @@ const vo = {msg : byte[:], ap : std.valist#
 	std.sbfmtv(sb, msg, ap)
 	ln = std.sbfin(sb)
 	match std.writeall(std.Out, ln)
-	| (_ ,`std.Some _):
-		std.fatal("error writing output\n")
-	| _:
+	| `std.Ok _:
+	| `std.Err _:	std.fatal("error writing output\n")
 	;;
 	std.slfree(ln)
 }
@@ -270,15 +269,15 @@ const emitfunc = {f, isglobal
 	var alloca, namestoparamregs, reg
 	
 	curfunc = f
-	allocas = std.mkht({x; -> (x : uint64)}, {x, y; -> x == y})
+	allocas = std.mkht()
 	nreg = 0
 	
 	if isglobal
 		o("export\n")
 	;;
 	o("function {} ${}(", type2class(f.functy.rty), f.name)
-	
-	namestoparamregs = std.mkht(std.slhash, std.sleq)
+
+	namestoparamregs = std.mkht()
 	for var i = 0; i < f.functy.params.len; i++
 		var name, ty
 		(name, ty) = f.functy.params[i]

@@ -708,7 +708,7 @@ const npeekc = {ts, n
 
 	s = ts.data[ts.idx:]
 	for var i = 0; i < n; i++
-		(c, s) = std.strstep(s)
+		(c, s) = std.charstep(s)
 	;;
 	-> std.decode(s)
 }
@@ -716,7 +716,7 @@ const npeekc = {ts, n
 const takec = {ts
 	var c
 
-	(c, _) = std.strstep(ts.data[ts.idx:])
+	(c, _) = std.charstep(ts.data[ts.idx:])
 	match c
 	| '\n':
 		ts.loc.line += 1
@@ -745,7 +745,7 @@ const skipto = {ts, chr
 const matchc = {ts, chr
 	var c
 
-	(c, _) = std.strstep(ts.data[ts.idx:])
+	(c, _) = std.charstep(ts.data[ts.idx:])
 	if c == chr
 		ts.idx += (std.charlen(c) : int)
 		-> true

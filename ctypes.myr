@@ -1,4 +1,5 @@
 use std
+use iter
 
 pkg qc =
 
@@ -206,8 +207,8 @@ const samefunctype = {f1, f2
 	if f1.params.len != f2.params.len
 		-> false
 	;;
-	
-	for ((_, t1), (_, t2)) : std.byzip(f1.params, f2.params)
+
+	for ((_, t1), (_, t2)) : iter.byzip(f1.params, f2.params)
 		if !sametype(t1, t2)
 			-> false
 		;;
@@ -282,7 +283,7 @@ const finalizestruct = {s
 		s.size = curoffset
 	;;
 	/* exports */
-	for (i, (name, ty)) : std.byenum(s.membs)
+	for (i, (name, ty)) : iter.byenum(s.membs)
 		match name
 		| `std.None:
 			match ty

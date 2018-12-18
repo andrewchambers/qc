@@ -54,6 +54,6 @@ const __init__ = {
 	var dummy : srcloc
 
 	dummy = [.file="", .line=0, .col=0]
-	std.fmtinstall(std.typeof(dummy), posfmt, [][:])
+	std.fmtinstall(std.typeof(dummy), posfmt)
 }
 
