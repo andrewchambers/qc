@@ -87,9 +87,9 @@ const popbreakcont = {p
 }
 
 const pushscope = {p
-	std.slpush(&p.symtab, std.mkht(std.strhash, std.streq))
-	std.slpush(&p.typetab, std.mkht(std.strhash, std.streq))
-	std.slpush(&p.tagtab, std.mkht(std.strhash, std.streq))
+	std.slpush(&p.symtab, std.mkht())
+	std.slpush(&p.typetab, std.mkht())
+	std.slpush(&p.tagtab, std.mkht())
 }
 
 const popscope = {p
@@ -583,7 +583,7 @@ const parsestructbody = {p, tagname, pbody, isunion
 		.size = 0,
 		.membs = [][:],
 		.offsets = [][:],
-		.exports = std.mkht(std.strhash, std.streq),
+		.exports = std.mkht(),
 	])
 	expectobrace(p)
 	while true
@@ -621,7 +621,7 @@ const parseenumbody = {p, tagname, pbody
 
 	e = std.mk([
 		.tag = tagname,
-		.membs=std.mkht(std.strhash, std.streq)
+		.membs=std.mkht()
 	])
 	v = (0 : int64)
 	match p.tok.kind
@@ -1299,7 +1299,7 @@ const parsedeclaration = {p
 
 			match name
 			| `std.Some n:
-				p.lbltab=std.mkht(std.slhash, std.sleq)
+				p.lbltab=std.mkht()
 				p.curfunc = std.mk([
 					.name=n,
 					.locals=[][:],
